@@ -113,14 +113,164 @@ const ResumeParsingDisplay: React.FC<ResumeParsingDisplayProps> = ({ resume }) =
     const dates = text.match(dateRegex) || [];
     const years = dates.map(d => parseInt(d)).sort();
     
-    const experienceYears = years.length >= 2 ? years[years.length - 1] - years[0] : 0;
+    // Extract and parse date ranges
+    const dateRanges = extractDateRanges(text);
+    const totalMonths = calculateTotalExperience(dateRanges);
     
     return {
       dates: dates,
-      estimatedYears: experienceYears,
+      dateRanges: dateRanges,
+      estimatedYears: Math.floor(totalMonths / 12),
+      estimatedMonths: totalMonths % 12,
+      totalMonths: totalMonths,
       startYear: years[0] || null,
       endYear: years[years.length - 1] || null
     };
+  };
+
+  // Function to extract date ranges from work experience
+  const extractDateRanges = (text: string) => {
+    const ranges = [];
+    const lines = text.split('\n');
+    
+    // Common date range patterns
+    const patterns = [
+      // Jan 2023 - Dec 2024, January 2023 - December 2024
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\s*[-–—]\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi,
+      // Jan 2023 - Present, January 2023 - Current
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\s*[-–—]\s*(Present|Current|Now)\b/gi,
+      // 01/2023 - 12/2024, 2023 - 2024
+      /\b(\d{1,2})\/(\d{4})\s*[-–—]\s*(\d{1,2})\/(\d{4})\b/g,
+      /\b(\d{4})\s*[-–—]\s*(\d{4})\b/g,
+      // 2023 - Present
+      /\b(\d{4})\s*[-–—]\s*(Present|Current|Now)\b/gi
+    ];
+    
+    for (const line of lines) {
+      for (const pattern of patterns) {
+        const matches = [...line.matchAll(pattern)];
+        for (const match of matches) {
+          try {
+            const range = parseDateRange(match);
+            if (range) {
+              ranges.push(range);
+            }
+          } catch (e) {
+            // Skip invalid date ranges
+          }
+        }
+      }
+    }
+    
+    return ranges;
+  };
+
+  // Function to parse individual date range match
+  const parseDateRange = (match: RegExpMatchArray) => {
+    const fullMatch = match[0];
+    
+    // Handle different patterns
+    if (fullMatch.includes('Present') || fullMatch.includes('Current') || fullMatch.includes('Now')) {
+      // Extract start date and use current date as end
+      const startPart = fullMatch.split(/[-–—]/)[0].trim();
+      const startDate = parseDate(startPart);
+      const endDate = new Date();
+      
+      return {
+        start: startDate,
+        end: endDate,
+        text: fullMatch
+      };
+    } else {
+      // Extract both start and end dates
+      const parts = fullMatch.split(/[-–—]/);
+      if (parts.length === 2) {
+        const startDate = parseDate(parts[0].trim());
+        const endDate = parseDate(parts[1].trim());
+        
+        return {
+          start: startDate,
+          end: endDate,
+          text: fullMatch
+        };
+      }
+    }
+    
+    return null;
+  };
+
+  // Function to parse various date formats
+  const parseDate = (dateStr: string) => {
+    const monthNames = {
+      'jan': 0, 'january': 0, 'feb': 1, 'february': 1, 'mar': 2, 'march': 2,
+      'apr': 3, 'april': 3, 'may': 4, 'jun': 5, 'june': 5, 'jul': 6, 'july': 6,
+      'aug': 7, 'august': 7, 'sep': 8, 'september': 8, 'oct': 9, 'october': 9,
+      'nov': 10, 'november': 10, 'dec': 11, 'december': 11
+    };
+    
+    // Month Year format (e.g., "Jan 2023", "January 2023")
+    const monthYearMatch = dateStr.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
+    if (monthYearMatch) {
+      const month = monthNames[monthYearMatch[1].toLowerCase()];
+      const year = parseInt(monthYearMatch[2]);
+      return new Date(year, month, 1);
+    }
+    
+    // MM/YYYY format
+    const mmYyyyMatch = dateStr.match(/\b(\d{1,2})\/(\d{4})\b/);
+    if (mmYyyyMatch) {
+      const month = parseInt(mmYyyyMatch[1]) - 1; // JavaScript months are 0-indexed
+      const year = parseInt(mmYyyyMatch[2]);
+      return new Date(year, month, 1);
+    }
+    
+    // Year only format
+    const yearMatch = dateStr.match(/\b(\d{4})\b/);
+    if (yearMatch) {
+      const year = parseInt(yearMatch[1]);
+      return new Date(year, 0, 1); // January 1st of that year
+    }
+    
+    return null;
+  };
+
+  // Function to calculate total experience in months
+  const calculateTotalExperience = (ranges: any[]) => {
+    if (ranges.length === 0) return 0;
+    
+    // Sort ranges by start date
+    const sortedRanges = ranges
+      .filter(r => r.start && r.end)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    
+    if (sortedRanges.length === 0) return 0;
+    
+    // Merge overlapping ranges and calculate total months
+    const mergedRanges = [];
+    let currentRange = { ...sortedRanges[0] };
+    
+    for (let i = 1; i < sortedRanges.length; i++) {
+      const range = sortedRanges[i];
+      
+      // If ranges overlap or are adjacent, merge them
+      if (range.start <= currentRange.end) {
+        currentRange.end = new Date(Math.max(currentRange.end.getTime(), range.end.getTime()));
+      } else {
+        mergedRanges.push(currentRange);
+        currentRange = { ...range };
+      }
+    }
+    mergedRanges.push(currentRange);
+    
+    // Calculate total months across all ranges
+    let totalMonths = 0;
+    for (const range of mergedRanges) {
+      const months = (range.end.getFullYear() - range.start.getFullYear()) * 12 + 
+                    (range.end.getMonth() - range.start.getMonth());
+      totalMonths += Math.max(0, months);
+    }
+    
+    return totalMonths;
   };
 
   // Function to extract and format work experience entries
@@ -383,8 +533,16 @@ const ResumeParsingDisplay: React.FC<ResumeParsingDisplayProps> = ({ resume }) =
                 <p className="font-medium">{formattedExperience.length}</p>
               </div>
               <div>
-                <span className="text-gray-600 text-sm">Dates Found:</span>
-                <p className="font-medium">{experience.dates.join(', ') || 'None'}</p>
+                <span className="text-gray-600 text-sm">Date Ranges Found:</span>
+                <p className="font-medium">{experience.dateRanges?.length || 0}</p>
+              </div>
+              <div>
+                <span className="text-gray-600 text-sm">Total Experience:</span>
+                <p className="font-medium">
+                  {experience.estimatedYears > 0 || experience.estimatedMonths > 0 
+                    ? `${experience.estimatedYears} year${experience.estimatedYears !== 1 ? 's' : ''} ${experience.estimatedMonths} month${experience.estimatedMonths !== 1 ? 's' : ''}`
+                    : 'Not calculated'}
+                </p>
               </div>
               <div>
                 <span className="text-gray-600 text-sm">Date Range:</span>
@@ -394,11 +552,24 @@ const ResumeParsingDisplay: React.FC<ResumeParsingDisplayProps> = ({ resume }) =
                     : 'Not found'}
                 </p>
               </div>
-              <div>
-                <span className="text-gray-600 text-sm">Estimated Years:</span>
-                <p className="font-medium">{experience.estimatedYears} years</p>
-              </div>
             </div>
+
+            {/* Date Ranges Detected */}
+            {experience.dateRanges && experience.dateRanges.length > 0 && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Detected Employment Periods:</h4>
+                <div className="space-y-2">
+                  {experience.dateRanges.map((range: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <span className="text-blue-800 font-mono">{range.text}</span>
+                      <span className="text-blue-600">
+                        {range.start && range.end ? `${Math.round(((range.end.getTime() - range.start.getTime()) / (1000 * 60 * 60 * 24 * 30.44)))} months` : 'Invalid range'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Individual Job Entries */}
             <div className="space-y-4">

@@ -28,7 +28,7 @@ class OllamaService {
   }
 
   async analyzeResume(resumeText, jobDescription, model = 'mistral:latest') {
-    const prompt = this.createAnalysisPrompt(resumeText, jobDescription);
+    const prompt = this.createAnalysisPrompt(resumeText, jobDescription, model);
     
     try {
       const response = await axios.post(`${this.baseURL}/api/generate`, {
@@ -50,9 +50,44 @@ class OllamaService {
     }
   }
 
-  createAnalysisPrompt(resumeText, jobDescription) {
-    return `You are an expert ATS (Applicant Tracking System) analyzer. Carefully analyze this resume against the job description. Be thorough and accurate.
+  createAnalysisPrompt(resumeText, jobDescription, model = 'mistral:latest') {
+    // Create model-specific prompts to handle different AI behaviors
+    const isMistral = model.includes('mistral');
+    
+    const baseInstructions = `You are an expert ATS (Applicant Tracking System) analyzer. Carefully analyze this resume against the job description. Be thorough and accurate.
 
+RESUME TEXT:
+${resumeText}
+
+JOB DESCRIPTION:
+${jobDescription}`;
+
+    const strictInstructions = `
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+1. ONLY extract information that is explicitly written in the resume text above
+2. DO NOT infer, assume, or add information that is not clearly stated
+3. If you cannot find something in the resume, mark it as NOT FOUND
+4. Look for skills in various forms (acronyms, full names, variations) but only if they actually exist in the text
+5. Be realistic with scoring - most good resumes score 60-85%
+6. Consider synonyms and related skills (e.g., "JavaScript" and "JS") but only if they appear in the resume
+
+STRICT RULES FOR MISTRAL:
+- If no location is mentioned in the resume, has_location = false
+- If no phone number appears in the resume, has_phone = false  
+- If no LinkedIn URL appears in the resume, has_linkedin = false
+- Only mark skills as found if you can quote the exact text where they appear
+- Do not hallucinate or make up information
+- Example: If resume says "Python, JavaScript" then Python=found, JavaScript=found, but React=NOT found unless explicitly mentioned
+
+VALIDATION CHECKLIST:
+- Before marking has_location=true, find the actual city/state text in resume
+- Before marking has_phone=true, find the actual phone number in resume
+- Before marking has_linkedin=true, find the actual linkedin.com URL in resume
+- Before marking skill as found, copy the exact quote from resume as evidence
+
+ANALYSIS REQUIREMENTS:`;
+
+    const lenientInstructions = `
 INSTRUCTIONS:
 1. Read the ENTIRE resume text carefully - don't miss any skills or information
 2. Look for skills in various forms (acronyms, full names, variations)
@@ -61,13 +96,9 @@ INSTRUCTIONS:
 5. Only mark skills as "missing" if they are truly absent from the resume
 6. Consider synonyms and related skills (e.g., "JavaScript" and "JS", "Machine Learning" and "ML")
 
-RESUME TEXT:
-${resumeText}
+ANALYSIS REQUIREMENTS:`;
 
-JOB DESCRIPTION:
-${jobDescription}
-
-ANALYSIS REQUIREMENTS:
+    const analysisRequirements = `
 
 For HARD SKILLS:
 - Search thoroughly through ALL sections of the resume
@@ -77,9 +108,14 @@ For HARD SKILLS:
 - Only mark as "missing" if truly not present in any form
 
 For EXPERIENCE:
-- Calculate years based on actual dates in resume
+- Find date ranges in format "Month Year - Month Year" (e.g., "May 2023 - August 2025")
+- Parse "Present", "Current", "Now" as current date
+- Calculate total months across all employment periods
+- Handle overlapping periods by merging them
+- Convert to years and months (e.g., "2 years 3 months" for May 2023 - August 2025)
 - Consider all relevant experience, not just exact job titles
 - Look at project experience and internships too
+- Example: "May 2023 - August 2025" = 27 months = 2 years 3 months
 
 For ATS SCORING:
 - Most professional resumes should score 60-85%
@@ -92,10 +128,10 @@ Return JSON format:
   "overall_score": <realistic 0-100, most good resumes 60-85>,
   "match_level": "<Excellent 85+/Good 70-84/Fair 50-69/Poor <50>",
   "contact_analysis": {
-    "has_phone": <search for phone numbers>,
-    "has_email": <search for email addresses>,
-    "has_location": <search for city, state, or address>,
-    "has_linkedin": <search for linkedin.com links>,
+    "has_phone": <true only if phone number like (123) 456-7890 or 123-456-7890 exists in resume>,
+    "has_email": <true only if email address like name@domain.com exists in resume>,
+    "has_location": <true only if city/state like "San Francisco, CA" or address exists in resume>,
+    "has_linkedin": <true only if linkedin.com/in/username URL exists in resume>,
     "contact_score": <0-100>
   },
   "job_title_analysis": {
@@ -114,7 +150,7 @@ Return JSON format:
     }
   ],
   "experience_analysis": {
-    "total_years_experience": "<calculate from actual dates>",
+    "total_years_experience": "<calculate precisely from date ranges, e.g. '2 years 3 months'>",
     "required_years": "<from job posting>",
     "experience_match": "<exceeds/meets/below>",
     "current_level": "<entry/mid/senior/executive>",
@@ -154,6 +190,8 @@ Return JSON format:
 }
 
 IMPORTANT: Be thorough and accurate. Don't mark skills as missing if they exist in the resume in any form.`;
+
+    return baseInstructions + (isMistral ? strictInstructions : lenientInstructions) + analysisRequirements;
   }
 
   parseAnalysisResponse(response) {
