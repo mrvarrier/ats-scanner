@@ -1,5 +1,6 @@
 const axios = require('axios');
 const ScoringService = require('./scoringService');
+const ProfessionalScoringService = require('./professionalScoringService');
 
 class OllamaService {
   constructor() {
@@ -43,7 +44,30 @@ class OllamaService {
         timeout: 300000 // 5 minutes timeout
       });
 
-      return this.parseAnalysisResponse(response.data.response);
+      const analysisResult = this.parseAnalysisResponse(response.data.response);
+      
+      // Apply professional scoring
+      const professionalScoring = ProfessionalScoringService.calculateATSScore(analysisResult);
+      
+      // Merge with original analysis
+      return {
+        ...analysisResult,
+        overall_score: professionalScoring.overall_score,
+        match_level: professionalScoring.match_level,
+        ats_compatibility: {
+          ...analysisResult.ats_compatibility,
+          ...professionalScoring.ats_compatibility
+        },
+        professional_scoring: {
+          category_scores: professionalScoring.category_scores,
+          scoring_breakdown: professionalScoring.scoring_breakdown,
+          weights: professionalScoring.weights
+        },
+        recommendations: [
+          ...(analysisResult.recommendations || []),
+          ...ProfessionalScoringService.generateRecommendations(analysisResult, professionalScoring)
+        ]
+      };
     } catch (error) {
       console.error('Analysis error:', error.message);
       throw new Error(`Analysis failed: ${error.message}`);

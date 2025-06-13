@@ -118,6 +118,34 @@ export interface ATSCompatibility {
   parsing_concerns: string[];
 }
 
+export interface ProfessionalScoring {
+  category_scores: {
+    keywords: number;
+    experience: number;
+    skills: number;
+    format: number;
+  };
+  scoring_breakdown: {
+    keyword_analysis: ScoringCategory;
+    experience_analysis: ScoringCategory;
+    skills_analysis: ScoringCategory;
+    format_analysis: ScoringCategory;
+  };
+  weights: {
+    keywords: number;
+    experience: number;
+    skills: number;
+    format: number;
+  };
+}
+
+export interface ScoringCategory {
+  score: number;
+  weight: number;
+  contribution: number;
+  importance: string;
+}
+
 export interface AnalysisResult {
   overall_score: number;
   match_level: 'Excellent' | 'Good' | 'Fair' | 'Poor';
@@ -133,6 +161,7 @@ export interface AnalysisResult {
   industry_alignment?: IndustryAlignment;
   recommendations?: Recommendation[];
   ats_compatibility?: ATSCompatibility;
+  professional_scoring?: ProfessionalScoring;
   // Legacy support
   found_skills?: FoundSkill[];
   missing_skills?: MissingSkill[];

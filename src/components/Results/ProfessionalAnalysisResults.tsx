@@ -3,6 +3,7 @@ import { AnalysisResult, Resume } from '../../types';
 import { downloadAsJSON } from '../../utils/helpers';
 import ScoreCircle from '../Common/ScoreCircle';
 import ResumeParsingDisplay from './ResumeParsingDisplay';
+import ProfessionalScoringBreakdown from './ProfessionalScoringBreakdown';
 
 interface ProfessionalAnalysisResultsProps {
   analysis: AnalysisResult;
@@ -19,7 +20,7 @@ const ProfessionalAnalysisResults: React.FC<ProfessionalAnalysisResultsProps> = 
   company,
   resume
 }) => {
-  const [activeTab, setActiveTab] = useState<'analysis' | 'resume'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'scoring' | 'resume'>('analysis');
   const handleExportReport = () => {
     const exportData = {
       resume: resumeName,
@@ -84,6 +85,18 @@ const ProfessionalAnalysisResults: React.FC<ProfessionalAnalysisResultsProps> = 
           >
             Analysis Results
           </button>
+          {analysis.professional_scoring && (
+            <button
+              onClick={() => setActiveTab('scoring')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'scoring'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Score Breakdown
+            </button>
+          )}
           {resume && (
             <button
               onClick={() => setActiveTab('resume')}
@@ -581,6 +594,27 @@ const ProfessionalAnalysisResults: React.FC<ProfessionalAnalysisResultsProps> = 
           </div>
         </div>
       )}
+        </div>
+      ) : activeTab === 'scoring' ? (
+        <div>
+          {analysis.professional_scoring ? (
+            <ProfessionalScoringBreakdown 
+              professionalScoring={analysis.professional_scoring}
+              overallScore={analysis.overall_score}
+            />
+          ) : (
+            <div className="card">
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Professional Scoring Not Available</h3>
+                <p className="text-gray-600">Professional scoring breakdown is not available for this analysis.</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div>
