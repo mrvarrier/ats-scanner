@@ -103,8 +103,15 @@ STRICT RULES FOR MISTRAL:
 - Do not hallucinate or make up information
 - Example: If resume says "Python, JavaScript" then Python=found, JavaScript=found, but React=NOT found unless explicitly mentioned
 
+CRITICAL LOCATION DETECTION RULES:
+- Skills are NOT locations: "Java, Python, React" → has_location = false
+- Technologies are NOT locations: "Node.js, MongoDB, AWS" → has_location = false  
+- Job titles are NOT locations: "Software Engineer, Manager" → has_location = false
+- Only real places count: "San Francisco, CA", "New York, NY", "Remote" → has_location = true
+- When in doubt about location, choose false
+
 VALIDATION CHECKLIST:
-- Before marking has_location=true, find the actual city/state text in resume
+- Before marking has_location=true, find the actual city/state text in resume (not skills/tech)
 - Before marking has_phone=true, find the actual phone number in resume
 - Before marking has_linkedin=true, find the actual linkedin.com URL in resume
 - Before marking skill as found, copy the exact quote from resume as evidence
@@ -119,6 +126,13 @@ INSTRUCTIONS:
 4. Be realistic with scoring - most good resumes score 60-85%
 5. Only mark skills as "missing" if they are truly absent from the resume
 6. Consider synonyms and related skills (e.g., "JavaScript" and "JS", "Machine Learning" and "ML")
+
+LOCATION DETECTION GUIDELINES:
+- Only mark has_location=true for actual geographical locations
+- Skills/technologies are NOT locations: "Java, React, AWS" ≠ location
+- Job titles are NOT locations: "Engineer, Manager" ≠ location  
+- Real locations: "San Francisco, CA", "Remote", "New York, NY"
+- When unsure, err on the side of has_location=false
 
 ANALYSIS REQUIREMENTS:`;
 
@@ -154,7 +168,7 @@ Return JSON format:
   "contact_analysis": {
     "has_phone": <true only if phone number like (123) 456-7890 or 123-456-7890 exists in resume>,
     "has_email": <true only if email address like name@domain.com exists in resume>,
-    "has_location": <true only if city/state like "San Francisco, CA" or address exists in resume>,
+    "has_location": <true only if actual location like "San Francisco, CA", "New York, NY", or "Remote" exists - NOT skills, technologies, or job titles>,
     "has_linkedin": <true only if linkedin.com/in/username URL exists in resume>,
     "contact_score": <0-100>
   },

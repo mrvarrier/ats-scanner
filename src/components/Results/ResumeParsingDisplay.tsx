@@ -19,28 +19,125 @@ const ResumeParsingDisplay: React.FC<ResumeParsingDisplayProps> = ({ resume }) =
     // Improved LinkedIn regex
     const linkedinRegex = /(linkedin\.com\/in\/[A-Za-z0-9._-]+|in\.linkedin\.com\/[A-Za-z0-9._-]+)/gi;
     
-    // Location regex - more specific patterns
-    const locationRegex = /\b([A-Z][a-z]+,\s*[A-Z]{2}|[A-Z][a-z]+,\s*[A-Z][a-z]+|\b(Remote|Work From Home)\b)/g;
-    
     const emails = text.match(emailRegex) || [];
     const phones = text.match(phoneRegex) || [];
     const linkedins = text.match(linkedinRegex) || [];
-    const locations = text.match(locationRegex) || [];
     
-    // Filter out false positive locations
-    const filteredLocations = locations.filter(loc => 
-      !loc.toLowerCase().includes('university') &&
-      !loc.toLowerCase().includes('college') &&
-      !loc.toLowerCase().includes('school') &&
-      !loc.toLowerCase().includes('institute')
-    );
+    // Much more restrictive location detection
+    const locations = extractLocationInfo(text);
     
     return { 
       emails, 
       phones: phones.map(p => p.trim()), 
       linkedins,
-      locations: filteredLocations
+      locations
     };
+  };
+
+  // Separate function for more accurate location detection
+  const extractLocationInfo = (text: string) => {
+    const lines = text.split('\n');
+    const potentialLocations = [];
+    
+    // Known major cities and their states/countries
+    const majorCities = [
+      'New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX', 'Phoenix, AZ',
+      'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA', 'Dallas, TX', 'San Jose, CA',
+      'Austin, TX', 'Jacksonville, FL', 'Fort Worth, TX', 'Columbus, OH', 'San Francisco, CA',
+      'Charlotte, NC', 'Indianapolis, IN', 'Seattle, WA', 'Denver, CO', 'Washington, DC',
+      'Boston, MA', 'Nashville, TN', 'Baltimore, MD', 'Portland, OR', 'Oklahoma City, OK',
+      'Las Vegas, NV', 'Louisville, KY', 'Milwaukee, WI', 'Albuquerque, NM', 'Tucson, AZ',
+      'Fresno, CA', 'Sacramento, CA', 'Mesa, AZ', 'Kansas City, MO', 'Atlanta, GA',
+      'Long Beach, CA', 'Colorado Springs, CO', 'Raleigh, NC', 'Miami, FL', 'Virginia Beach, VA',
+      'Omaha, NE', 'Oakland, CA', 'Minneapolis, MN', 'Tulsa, OK', 'Arlington, TX',
+      'Tampa, FL', 'New Orleans, LA'
+    ];
+    
+    // Remote work indicators
+    const remotePatterns = [
+      /\b(Remote)\b/i,
+      /\b(Work From Home|WFH)\b/i,
+      /\b(Distributed|Virtual)\b/i
+    ];
+    
+    // Very specific location patterns
+    const specificPatterns = [
+      // City, State format (strict)
+      /\b([A-Z][a-z]{2,15}),\s+([A-Z]{2})\b/g,
+      // City, Country format  
+      /\b([A-Z][a-z]{2,15}),\s+(USA|United States|Canada|UK|United Kingdom)\b/gi,
+      // Full address patterns (with street numbers)
+      /\b\d+\s+[A-Z][a-z]+\s+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Boulevard|Blvd|Lane|Ln),\s*[A-Z][a-z]+,\s*[A-Z]{2}\b/gi
+    ];
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip if line is too long (likely not a location)
+      if (trimmedLine.length > 100) continue;
+      
+      // Skip if line contains technical terms or skills
+      const techTerms = ['javascript', 'python', 'java', 'react', 'node', 'sql', 'html', 'css', 'api', 'aws', 'docker', 
+                       'kubernetes', 'git', 'linux', 'windows', 'mac', 'ios', 'android', 'swift', 'kotlin',
+                       'angular', 'vue', 'mongodb', 'postgresql', 'mysql', 'redis', 'elasticsearch', 'typescript',
+                       'php', 'ruby', 'rails', 'django', 'flask', 'spring', 'express', 'laravel', 'symfony'];
+      
+      const containsTechTerm = techTerms.some(term => trimmedLine.toLowerCase().includes(term));
+      if (containsTechTerm) continue;
+      
+      // Skip if contains education keywords
+      const educationTerms = ['university', 'college', 'school', 'institute', 'academy', 'degree', 'bachelor', 'master', 'phd'];
+      const containsEducation = educationTerms.some(term => trimmedLine.toLowerCase().includes(term));
+      if (containsEducation) continue;
+      
+      // Skip if contains job/company keywords  
+      const jobTerms = ['engineer', 'developer', 'manager', 'analyst', 'director', 'lead', 'senior', 'junior', 
+                       'intern', 'consultant', 'specialist', 'coordinator', 'administrator', 'supervisor'];
+      const containsJobTerm = jobTerms.some(term => trimmedLine.toLowerCase().includes(term));
+      if (containsJobTerm) continue;
+      
+      // Check for major cities (exact match)
+      const foundMajorCity = majorCities.find(city => 
+        trimmedLine.toLowerCase().includes(city.toLowerCase())
+      );
+      if (foundMajorCity) {
+        potentialLocations.push(foundMajorCity);
+        continue;
+      }
+      
+      // Check for remote work patterns
+      const isRemote = remotePatterns.some(pattern => pattern.test(trimmedLine));
+      if (isRemote) {
+        potentialLocations.push('Remote');
+        continue;
+      }
+      
+      // Check for specific location patterns
+      for (const pattern of specificPatterns) {
+        const matches = [...trimmedLine.matchAll(pattern)];
+        for (const match of matches) {
+          // Additional validation for City, State format
+          if (match[0].includes(',')) {
+            const [city, state] = match[0].split(',').map(s => s.trim());
+            
+            // Validate state code (2 letters) or known state names
+            const validStateCodes = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'];
+            const validCountries = ['USA', 'UNITED STATES', 'CANADA', 'UK', 'UNITED KINGDOM'];
+            
+            if (state.length === 2 && validStateCodes.includes(state.toUpperCase())) {
+              potentialLocations.push(match[0]);
+            } else if (validCountries.includes(state.toUpperCase())) {
+              potentialLocations.push(match[0]);
+            }
+          } else {
+            potentialLocations.push(match[0]);
+          }
+        }
+      }
+    }
+    
+    // Remove duplicates and return
+    return [...new Set(potentialLocations)];
   };
 
   // Function to extract sections from resume text
@@ -325,24 +422,12 @@ const ResumeParsingDisplay: React.FC<ResumeParsingDisplayProps> = ({ resume }) =
       else if (line.match(/\b(19|20)\d{2}\b/) && currentJob && !currentJob.duration) {
         currentJob.duration = line;
       }
-      // Look for location indicators (more specific)
+      // Look for location indicators (very strict)
       else if (currentJob && !currentJob.location && !line.match(/\b(19|20)\d{2}\b/) && line.length < 50) {
-        // Check for common location patterns
-        const locationPatterns = [
-          /\b(Remote|Work From Home|WFH)\b/i,
-          /\b[A-Z][a-z]+,\s*[A-Z]{2}\b/, // City, ST format
-          /\b[A-Z][a-z]+,\s*[A-Z][a-z]+\b/, // City, State format
-          /\b(San Francisco|Los Angeles|New York|Chicago|Boston|Seattle|Austin|Denver|Miami|Atlanta|Dallas|Houston|Phoenix|Portland|Washington DC|Washington D\.C\.)\b/i
-        ];
-        
-        const isLocation = locationPatterns.some(pattern => pattern.test(line)) && 
-                          !line.toLowerCase().includes('university') && 
-                          !line.toLowerCase().includes('college') &&
-                          !line.toLowerCase().includes('school') &&
-                          !hasJobKeyword;
-        
-        if (isLocation) {
-          currentJob.location = line;
+        // Use the same strict location detection as contact info
+        const lineLocations = extractLocationInfo(line);
+        if (lineLocations.length > 0 && !hasJobKeyword) {
+          currentJob.location = lineLocations[0]; // Take the first found location
         }
       }
       // Collect job description bullets
