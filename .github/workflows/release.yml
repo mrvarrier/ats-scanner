@@ -1,9 +1,6 @@
-name: Release Build
+name: Release Build (Disabled)
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
