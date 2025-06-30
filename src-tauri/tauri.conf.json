@@ -1,0 +1,97 @@
+{
+  "build": {
+    "beforeDevCommand": "vite",
+    "beforeBuildCommand": "vite build",
+    "devPath": "http://127.0.0.1:1420",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "ATS Scanner",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true,
+        "scope": ["$APPDATA", "$DOCUMENT", "$DESKTOP", "$DOWNLOAD", "$TEMP"]
+      },
+      "path": {
+        "all": true
+      },
+      "notification": {
+        "all": true
+      }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/your-username/ats-scanner/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "YOUR_PUBLIC_KEY_HERE"
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["dmg", "msi", "appimage"],
+      "identifier": "com.ats-scanner.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "category": "Productivity",
+      "shortDescription": "Local ATS Resume Scanner",
+      "longDescription": "A privacy-focused ATS resume scanner that runs entirely on your computer using local AI models.",
+      "copyright": "© 2025 ATS Scanner",
+      "publisher": "ATS Scanner Team",
+      "externalBin": [],
+      "resources": [],
+      "macOS": {
+        "hardenedRuntime": true,
+        "minimumSystemVersion": "10.15",
+        "signingIdentity": null
+      },
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "ATS Scanner",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}
