@@ -165,6 +165,8 @@ backups/
 private_key*
 updater_key*
 tauri.key
+.tauri/
+**/.tauri/
 
 # Code signing certificates and passwords (SECURITY)
 certificate.p12

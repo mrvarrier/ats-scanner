@@ -36,9 +36,9 @@ A completely local, privacy-first ATS (Applicant Tracking System) scanner that u
 
 Download the latest version for your platform:
 
-- **🍎 macOS**: [Download DMG](https://github.com/your-username/ats-scanner/releases/latest/download/ATS%20Scanner_1.0.0_aarch64.dmg)
-- **🪟 Windows**: [Download MSI](https://github.com/your-username/ats-scanner/releases/latest/download/ATS%20Scanner_1.0.0_x64.msi)
-- **🐧 Linux**: [Download AppImage](https://github.com/your-username/ats-scanner/releases/latest/download/ats-scanner_1.0.0_amd64.AppImage)
+- **🍎 macOS**: [Download DMG](https://github.com/mrvarrier/ats-scanner/releases/latest/download/ATS%20Scanner_1.0.0_aarch64.dmg)
+- **🪟 Windows**: [Download MSI](https://github.com/mrvarrier/ats-scanner/releases/latest/download/ATS%20Scanner_1.0.0_x64.msi)
+- **🐧 Linux**: [Download AppImage](https://github.com/mrvarrier/ats-scanner/releases/latest/download/ats-scanner_1.0.0_amd64.AppImage)
 
 **Installation Instructions:**
 - **macOS**: Open the DMG and drag ATS Scanner to Applications
@@ -89,7 +89,7 @@ For developers who want to build from source:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/ats-scanner.git
+   git clone https://github.com/mrvarrier/ats-scanner.git
    cd ats-scanner
    ```
 
@@ -385,9 +385,9 @@ PROCESSING_TIMEOUT=30000
 ### Getting Help
 
 **📚 Self-Help Resources**:
-- Check the [Issues](https://github.com/your-username/ats-scanner/issues) page
+- Check the [Issues](https://github.com/mrvarrier/ats-scanner/issues) page
 - Search existing questions and solutions
-- Review the [Discussions](https://github.com/your-username/ats-scanner/discussions) forum
+- Review the [Discussions](https://github.com/mrvarrier/ats-scanner/discussions) forum
 
 **🐛 Reporting Bugs**:
 1. Check if issue already exists
@@ -570,14 +570,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[DISTRIBUTION.md](DISTRIBUTION.md)** - Advanced distribution information
 
 **💬 Community Support**:
-- **[GitHub Discussions](https://github.com/your-username/ats-scanner/discussions)** - Ask questions, share tips
-- **[GitHub Issues](https://github.com/your-username/ats-scanner/issues)** - Report bugs, request features
+- **[GitHub Discussions](https://github.com/mrvarrier/ats-scanner/discussions)** - Ask questions, share tips
+- **[GitHub Issues](https://github.com/mrvarrier/ats-scanner/issues)** - Report bugs, request features
 
 ### Stay Updated
 
 **📡 Release Information**:
 - Watch this repository for release notifications
-- Check the [Releases page](https://github.com/your-username/ats-scanner/releases) for latest versions
+- Check the [Releases page](https://github.com/mrvarrier/ats-scanner/releases) for latest versions
 - Enable automatic updates in the app for seamless upgrades
 
 **🌟 Show Your Support**:
