@@ -1,0 +1,53 @@
+name: Minimal Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check package.json scripts
+        run: cat package.json | grep -A 20 scripts
+
+      - name: Check Tauri CLI installation
+        run: |
+          echo "Checking Tauri CLI..."
+          npx tauri --version || echo "Tauri CLI failed"
+          echo "Checking if Tauri is in node_modules..."
+          ls -la node_modules/.bin/ | grep -i tauri || echo "No Tauri binary found"
+
+      - name: Try building with verbose output
+        run: |
+          echo "Starting build with maximum verbosity..."
+          RUST_LOG=debug npm run build -- --verbose 2>&1 | tee build-output.log
+          echo "Build exit code: $?"
+          echo "--- Last 50 lines of build output ---"
+          tail -50 build-output.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-output.log
