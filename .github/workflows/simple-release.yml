@@ -85,8 +85,23 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build the app
-        run: npm run tauri build ${{ matrix.args }}
+      - name: Build the app (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: npm run build:mac
+
+      - name: Build the app (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: npm run build
+
+      - name: Build the app (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: npm run build
+
+      - name: List built files
+        run: |
+          echo "Listing contents of src-tauri/target/release/bundle:"
+          ls -la src-tauri/target/release/bundle/ || echo "Bundle directory not found"
+          find src-tauri/target -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage" || echo "No installers found"
 
       - name: Upload release assets
         uses: actions/github-script@v7
@@ -94,43 +109,39 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const { execSync } = require('child_process');
             
             const releaseId = ${{ needs.create-release.outputs.release_id }};
-            const targetDir = 'src-tauri/target/release/bundle';
             
-            // Upload assets based on platform
-            const platform = '${{ matrix.platform }}';
-            let assetPaths = [];
-            
-            if (platform.includes('ubuntu')) {
-              assetPaths = [
-                path.join(targetDir, 'appimage/ats-scanner_1.0.0_amd64.AppImage')
-              ];
-            } else if (platform.includes('windows')) {
-              assetPaths = [
-                path.join(targetDir, 'msi/ATS Scanner_1.0.0_x64.msi')
-              ];
-            } else if (platform.includes('macos')) {
-              assetPaths = [
-                path.join(targetDir, 'dmg/ATS Scanner_1.0.0_universal.dmg')
-              ];
-            }
-            
-            for (const assetPath of assetPaths) {
-              if (fs.existsSync(assetPath)) {
-                const assetName = path.basename(assetPath);
-                const assetData = fs.readFileSync(assetPath);
-                
-                await github.rest.repos.uploadReleaseAsset({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: releaseId,
-                  name: assetName,
-                  data: assetData,
-                });
-                
-                console.log(`Uploaded ${assetName}`);
-              } else {
-                console.log(`Asset not found: ${assetPath}`);
+            // Find all installer files
+            try {
+              const output = execSync('find src-tauri/target -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage"', { encoding: 'utf8' });
+              const assetPaths = output.trim().split('\n').filter(path => path.length > 0);
+              
+              console.log('Found assets:', assetPaths);
+              
+              for (const assetPath of assetPaths) {
+                if (fs.existsSync(assetPath)) {
+                  const assetName = path.basename(assetPath);
+                  const assetData = fs.readFileSync(assetPath);
+                  
+                  await github.rest.repos.uploadReleaseAsset({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: releaseId,
+                    name: assetName,
+                    data: assetData,
+                  });
+                  
+                  console.log(`Uploaded ${assetName}`);
+                } else {
+                  console.log(`Asset not found: ${assetPath}`);
+                }
               }
+              
+              if (assetPaths.length === 0) {
+                console.log('No installer files found');
+              }
+            } catch (error) {
+              console.log('Error finding assets:', error.message);
             }
