@@ -2,6 +2,9 @@ name: Debug Build
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/debug.yml' ]
 
 jobs:
   debug:
@@ -30,5 +33,21 @@ jobs:
       - name: Check Rust compilation
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Try Tauri build
-        run: npm run tauri build -- --verbose
+      - name: Check Tauri CLI
+        run: |
+          npm run tauri --version || echo "Tauri CLI not found"
+          npx tauri --version || echo "npx tauri not found"
+
+      - name: Install Tauri CLI globally
+        run: npm install -g @tauri-apps/cli
+
+      - name: Check Tauri CLI again
+        run: tauri --version
+
+      - name: Try simple Tauri build
+        run: |
+          echo "Attempting Tauri build..."
+          npm run build 2>&1 | tee build.log || true
+          echo "Build completed with exit code: $?"
+          echo "Last 20 lines of output:"
+          tail -20 build.log || echo "No log file found"
