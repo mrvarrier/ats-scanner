@@ -97,7 +97,15 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: npm run build
 
-      - name: List built files
+      - name: List built files (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo "Listing contents of src-tauri/target/release/bundle:"
+          if (Test-Path "src-tauri/target/release/bundle") { Get-ChildItem -Recurse "src-tauri/target/release/bundle" } else { echo "Bundle directory not found" }
+          Get-ChildItem -Recurse "src-tauri/target" -Include "*.msi" | ForEach-Object { echo $_.FullName }
+
+      - name: List built files (Unix)
+        if: matrix.platform != 'windows-latest'
         run: |
           echo "Listing contents of src-tauri/target/release/bundle:"
           ls -la src-tauri/target/release/bundle/ || echo "Bundle directory not found"
@@ -113,10 +121,21 @@ jobs:
             
             const releaseId = ${{ needs.create-release.outputs.release_id }};
             
-            // Find all installer files
+            // Find all installer files cross-platform
+            let assetPaths = [];
             try {
-              const output = execSync('find src-tauri/target -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage"', { encoding: 'utf8' });
-              const assetPaths = output.trim().split('\n').filter(path => path.length > 0);
+              if (process.platform === 'win32') {
+                // Windows: Use PowerShell to find MSI files
+                const output = execSync('Get-ChildItem -Recurse "src-tauri/target" -Include "*.msi" | ForEach-Object { $_.FullName }', { 
+                  encoding: 'utf8', 
+                  shell: 'powershell.exe' 
+                });
+                assetPaths = output.trim().split('\n').filter(path => path.length > 0);
+              } else {
+                // Unix: Use find command
+                const output = execSync('find src-tauri/target -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage"', { encoding: 'utf8' });
+                assetPaths = output.trim().split('\n').filter(path => path.length > 0);
+              }
               
               console.log('Found assets:', assetPaths);
               
