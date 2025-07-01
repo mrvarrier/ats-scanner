@@ -28,7 +28,7 @@ impl DocumentParser {
         // Parse based on file type
         let content = match file_type.as_str() {
             "pdf" => Self::parse_pdf(&file_content).await?,
-            "docx" => Self::parse_docx(&file_content).await?,
+            "docx" => return Err(anyhow!("DOCX parsing temporarily disabled due to dependency issues")),
             "txt" => Self::parse_text(&file_content).await?,
             _ => return Err(anyhow!("Unsupported file type: {}", file_type)),
         };
@@ -59,7 +59,7 @@ impl DocumentParser {
         // Parse based on file type
         let parsed_content = match file_type.as_str() {
             "pdf" => Self::parse_pdf(content).await?,
-            "docx" => Self::parse_docx(content).await?,
+            "docx" => return Err(anyhow!("DOCX parsing temporarily disabled due to dependency issues")),
             "txt" => Self::parse_text(content).await?,
             _ => return Err(anyhow!("Unsupported file type: {}", file_type)),
         };
@@ -95,24 +95,25 @@ impl DocumentParser {
         }
     }
 
-    async fn parse_docx(content: &[u8]) -> Result<String> {
-        info!("Parsing DOCX document");
-        
-        // For now, use a simple approach - in a real implementation you'd use proper DOCX parsing
-        // The docx crate API keeps changing, so let's use a more basic approach
-        match std::str::from_utf8(content) {
-            Ok(text) => {
-                info!("Successfully extracted text from DOCX (basic method)");
-                Ok(text.to_string())
-            }
-            Err(_) => {
-                // Fallback to lossy conversion
-                warn!("Using lossy conversion for DOCX file");
-                let text = String::from_utf8_lossy(content).to_string();
-                Ok(text)
-            }
-        }
-    }
+    // Temporarily disabled due to jetscii dependency issues
+    // async fn parse_docx(content: &[u8]) -> Result<String> {
+    //     info!("Parsing DOCX document");
+    //     
+    //     // For now, use a simple approach - in a real implementation you'd use proper DOCX parsing
+    //     // The docx crate API keeps changing, so let's use a more basic approach
+    //     match std::str::from_utf8(content) {
+    //         Ok(text) => {
+    //             info!("Successfully extracted text from DOCX (basic method)");
+    //             Ok(text.to_string())
+    //         }
+    //         Err(_) => {
+    //             // Fallback to lossy conversion
+    //             warn!("Using lossy conversion for DOCX file");
+    //             let text = String::from_utf8_lossy(content).to_string();
+    //             Ok(text)
+    //         }
+    //     }
+    // }
 
     async fn parse_text(content: &[u8]) -> Result<String> {
         info!("Parsing text document");
