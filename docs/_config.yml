@@ -1,0 +1,36 @@
+# GitHub Pages Configuration for ATS Scanner
+title: "ATS Scanner"
+description: "Privacy-focused ATS resume scanner that runs entirely on your computer using local AI models"
+url: "https://mrvarrier.github.io"
+baseurl: "/ats-scanner"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: pretty
+
+# Exclude files
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
+# GitHub Pages settings
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# SEO
+lang: en_US
+author: ATS Scanner Team
+twitter:
+  username: 
+  card: summary_large_image
+
+# Social sharing
+social:
+  name: ATS Scanner
+  links:
+    - https://github.com/mrvarrier/ats-scanner
