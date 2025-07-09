@@ -1,8 +1,8 @@
 use anyhow::Result;
+use log::info;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use log::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AchievementAnalysis {
@@ -87,7 +87,7 @@ impl AchievementAnalyzer {
             outcome_patterns: Vec::new(),
             stop_words: HashSet::new(),
         };
-        
+
         analyzer.initialize_action_verbs();
         analyzer.initialize_patterns();
         analyzer.initialize_stop_words();
@@ -96,28 +96,29 @@ impl AchievementAnalyzer {
 
     pub fn analyze_achievements(&self, resume_content: &str) -> Result<AchievementAnalysis> {
         info!("Starting comprehensive achievement analysis");
-        
+
         let sections = self.extract_sections(resume_content);
         let mut all_analyses = Vec::new();
         let mut improvement_opportunities = Vec::new();
         let mut section_scores = HashMap::new();
-        
+
         for (section_name, section_content) in sections {
             let bullet_points = self.extract_bullet_points(&section_content);
             let mut section_analyses = Vec::new();
             let mut section_improvements = Vec::new();
-            
+
             for bullet in bullet_points {
                 let analysis = self.analyze_single_bullet(&bullet, &section_name);
-                
+
                 if analysis.strength_score >= 70.0 {
                     section_analyses.push(analysis);
                 } else {
-                    let suggestion = self.generate_xyz_improvement(&bullet, &section_name, &analysis);
+                    let suggestion =
+                        self.generate_xyz_improvement(&bullet, &section_name, &analysis);
                     section_improvements.push(suggestion);
                 }
             }
-            
+
             // Calculate section score
             let section_score = if section_analyses.is_empty() && section_improvements.is_empty() {
                 0.0
@@ -126,18 +127,23 @@ impl AchievementAnalyzer {
                 let strong_count = section_analyses.len();
                 (strong_count as f64 / total_bullets as f64) * 100.0
             };
-            
+
             section_scores.insert(section_name, section_score);
             all_analyses.extend(section_analyses);
             improvement_opportunities.extend(section_improvements);
         }
 
         // Calculate overall metrics
-        let overall_achievement_score = self.calculate_overall_score(&all_analyses, &improvement_opportunities);
-        let achievement_distribution = self.calculate_distribution(&all_analyses, &improvement_opportunities);
-        let xyz_formula_compliance = self.calculate_xyz_compliance(&all_analyses, &improvement_opportunities);
-        let action_verb_strength = self.calculate_action_verb_strength(&all_analyses, &improvement_opportunities);
-        let quantification_rate = self.calculate_quantification_rate(&all_analyses, &improvement_opportunities);
+        let overall_achievement_score =
+            self.calculate_overall_score(&all_analyses, &improvement_opportunities);
+        let achievement_distribution =
+            self.calculate_distribution(&all_analyses, &improvement_opportunities);
+        let xyz_formula_compliance =
+            self.calculate_xyz_compliance(&all_analyses, &improvement_opportunities);
+        let action_verb_strength =
+            self.calculate_action_verb_strength(&all_analyses, &improvement_opportunities);
+        let quantification_rate =
+            self.calculate_quantification_rate(&all_analyses, &improvement_opportunities);
 
         Ok(AchievementAnalysis {
             strong_achievements: all_analyses,
@@ -153,20 +159,21 @@ impl AchievementAnalyzer {
 
     fn analyze_single_bullet(&self, bullet: &str, section: &str) -> BulletAnalysis {
         let cleaned_bullet = self.clean_bullet_text(bullet);
-        
+
         // Analyze action verbs
-        let (has_action_verb, action_verb, action_verb_strength) = self.analyze_action_verbs(&cleaned_bullet);
-        
+        let (has_action_verb, action_verb, action_verb_strength) =
+            self.analyze_action_verbs(&cleaned_bullet);
+
         // Analyze quantification
         let (has_quantification, quantifications) = self.analyze_quantification(&cleaned_bullet);
-        
+
         // Analyze outcomes
         let (has_outcome, outcome_description) = self.analyze_outcomes(&cleaned_bullet);
-        
+
         // Analyze X-Y-Z formula compliance
         let xyz_components = self.analyze_xyz_components(&cleaned_bullet);
         let has_xyz_formula = xyz_components.completeness_score >= 0.8;
-        
+
         // Calculate strength score
         let strength_score = self.calculate_bullet_strength(
             &action_verb_strength,
@@ -174,7 +181,7 @@ impl AchievementAnalyzer {
             has_outcome,
             xyz_components.completeness_score,
         );
-        
+
         // Generate improvement suggestions
         let improvement_suggestions = self.generate_bullet_improvements(
             &cleaned_bullet,
@@ -203,12 +210,12 @@ impl AchievementAnalyzer {
 
     fn analyze_action_verbs(&self, text: &str) -> (bool, Option<String>, String) {
         let words: Vec<&str> = text.split_whitespace().collect();
-        
+
         // Look for action verbs in the first few words (typically at the beginning)
         for word in words.iter().take(3) {
             let word_lower = word.to_lowercase();
             let clean_word = word_lower.trim_matches(|c: char| !c.is_alphabetic());
-            
+
             if self.strong_action_verbs.contains(clean_word) {
                 return (true, Some(clean_word.to_string()), "strong".to_string());
             } else if self.medium_action_verbs.contains(clean_word) {
@@ -217,23 +224,23 @@ impl AchievementAnalyzer {
                 return (true, Some(clean_word.to_string()), "weak".to_string());
             }
         }
-        
+
         (false, None, "none".to_string())
     }
 
     fn analyze_quantification(&self, text: &str) -> (bool, Vec<String>) {
         let mut quantifications = Vec::new();
-        
+
         for pattern in &self.quantification_patterns {
             for mat in pattern.find_iter(text) {
                 quantifications.push(mat.as_str().to_string());
             }
         }
-        
+
         // Remove duplicates
         quantifications.sort();
         quantifications.dedup();
-        
+
         (!quantifications.is_empty(), quantifications)
     }
 
@@ -243,20 +250,36 @@ impl AchievementAnalyzer {
                 return (true, Some(mat.as_str().to_string()));
             }
         }
-        
+
         // Check for implicit outcomes (improvement language)
         let improvement_indicators = [
-            "increased", "decreased", "improved", "enhanced", "optimized",
-            "reduced", "streamlined", "accelerated", "achieved", "exceeded",
-            "delivered", "generated", "saved", "earned", "won", "gained"
+            "increased",
+            "decreased",
+            "improved",
+            "enhanced",
+            "optimized",
+            "reduced",
+            "streamlined",
+            "accelerated",
+            "achieved",
+            "exceeded",
+            "delivered",
+            "generated",
+            "saved",
+            "earned",
+            "won",
+            "gained",
         ];
-        
+
         for indicator in &improvement_indicators {
             if text.to_lowercase().contains(indicator) {
-                return (true, Some(format!("Improvement indicated by '{}'", indicator)));
+                return (
+                    true,
+                    Some(format!("Improvement indicated by '{}'", indicator)),
+                );
             }
         }
-        
+
         (false, None)
     }
 
@@ -264,9 +287,21 @@ impl AchievementAnalyzer {
         let mut x_accomplishment = None;
         let mut y_measurement = None;
         let mut z_method = None;
-        
+
         // X: Accomplishment (what was achieved)
-        let accomplishment_indicators = ["accomplished", "achieved", "delivered", "completed", "implemented", "developed", "created", "built", "designed", "led", "managed"];
+        let accomplishment_indicators = [
+            "accomplished",
+            "achieved",
+            "delivered",
+            "completed",
+            "implemented",
+            "developed",
+            "created",
+            "built",
+            "designed",
+            "led",
+            "managed",
+        ];
         for indicator in &accomplishment_indicators {
             if text.to_lowercase().contains(indicator) {
                 // Extract the accomplishment description
@@ -283,13 +318,13 @@ impl AchievementAnalyzer {
                 break;
             }
         }
-        
+
         // Y: Measurement (quantifiable results)
         let (has_quantification, quantifications) = self.analyze_quantification(text);
         if has_quantification && !quantifications.is_empty() {
             y_measurement = Some(quantifications.join(", "));
         }
-        
+
         // Z: Method (how it was done)
         if let Some(by_pos) = text.to_lowercase().find(" by ") {
             let method_part = &text[by_pos + 4..];
@@ -305,13 +340,19 @@ impl AchievementAnalyzer {
             let words: Vec<&str> = method_part.split_whitespace().take(8).collect();
             z_method = Some(words.join(" "));
         }
-        
+
         // Calculate completeness score
         let mut score = 0.0;
-        if x_accomplishment.is_some() { score += 0.4; }
-        if y_measurement.is_some() { score += 0.4; }
-        if z_method.is_some() { score += 0.2; }
-        
+        if x_accomplishment.is_some() {
+            score += 0.4;
+        }
+        if y_measurement.is_some() {
+            score += 0.4;
+        }
+        if z_method.is_some() {
+            score += 0.2;
+        }
+
         XYZComponents {
             x_accomplishment,
             y_measurement,
@@ -328,7 +369,7 @@ impl AchievementAnalyzer {
         xyz_completeness: f64,
     ) -> f64 {
         let mut score = 0.0;
-        
+
         // Action verb contribution (30%)
         score += match action_verb_strength {
             "strong" => 30.0,
@@ -336,71 +377,84 @@ impl AchievementAnalyzer {
             "weak" => 10.0,
             _ => 0.0,
         };
-        
+
         // Quantification contribution (25%)
         if has_quantification {
             score += 25.0;
         }
-        
+
         // Outcome contribution (20%)
         if has_outcome {
             score += 20.0;
         }
-        
+
         // X-Y-Z formula contribution (25%)
         score += xyz_completeness * 25.0;
-        
+
         score
     }
 
     fn generate_bullet_improvements(
         &self,
-        text: &str,
+        _text: &str,
         action_verb_strength: &str,
         has_quantification: bool,
         has_outcome: bool,
         xyz_components: &XYZComponents,
     ) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         if action_verb_strength == "weak" || action_verb_strength == "none" {
             suggestions.push("Use a stronger action verb to start your bullet point".to_string());
         }
-        
+
         if !has_quantification {
-            suggestions.push("Add specific numbers, percentages, or metrics to quantify your impact".to_string());
+            suggestions.push(
+                "Add specific numbers, percentages, or metrics to quantify your impact".to_string(),
+            );
         }
-        
+
         if !has_outcome {
             suggestions.push("Clearly state the result or outcome of your actions".to_string());
         }
-        
+
         if xyz_components.completeness_score < 0.6 {
-            suggestions.push("Structure using X-Y-Z formula: Accomplished [X] as measured by [Y], by doing [Z]".to_string());
+            suggestions.push(
+                "Structure using X-Y-Z formula: Accomplished [X] as measured by [Y], by doing [Z]"
+                    .to_string(),
+            );
         }
-        
+
         if xyz_components.x_accomplishment.is_none() {
             suggestions.push("Clearly state what you accomplished or achieved".to_string());
         }
-        
+
         if xyz_components.y_measurement.is_none() {
             suggestions.push("Add measurable results or metrics to demonstrate impact".to_string());
         }
-        
+
         if xyz_components.z_method.is_none() {
-            suggestions.push("Explain how you achieved the results (methods, tools, strategies used)".to_string());
+            suggestions.push(
+                "Explain how you achieved the results (methods, tools, strategies used)"
+                    .to_string(),
+            );
         }
-        
+
         suggestions
     }
 
-    fn generate_xyz_improvement(&self, bullet: &str, section: &str, analysis: &BulletAnalysis) -> XYZSuggestion {
+    fn generate_xyz_improvement(
+        &self,
+        bullet: &str,
+        section: &str,
+        analysis: &BulletAnalysis,
+    ) -> XYZSuggestion {
         let weakness_type = self.identify_primary_weakness(analysis);
         let improved_version = self.create_improved_bullet(bullet, analysis);
         let improvement_impact = 100.0 - analysis.strength_score;
         let implementation_difficulty = self.assess_implementation_difficulty(analysis);
         let explanation = self.generate_improvement_explanation(analysis, &weakness_type);
-        
+
         // Generate specific X-Y-Z suggestions based on current content
         let suggested_x = self.suggest_accomplishment(bullet, section);
         let suggested_y = self.suggest_measurement(bullet, section);
@@ -436,7 +490,7 @@ impl AchievementAnalyzer {
 
     fn create_improved_bullet(&self, bullet: &str, analysis: &BulletAnalysis) -> String {
         let mut improved = bullet.to_string();
-        
+
         // If no strong action verb, suggest replacement
         if analysis.action_verb_strength != "strong" {
             if let Some(strong_verb) = self.get_replacement_action_verb(&improved) {
@@ -449,17 +503,20 @@ impl AchievementAnalyzer {
                 }
             }
         }
-        
+
         // Add quantification if missing
         if !analysis.has_quantification {
             improved = format!("{} (increased by X% / reduced by Y minutes)", improved);
         }
-        
+
         // Add method if missing
         if analysis.xyz_components.z_method.is_none() {
-            improved = format!("{} by implementing [specific method/tool/strategy]", improved);
+            improved = format!(
+                "{} by implementing [specific method/tool/strategy]",
+                improved
+            );
         }
-        
+
         improved
     }
 
@@ -475,13 +532,13 @@ impl AchievementAnalyzer {
             ("handled", "managed"),
             ("dealt", "resolved"),
         ];
-        
+
         for (weak, strong) in &verb_replacements {
             if text.to_lowercase().contains(weak) {
                 return Some(strong.to_string());
             }
         }
-        
+
         // Default strong verbs by context
         if text.to_lowercase().contains("team") {
             Some("led".to_string())
@@ -504,14 +561,14 @@ impl AchievementAnalyzer {
                 } else {
                     Some("achieved operational improvement".to_string())
                 }
-            },
+            }
             "education" => Some("completed academic achievement".to_string()),
             "projects" => Some("developed technical solution".to_string()),
             _ => Some("accomplished key objective".to_string()),
         }
     }
 
-    fn suggest_measurement(&self, bullet: &str, section: &str) -> Option<String> {
+    fn suggest_measurement(&self, bullet: &str, _section: &str) -> Option<String> {
         if bullet.to_lowercase().contains("performance") {
             Some("measured by X% performance improvement".to_string())
         } else if bullet.to_lowercase().contains("time") {
@@ -525,7 +582,7 @@ impl AchievementAnalyzer {
         }
     }
 
-    fn suggest_method(&self, bullet: &str, section: &str) -> Option<String> {
+    fn suggest_method(&self, bullet: &str, _section: &str) -> Option<String> {
         if bullet.to_lowercase().contains("software") || bullet.to_lowercase().contains("system") {
             Some("by implementing automated solutions".to_string())
         } else if bullet.to_lowercase().contains("team") {
@@ -539,7 +596,7 @@ impl AchievementAnalyzer {
 
     fn assess_implementation_difficulty(&self, analysis: &BulletAnalysis) -> String {
         let issues_count = analysis.improvement_suggestions.len();
-        
+
         match issues_count {
             0..=1 => "easy".to_string(),
             2..=3 => "medium".to_string(),
@@ -547,7 +604,11 @@ impl AchievementAnalyzer {
         }
     }
 
-    fn generate_improvement_explanation(&self, analysis: &BulletAnalysis, weakness_type: &str) -> String {
+    fn generate_improvement_explanation(
+        &self,
+        _analysis: &BulletAnalysis,
+        weakness_type: &str,
+    ) -> String {
         match weakness_type {
             "weak_action_verb" => "Start with a strong action verb that demonstrates leadership and impact. Avoid passive language and weak verbs like 'helped' or 'worked on'.".to_string(),
             "missing_quantification" => "Add specific numbers, percentages, dollar amounts, or other metrics to quantify your impact and make your achievements more compelling.".to_string(),
@@ -563,29 +624,41 @@ impl AchievementAnalyzer {
         let lines: Vec<&str> = content.lines().collect();
         let mut current_section = "General".to_string();
         let mut current_content = Vec::new();
-        
+
         let section_headers = [
-            "experience", "work experience", "professional experience", "employment",
-            "education", "academic background", "qualifications",
-            "projects", "key projects", "notable projects",
-            "achievements", "accomplishments", "awards",
-            "skills", "technical skills", "core competencies"
+            "experience",
+            "work experience",
+            "professional experience",
+            "employment",
+            "education",
+            "academic background",
+            "qualifications",
+            "projects",
+            "key projects",
+            "notable projects",
+            "achievements",
+            "accomplishments",
+            "awards",
+            "skills",
+            "technical skills",
+            "core competencies",
         ];
-        
+
         for line in lines {
             let line_lower = line.trim().to_lowercase();
-            
+
             // Check if this line is a section header
             let is_section_header = section_headers.iter().any(|&header| {
                 line_lower == header || line_lower.starts_with(&format!("{} ", header))
-            }) && line.trim().len() > 2 && line.trim().len() < 50;
-            
+            }) && line.trim().len() > 2
+                && line.trim().len() < 50;
+
             if is_section_header {
                 // Save the previous section
                 if !current_content.is_empty() {
                     sections.push((current_section.clone(), current_content.join("\n")));
                 }
-                
+
                 // Start new section
                 current_section = line.trim().to_string();
                 current_content.clear();
@@ -593,41 +666,51 @@ impl AchievementAnalyzer {
                 current_content.push(line);
             }
         }
-        
+
         // Add the last section
         if !current_content.is_empty() {
             sections.push((current_section, current_content.join("\n")));
         }
-        
+
         sections
     }
 
     fn extract_bullet_points(&self, section_content: &str) -> Vec<String> {
         let lines: Vec<&str> = section_content.lines().collect();
         let mut bullets = Vec::new();
-        
+
         for line in lines {
             let trimmed = line.trim();
-            
+
             // Check if line starts with bullet point indicators
-            if trimmed.starts_with("•") || trimmed.starts_with("-") || 
-               trimmed.starts_with("*") || trimmed.starts_with("◦") ||
-               trimmed.starts_with("▪") || trimmed.starts_with("‣") {
-                
+            if trimmed.starts_with("•")
+                || trimmed.starts_with("-")
+                || trimmed.starts_with("*")
+                || trimmed.starts_with("◦")
+                || trimmed.starts_with("▪")
+                || trimmed.starts_with("‣")
+            {
                 // Remove bullet point character and clean up
-                let bullet_text = trimmed.chars().skip(1).collect::<String>().trim().to_string();
-                if bullet_text.len() > 10 { // Only include substantial bullet points
+                let bullet_text = trimmed
+                    .chars()
+                    .skip(1)
+                    .collect::<String>()
+                    .trim()
+                    .to_string();
+                if bullet_text.len() > 10 {
+                    // Only include substantial bullet points
                     bullets.push(bullet_text);
                 }
             }
         }
-        
+
         bullets
     }
 
     fn clean_bullet_text(&self, bullet: &str) -> String {
         // Remove common prefixes and clean up text
-        bullet.trim()
+        bullet
+            .trim()
             .trim_start_matches("•")
             .trim_start_matches("-")
             .trim_start_matches("*")
@@ -641,18 +724,25 @@ impl AchievementAnalyzer {
         if total_bullets == 0 {
             return 0.0;
         }
-        
+
         let strong_count = strong.len();
         (strong_count as f64 / total_bullets as f64) * 100.0
     }
 
-    fn calculate_distribution(&self, strong: &[BulletAnalysis], weak: &[XYZSuggestion]) -> AchievementDistribution {
+    fn calculate_distribution(
+        &self,
+        strong: &[BulletAnalysis],
+        weak: &[XYZSuggestion],
+    ) -> AchievementDistribution {
         let total_bullets = strong.len() + weak.len();
         let strong_count = strong.iter().filter(|b| b.strength_score >= 80.0).count();
-        let medium_count = strong.iter().filter(|b| b.strength_score >= 60.0 && b.strength_score < 80.0).count() + 
-                          weak.iter().filter(|w| w.improvement_impact <= 40.0).count();
+        let medium_count = strong
+            .iter()
+            .filter(|b| b.strength_score >= 60.0 && b.strength_score < 80.0)
+            .count()
+            + weak.iter().filter(|w| w.improvement_impact <= 40.0).count();
         let weak_count = total_bullets - strong_count - medium_count;
-        
+
         let xyz_compliant = strong.iter().filter(|b| b.has_xyz_formula).count();
         let quantified_bullets = strong.iter().filter(|b| b.has_quantification).count();
         let action_verb_bullets = strong.iter().filter(|b| b.has_action_verb).count();
@@ -673,34 +763,43 @@ impl AchievementAnalyzer {
         if total_bullets == 0 {
             return 0.0;
         }
-        
+
         let xyz_compliant = strong.iter().filter(|b| b.has_xyz_formula).count();
         (xyz_compliant as f64 / total_bullets as f64) * 100.0
     }
 
-    fn calculate_action_verb_strength(&self, strong: &[BulletAnalysis], _weak: &[XYZSuggestion]) -> f64 {
+    fn calculate_action_verb_strength(
+        &self,
+        strong: &[BulletAnalysis],
+        _weak: &[XYZSuggestion],
+    ) -> f64 {
         if strong.is_empty() {
             return 0.0;
         }
-        
-        let total_score: f64 = strong.iter().map(|b| {
-            match b.action_verb_strength.as_str() {
+
+        let total_score: f64 = strong
+            .iter()
+            .map(|b| match b.action_verb_strength.as_str() {
                 "strong" => 100.0,
                 "medium" => 70.0,
                 "weak" => 40.0,
                 _ => 0.0,
-            }
-        }).sum();
-        
+            })
+            .sum();
+
         total_score / strong.len() as f64
     }
 
-    fn calculate_quantification_rate(&self, strong: &[BulletAnalysis], _weak: &[XYZSuggestion]) -> f64 {
+    fn calculate_quantification_rate(
+        &self,
+        strong: &[BulletAnalysis],
+        _weak: &[XYZSuggestion],
+    ) -> f64 {
         let total_bullets = strong.len();
         if total_bullets == 0 {
             return 0.0;
         }
-        
+
         let quantified_count = strong.iter().filter(|b| b.has_quantification).count();
         (quantified_count as f64 / total_bullets as f64) * 100.0
     }
@@ -708,28 +807,104 @@ impl AchievementAnalyzer {
     // Initialization methods
     fn initialize_action_verbs(&mut self) {
         // Strong action verbs (leadership, impact, achievement)
-        self.strong_action_verbs.extend([
-            "accelerated", "achieved", "acquired", "administered", "advanced", "analyzed",
-            "architected", "automated", "built", "championed", "collaborated", "completed",
-            "conceived", "conducted", "constructed", "created", "delivered", "demonstrated",
-            "designed", "developed", "directed", "drove", "engineered", "enhanced", "established",
-            "evaluated", "exceeded", "executed", "expanded", "generated", "implemented",
-            "improved", "increased", "initiated", "innovated", "launched", "led", "managed",
-            "maximized", "optimized", "orchestrated", "organized", "pioneered", "produced",
-            "reduced", "resolved", "spearheaded", "streamlined", "strengthened", "transformed"
-        ].iter().map(|s| s.to_string()));
+        self.strong_action_verbs.extend(
+            [
+                "accelerated",
+                "achieved",
+                "acquired",
+                "administered",
+                "advanced",
+                "analyzed",
+                "architected",
+                "automated",
+                "built",
+                "championed",
+                "collaborated",
+                "completed",
+                "conceived",
+                "conducted",
+                "constructed",
+                "created",
+                "delivered",
+                "demonstrated",
+                "designed",
+                "developed",
+                "directed",
+                "drove",
+                "engineered",
+                "enhanced",
+                "established",
+                "evaluated",
+                "exceeded",
+                "executed",
+                "expanded",
+                "generated",
+                "implemented",
+                "improved",
+                "increased",
+                "initiated",
+                "innovated",
+                "launched",
+                "led",
+                "managed",
+                "maximized",
+                "optimized",
+                "orchestrated",
+                "organized",
+                "pioneered",
+                "produced",
+                "reduced",
+                "resolved",
+                "spearheaded",
+                "streamlined",
+                "strengthened",
+                "transformed",
+            ]
+            .iter()
+            .map(|s| s.to_string()),
+        );
 
         // Medium action verbs (competent but less impactful)
-        self.medium_action_verbs.extend([
-            "assisted", "conducted", "coordinated", "facilitated", "maintained", "monitored",
-            "operated", "participated", "performed", "prepared", "presented", "processed",
-            "provided", "reviewed", "supported", "trained", "updated", "utilized"
-        ].iter().map(|s| s.to_string()));
+        self.medium_action_verbs.extend(
+            [
+                "assisted",
+                "conducted",
+                "coordinated",
+                "facilitated",
+                "maintained",
+                "monitored",
+                "operated",
+                "participated",
+                "performed",
+                "prepared",
+                "presented",
+                "processed",
+                "provided",
+                "reviewed",
+                "supported",
+                "trained",
+                "updated",
+                "utilized",
+            ]
+            .iter()
+            .map(|s| s.to_string()),
+        );
 
         // Weak action verbs (passive or vague)
-        self.weak_action_verbs.extend([
-            "dealt", "did", "handled", "helped", "involved", "made", "responsible", "worked"
-        ].iter().map(|s| s.to_string()));
+        self.weak_action_verbs.extend(
+            [
+                "dealt",
+                "did",
+                "handled",
+                "helped",
+                "involved",
+                "made",
+                "responsible",
+                "worked",
+            ]
+            .iter()
+            .map(|s| s.to_string()),
+        );
     }
 
     fn initialize_patterns(&mut self) {
@@ -744,8 +919,12 @@ impl AchievementAnalyzer {
 
         // Achievement patterns (success indicators)
         self.achievement_patterns = vec![
-            Regex::new(r"(?i)(?:exceeded|surpassed|outperformed|achieved|reached|delivered|completed)").unwrap(),
-            Regex::new(r"(?i)(?:award|recognition|promotion|certification|achievement|success)").unwrap(),
+            Regex::new(
+                r"(?i)(?:exceeded|surpassed|outperformed|achieved|reached|delivered|completed)",
+            )
+            .unwrap(),
+            Regex::new(r"(?i)(?:award|recognition|promotion|certification|achievement|success)")
+                .unwrap(),
         ];
 
         // Outcome patterns (result indicators)
@@ -756,11 +935,15 @@ impl AchievementAnalyzer {
     }
 
     fn initialize_stop_words(&mut self) {
-        self.stop_words.extend([
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-            "by", "from", "up", "about", "into", "through", "during", "before", "after", "above",
-            "below", "between", "among", "within", "without", "under", "over"
-        ].iter().map(|s| s.to_string()));
+        self.stop_words.extend(
+            [
+                "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+                "by", "from", "up", "about", "into", "through", "during", "before", "after",
+                "above", "below", "between", "among", "within", "without", "under", "over",
+            ]
+            .iter()
+            .map(|s| s.to_string()),
+        );
     }
 }
 
@@ -784,15 +967,17 @@ mod tests {
     #[test]
     fn test_action_verb_analysis() {
         let analyzer = AchievementAnalyzer::new();
-        
+
         // Test strong action verb
-        let (has_verb, verb, strength) = analyzer.analyze_action_verbs("Led a team of 5 developers");
+        let (has_verb, verb, strength) =
+            analyzer.analyze_action_verbs("Led a team of 5 developers");
         assert!(has_verb);
         assert_eq!(verb, Some("led".to_string()));
         assert_eq!(strength, "strong");
-        
+
         // Test weak action verb
-        let (has_verb, verb, strength) = analyzer.analyze_action_verbs("Helped with project management");
+        let (has_verb, verb, strength) =
+            analyzer.analyze_action_verbs("Helped with project management");
         assert!(has_verb);
         assert_eq!(verb, Some("helped".to_string()));
         assert_eq!(strength, "weak");
@@ -801,8 +986,9 @@ mod tests {
     #[test]
     fn test_quantification_analysis() {
         let analyzer = AchievementAnalyzer::new();
-        
-        let (has_quant, quants) = analyzer.analyze_quantification("Increased sales by 25% and saved $50K");
+
+        let (has_quant, quants) =
+            analyzer.analyze_quantification("Increased sales by 25% and saved $50K");
         assert!(has_quant);
         assert!(quants.contains(&"25%".to_string()));
         assert!(quants.contains(&"$50K".to_string()));
@@ -811,8 +997,10 @@ mod tests {
     #[test]
     fn test_xyz_components_analysis() {
         let analyzer = AchievementAnalyzer::new();
-        
-        let xyz = analyzer.analyze_xyz_components("Achieved 25% performance improvement by implementing automated testing");
+
+        let xyz = analyzer.analyze_xyz_components(
+            "Achieved 25% performance improvement by implementing automated testing",
+        );
         assert!(xyz.x_accomplishment.is_some());
         assert!(xyz.y_measurement.is_some());
         assert!(xyz.z_method.is_some());
@@ -822,10 +1010,10 @@ mod tests {
     #[test]
     fn test_bullet_strength_calculation() {
         let analyzer = AchievementAnalyzer::new();
-        
+
         let strong_score = analyzer.calculate_bullet_strength("strong", true, true, 1.0);
         assert!(strong_score >= 80.0);
-        
+
         let weak_score = analyzer.calculate_bullet_strength("weak", false, false, 0.0);
         assert!(weak_score <= 20.0);
     }
@@ -833,10 +1021,10 @@ mod tests {
     #[test]
     fn test_bullet_point_extraction() {
         let analyzer = AchievementAnalyzer::new();
-        
+
         let content = "Experience\n• Led development team\n• Improved system performance\n- Reduced costs by 20%";
         let bullets = analyzer.extract_bullet_points(content);
-        
+
         assert_eq!(bullets.len(), 3);
         assert!(bullets[0].contains("Led development team"));
         assert!(bullets[2].contains("Reduced costs by 20%"));
@@ -845,7 +1033,7 @@ mod tests {
     #[test]
     fn test_comprehensive_analysis() {
         let analyzer = AchievementAnalyzer::new();
-        
+
         let resume_content = r#"
         Experience
         • Led cross-functional team of 8 developers, resulting in 30% faster delivery
@@ -856,9 +1044,9 @@ mod tests {
         • Built mobile application with 10K+ downloads
         • Helped improve system performance
         "#;
-        
+
         let analysis = analyzer.analyze_achievements(resume_content).unwrap();
-        
+
         assert!(analysis.overall_achievement_score > 0.0);
         assert!(!analysis.strong_achievements.is_empty());
         assert!(!analysis.improvement_opportunities.is_empty());

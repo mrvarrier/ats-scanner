@@ -13,7 +13,6 @@ pub struct Resume {
     pub updated_at: DateTime<Utc>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, Default)]
 pub struct Analysis {
     pub id: String,
@@ -67,7 +66,6 @@ pub struct CategoryScores {
     pub format: f64,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentInfo {
     pub id: String,
@@ -119,7 +117,6 @@ pub struct ModelPerformance {
     pub last_used: DateTime<Utc>,
 }
 
-
 impl Resume {
     pub fn new(filename: String, content: String, file_type: String) -> Self {
         let now = Utc::now();
@@ -133,7 +130,6 @@ impl Resume {
         }
     }
 }
-
 
 impl Analysis {
     pub fn new(
@@ -166,48 +162,48 @@ impl Analysis {
 pub struct UserPreferences {
     pub id: String,
     pub user_id: String, // Future user system support
-    
+
     // Ollama Settings
     pub ollama_host: String,
     pub ollama_port: i32,
     pub default_model: Option<String>,
     pub connection_timeout_seconds: i32,
     pub auto_connect_on_startup: bool,
-    
+
     // Analysis Settings
     pub default_optimization_level: OptimizationLevel,
     pub auto_save_analyses: bool,
     pub analysis_history_retention_days: i32,
-    
+
     // UI Preferences
     pub theme: ThemePreference,
     pub language: String,
     pub sidebar_collapsed: bool,
     pub show_advanced_features: bool,
     pub animation_speed: AnimationSpeed,
-    
+
     // Data & Privacy
     pub data_storage_location: Option<String>,
     pub auto_backup_enabled: bool,
     pub backup_frequency_hours: i32,
     pub telemetry_enabled: bool,
-    
+
     // Notifications
     pub desktop_notifications: bool,
     pub sound_notifications: bool,
     pub email_notifications: bool,
     pub notification_email: Option<String>,
-    
+
     // Performance
     pub max_concurrent_analyses: i32,
     pub cache_size_mb: i32,
     pub enable_gpu_acceleration: bool,
-    
+
     // Export Settings
     pub default_export_format: ExportFormat,
     pub include_metadata_in_exports: bool,
     pub compress_exports: bool,
-    
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -230,10 +226,10 @@ pub enum AnimationSpeed {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExportFormat {
-    JSON,
-    CSV,
-    PDF,
-    HTML,
+    Json,
+    Csv,
+    Pdf,
+    Html,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -267,10 +263,6 @@ pub struct UserPreferencesUpdate {
     pub compress_exports: Option<bool>,
 }
 
-
-
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLPredictionResult {
     pub compatibility_prediction: f64,
@@ -287,55 +279,54 @@ pub struct FeatureImportance {
     pub contribution: f64,
 }
 
-
-impl UserPreferences {
-    pub fn default() -> Self {
+impl Default for UserPreferences {
+    fn default() -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4().to_string(),
             user_id: "default".to_string(),
-            
+
             // Ollama Settings
             ollama_host: "http://localhost".to_string(),
             ollama_port: 11434,
             default_model: None,
             connection_timeout_seconds: 30,
             auto_connect_on_startup: true,
-            
+
             // Analysis Settings
             default_optimization_level: OptimizationLevel::Balanced,
             auto_save_analyses: true,
             analysis_history_retention_days: 90,
-            
+
             // UI Preferences
-            theme: ThemePreference::System,
+            theme: ThemePreference::Light,
             language: "en".to_string(),
             sidebar_collapsed: false,
             show_advanced_features: false,
             animation_speed: AnimationSpeed::Normal,
-            
+
             // Data & Privacy
             data_storage_location: None,
             auto_backup_enabled: false,
             backup_frequency_hours: 24,
             telemetry_enabled: false,
-            
+
             // Notifications
             desktop_notifications: true,
             sound_notifications: false,
             email_notifications: false,
             notification_email: None,
-            
+
             // Performance
             max_concurrent_analyses: 3,
             cache_size_mb: 256,
             enable_gpu_acceleration: false,
-            
+
             // Export Settings
-            default_export_format: ExportFormat::JSON,
+            default_export_format: ExportFormat::Json,
             include_metadata_in_exports: true,
             compress_exports: false,
-            
+
             created_at: now,
             updated_at: now,
         }
@@ -516,5 +507,3 @@ pub struct LoggingConfig {
     pub enable_telemetry: bool,
     pub enable_performance_metrics: bool,
 }
-
-

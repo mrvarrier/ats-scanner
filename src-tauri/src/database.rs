@@ -1,9 +1,12 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::Utc;
 use log::info;
 use sqlx::{Row, SqlitePool};
 
-use crate::models::{Analysis, Resume, UserPreferences, UserPreferencesUpdate, IndustryKeyword, ATSCompatibilityRule, ScoringBenchmark, UserFeedback, ModelPerformanceMetrics};
+use crate::models::{
+    ATSCompatibilityRule, Analysis, IndustryKeyword, ModelPerformanceMetrics, Resume,
+    ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
+};
 
 #[derive(Debug, Clone)]
 pub struct Database {
@@ -12,24 +15,32 @@ pub struct Database {
 
 impl Database {
     pub async fn new() -> Result<Self> {
-        // Use a simple in-memory database for development to avoid path issues
-        let database_url = "sqlite::memory:";
-        
-        info!("Using in-memory database for development");
-        
-        let pool = SqlitePool::connect(database_url).await?;
-        
+        // Use persistent database file with absolute path
+        let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+        let data_dir = current_dir.join("data");
+        let db_path = data_dir.join("ats_scanner.db");
+        let database_url = format!("sqlite:{}", db_path.to_string_lossy());
+
+        info!("Using persistent database: {}", database_url);
+        info!("Current directory: {:?}", current_dir);
+        info!("Data directory: {:?}", data_dir);
+
+        // Ensure data directory exists
+        std::fs::create_dir_all(&data_dir).context("Failed to create data directory")?;
+
+        let pool = SqlitePool::connect(&database_url).await?;
+
         let db = Database { pool };
         db.run_migrations().await?;
         db.seed_initial_data().await?;
-        
+
         info!("Database initialized successfully");
         Ok(db)
     }
 
     pub async fn new_with_url(database_url: &str) -> Result<Self> {
         info!("Connecting to database: {}", database_url);
-        
+
         // If it's a file-based SQLite database, ensure the parent directory exists
         if database_url.starts_with("sqlite:") && !database_url.contains(":memory:") {
             let db_path = database_url.strip_prefix("sqlite:").unwrap_or(database_url);
@@ -38,20 +49,20 @@ impl Database {
                 info!("Created database directory: {:?}", parent);
             }
         }
-        
+
         let pool = SqlitePool::connect(database_url).await?;
-        
+
         let db = Database { pool };
         db.run_migrations().await?;
         db.seed_initial_data().await?;
-        
+
         info!("Database initialized successfully");
         Ok(db)
     }
 
     async fn run_migrations(&self) -> Result<()> {
         info!("Running database migrations");
-        
+
         // Create resumes table
         sqlx::query(
             r#"
@@ -67,7 +78,6 @@ impl Database {
         )
         .execute(&self.pool)
         .await?;
-
 
         // Create analyses table
         sqlx::query(
@@ -100,11 +110,9 @@ impl Database {
             .execute(&self.pool)
             .await?;
 
-
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at)")
             .execute(&self.pool)
             .await?;
-
 
         // Create user_preferences table
         sqlx::query(
@@ -126,7 +134,7 @@ impl Database {
                 analysis_history_retention_days INTEGER NOT NULL DEFAULT 90,
                 
                 -- UI Preferences
-                theme TEXT NOT NULL DEFAULT 'System',
+                theme TEXT NOT NULL DEFAULT 'Light',
                 language TEXT NOT NULL DEFAULT 'en',
                 sidebar_collapsed BOOLEAN NOT NULL DEFAULT FALSE,
                 show_advanced_features BOOLEAN NOT NULL DEFAULT FALSE,
@@ -165,12 +173,14 @@ impl Database {
         .await?;
 
         // Create index for user preferences
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id)")
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id)",
+        )
+        .execute(&self.pool)
+        .await?;
 
         // === PHASE 1 ENHANCED SCHEMA ===
-        
+
         // Create industry_keywords table for industry-specific keyword dictionaries
         sqlx::query(
             r#"
@@ -336,8 +346,8 @@ impl Database {
         .bind(&resume.filename)
         .bind(&resume.content)
         .bind(&resume.file_type)
-        .bind(&resume.created_at.to_rfc3339())
-        .bind(&resume.updated_at.to_rfc3339())
+        .bind(resume.created_at.to_rfc3339())
+        .bind(resume.updated_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
@@ -391,7 +401,6 @@ impl Database {
         Ok(resumes)
     }
 
-
     // Analysis operations
     pub async fn save_analysis(&self, analysis: &Analysis) -> Result<()> {
         sqlx::query(
@@ -418,7 +427,7 @@ impl Database {
         .bind(&analysis.missing_keywords)
         .bind(&analysis.recommendations)
         .bind(analysis.processing_time_ms)
-        .bind(&analysis.created_at.to_rfc3339())
+        .bind(analysis.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
@@ -464,12 +473,11 @@ impl Database {
     }
 
     pub async fn get_analyses_by_resume(&self, resume_id: &str) -> Result<Vec<Analysis>> {
-        let rows = sqlx::query(
-            "SELECT * FROM analyses WHERE resume_id = ? ORDER BY created_at DESC"
-        )
-        .bind(resume_id)
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query("SELECT * FROM analyses WHERE resume_id = ? ORDER BY created_at DESC")
+                .bind(resume_id)
+                .fetch_all(&self.pool)
+                .await?;
 
         let mut analyses = Vec::new();
         for row in rows {
@@ -513,26 +521,23 @@ impl Database {
         Ok(())
     }
 
-
     // Health check for testing
     pub async fn health_check(&self) -> Result<bool> {
-        let result = sqlx::query("SELECT 1")
-            .fetch_one(&self.pool)
-            .await?;
+        let result = sqlx::query("SELECT 1").fetch_one(&self.pool).await?;
         Ok(result.get::<i32, _>(0) == 1)
     }
-
 
     pub async fn get_analysis_stats(&self, days: Option<i32>) -> Result<serde_json::Value> {
         let days = days.unwrap_or(30);
         let cutoff_date = (Utc::now() - chrono::Duration::days(days as i64)).to_rfc3339();
-        
+
         // Total analyses
-        let total_count = sqlx::query("SELECT COUNT(*) as count FROM analyses WHERE created_at >= ?")
-            .bind(&cutoff_date)
-            .fetch_one(&self.pool)
-            .await?
-            .get::<i32, _>("count");
+        let total_count =
+            sqlx::query("SELECT COUNT(*) as count FROM analyses WHERE created_at >= ?")
+                .bind(&cutoff_date)
+                .fetch_one(&self.pool)
+                .await?
+                .get::<i32, _>("count");
 
         // Average scores
         let avg_scores = sqlx::query(
@@ -545,7 +550,7 @@ impl Database {
                 AVG(keywords_score) as avg_keywords,
                 AVG(format_score) as avg_format
             FROM analyses WHERE created_at >= ?
-            "#
+            "#,
         )
         .bind(&cutoff_date)
         .fetch_one(&self.pool)
@@ -570,7 +575,7 @@ impl Database {
             WHERE created_at >= ? 
             GROUP BY DATE(created_at) 
             ORDER BY date DESC
-            "#
+            "#,
         )
         .bind(&cutoff_date)
         .fetch_all(&self.pool)
@@ -627,19 +632,20 @@ impl Database {
                     WHEN 'Below Average' THEN 2
                     ELSE 1
                 END DESC
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        let result = serde_json::json!(
-            distribution.iter().map(|row| {
+        let result = serde_json::json!(distribution
+            .iter()
+            .map(|row| {
                 serde_json::json!({
                     "range": row.get::<String, _>("score_range"),
                     "count": row.get::<i32, _>("count")
                 })
-            }).collect::<Vec<_>>()
-        );
+            })
+            .collect::<Vec<_>>());
 
         Ok(result)
     }
@@ -660,13 +666,14 @@ impl Database {
             HAVING COUNT(a.id) > 1
             ORDER BY improvement DESC
             LIMIT 10
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        let result = serde_json::json!(
-            trends.iter().map(|row| {
+        let result = serde_json::json!(trends
+            .iter()
+            .map(|row| {
                 serde_json::json!({
                     "resume_id": row.get::<String, _>("resume_id"),
                     "filename": row.get::<String, _>("filename"),
@@ -675,8 +682,8 @@ impl Database {
                     "latest_score": row.get::<f64, _>("latest_score"),
                     "improvement": row.get::<f64, _>("improvement")
                 })
-            }).collect::<Vec<_>>()
-        );
+            })
+            .collect::<Vec<_>>());
 
         Ok(result)
     }
@@ -709,14 +716,19 @@ impl Database {
                 default_model: row.get("default_model"),
                 connection_timeout_seconds: row.get("connection_timeout_seconds"),
                 auto_connect_on_startup: row.get("auto_connect_on_startup"),
-                default_optimization_level: serde_json::from_str(&row.get::<String, _>("default_optimization_level")).unwrap_or(crate::models::OptimizationLevel::Balanced),
+                default_optimization_level: serde_json::from_str(
+                    &row.get::<String, _>("default_optimization_level"),
+                )
+                .unwrap_or(crate::models::OptimizationLevel::Balanced),
                 auto_save_analyses: row.get("auto_save_analyses"),
                 analysis_history_retention_days: row.get("analysis_history_retention_days"),
-                theme: serde_json::from_str(&row.get::<String, _>("theme")).unwrap_or(crate::models::ThemePreference::System),
+                theme: serde_json::from_str(&row.get::<String, _>("theme"))
+                    .unwrap_or(crate::models::ThemePreference::Light),
                 language: row.get("language"),
                 sidebar_collapsed: row.get("sidebar_collapsed"),
                 show_advanced_features: row.get("show_advanced_features"),
-                animation_speed: serde_json::from_str(&row.get::<String, _>("animation_speed")).unwrap_or(crate::models::AnimationSpeed::Normal),
+                animation_speed: serde_json::from_str(&row.get::<String, _>("animation_speed"))
+                    .unwrap_or(crate::models::AnimationSpeed::Normal),
                 data_storage_location: row.get("data_storage_location"),
                 auto_backup_enabled: row.get("auto_backup_enabled"),
                 backup_frequency_hours: row.get("backup_frequency_hours"),
@@ -728,7 +740,10 @@ impl Database {
                 max_concurrent_analyses: row.get("max_concurrent_analyses"),
                 cache_size_mb: row.get("cache_size_mb"),
                 enable_gpu_acceleration: row.get("enable_gpu_acceleration"),
-                default_export_format: serde_json::from_str(&row.get::<String, _>("default_export_format")).unwrap_or(crate::models::ExportFormat::JSON),
+                default_export_format: serde_json::from_str(
+                    &row.get::<String, _>("default_export_format"),
+                )
+                .unwrap_or(crate::models::ExportFormat::Json),
                 include_metadata_in_exports: row.get("include_metadata_in_exports"),
                 compress_exports: row.get("compress_exports"),
                 created_at: row.get::<String, _>("created_at").parse()?,
@@ -784,8 +799,8 @@ impl Database {
         .bind(serde_json::to_string(&preferences.default_export_format).unwrap_or_default())
         .bind(preferences.include_metadata_in_exports)
         .bind(preferences.compress_exports)
-        .bind(&preferences.created_at.to_rfc3339())
-        .bind(&preferences.updated_at.to_rfc3339())
+        .bind(preferences.created_at.to_rfc3339())
+        .bind(preferences.updated_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
@@ -793,10 +808,14 @@ impl Database {
         Ok(())
     }
 
-    pub async fn update_user_preferences(&self, user_id: &str, updates: &UserPreferencesUpdate) -> Result<()> {
+    pub async fn update_user_preferences(
+        &self,
+        user_id: &str,
+        updates: &UserPreferencesUpdate,
+    ) -> Result<()> {
         let current = self.get_user_preferences(user_id).await?;
-        let mut preferences = current.unwrap_or_else(|| UserPreferences::default());
-        
+        let mut preferences = current.unwrap_or_else(UserPreferences::default);
+
         // Update only provided fields
         if let Some(host) = &updates.ollama_host {
             preferences.ollama_host = host.clone();
@@ -889,15 +908,17 @@ impl Database {
         if let Some(preferences) = self.get_user_preferences(user_id).await? {
             Ok(preferences)
         } else {
-            let mut preferences = UserPreferences::default();
-            preferences.user_id = user_id.to_string();
+            let preferences = UserPreferences {
+                user_id: user_id.to_string(),
+                ..Default::default()
+            };
             self.save_user_preferences(&preferences).await?;
             Ok(preferences)
         }
     }
 
     // === PHASE 1 ENHANCED DATABASE METHODS ===
-    
+
     // Industry Keywords operations
     pub async fn save_industry_keyword(&self, keyword: &IndustryKeyword) -> Result<()> {
         sqlx::query(
@@ -913,21 +934,23 @@ impl Database {
         .bind(keyword.weight)
         .bind(&keyword.category)
         .bind(&keyword.synonyms)
-        .bind(&keyword.created_at.to_rfc3339())
+        .bind(keyword.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
-        info!("Industry keyword saved: {} for {}", keyword.keyword, keyword.industry);
+        info!(
+            "Industry keyword saved: {} for {}",
+            keyword.keyword, keyword.industry
+        );
         Ok(())
     }
 
     pub async fn get_industry_keywords(&self, industry: &str) -> Result<Vec<IndustryKeyword>> {
-        let rows = sqlx::query(
-            "SELECT * FROM industry_keywords WHERE industry = ? ORDER BY weight DESC"
-        )
-        .bind(industry)
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query("SELECT * FROM industry_keywords WHERE industry = ? ORDER BY weight DESC")
+                .bind(industry)
+                .fetch_all(&self.pool)
+                .await?;
 
         let mut keywords = Vec::new();
         for row in rows {
@@ -947,13 +970,12 @@ impl Database {
     }
 
     pub async fn get_all_industries(&self) -> Result<Vec<String>> {
-        let rows = sqlx::query(
-            "SELECT DISTINCT industry FROM industry_keywords ORDER BY industry"
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query("SELECT DISTINCT industry FROM industry_keywords ORDER BY industry")
+            .fetch_all(&self.pool)
+            .await?;
 
-        let industries = rows.iter()
+        let industries = rows
+            .iter()
             .map(|row| row.get::<String, _>("industry"))
             .collect();
 
@@ -978,7 +1000,7 @@ impl Database {
         .bind(&rule.detection_pattern)
         .bind(&rule.suggestion)
         .bind(&rule.severity)
-        .bind(&rule.created_at.to_rfc3339())
+        .bind(rule.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
@@ -986,12 +1008,17 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_ats_rules(&self, ats_system: Option<&str>) -> Result<Vec<ATSCompatibilityRule>> {
+    pub async fn get_ats_rules(
+        &self,
+        ats_system: Option<&str>,
+    ) -> Result<Vec<ATSCompatibilityRule>> {
         let query = if let Some(system) = ats_system {
             sqlx::query("SELECT * FROM ats_compatibility_rules WHERE ats_system = ? ORDER BY penalty_weight DESC")
                 .bind(system)
         } else {
-            sqlx::query("SELECT * FROM ats_compatibility_rules ORDER BY ats_system, penalty_weight DESC")
+            sqlx::query(
+                "SELECT * FROM ats_compatibility_rules ORDER BY ats_system, penalty_weight DESC",
+            )
         };
 
         let rows = query.fetch_all(&self.pool).await?;
@@ -1032,15 +1059,22 @@ impl Database {
         .bind(&benchmark.benchmark_type)
         .bind(benchmark.score_threshold)
         .bind(&benchmark.description)
-        .bind(&benchmark.created_at.to_rfc3339())
+        .bind(benchmark.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
-        info!("Scoring benchmark saved: {} for {} level", benchmark.benchmark_type, benchmark.job_level);
+        info!(
+            "Scoring benchmark saved: {} for {} level",
+            benchmark.benchmark_type, benchmark.job_level
+        );
         Ok(())
     }
 
-    pub async fn get_scoring_benchmarks(&self, industry: &str, job_level: &str) -> Result<Vec<ScoringBenchmark>> {
+    pub async fn get_scoring_benchmarks(
+        &self,
+        industry: &str,
+        job_level: &str,
+    ) -> Result<Vec<ScoringBenchmark>> {
         let rows = sqlx::query(
             "SELECT * FROM scoring_benchmarks WHERE industry = ? AND job_level = ? ORDER BY benchmark_type"
         )
@@ -1084,7 +1118,7 @@ impl Database {
         .bind(feedback.rating)
         .bind(&feedback.comment)
         .bind(&feedback.helpful_suggestions)
-        .bind(&feedback.created_at.to_rfc3339())
+        .bind(feedback.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
@@ -1094,7 +1128,7 @@ impl Database {
 
     pub async fn get_feedback_by_analysis(&self, analysis_id: &str) -> Result<Vec<UserFeedback>> {
         let rows = sqlx::query(
-            "SELECT * FROM user_feedback WHERE analysis_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM user_feedback WHERE analysis_id = ? ORDER BY created_at DESC",
         )
         .bind(analysis_id)
         .fetch_all(&self.pool)
@@ -1121,7 +1155,7 @@ impl Database {
     pub async fn get_feedback_stats(&self, days: Option<i32>) -> Result<serde_json::Value> {
         let days = days.unwrap_or(30);
         let cutoff_date = (Utc::now() - chrono::Duration::days(days as i64)).to_rfc3339();
-        
+
         let stats = sqlx::query(
             r#"
             SELECT 
@@ -1130,7 +1164,7 @@ impl Database {
                 COUNT(CASE WHEN rating >= 4 THEN 1 END) as positive_feedback,
                 COUNT(CASE WHEN rating <= 2 THEN 1 END) as negative_feedback
             FROM user_feedback WHERE created_at >= ?
-            "#
+            "#,
         )
         .bind(&cutoff_date)
         .fetch_one(&self.pool)
@@ -1165,11 +1199,14 @@ impl Database {
         .bind(metrics.accuracy_score)
         .bind(metrics.user_satisfaction)
         .bind(metrics.error_count)
-        .bind(&metrics.created_at.to_rfc3339())
+        .bind(metrics.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
-        info!("Model performance metrics saved for: {}", metrics.model_name);
+        info!(
+            "Model performance metrics saved for: {}",
+            metrics.model_name
+        );
         Ok(())
     }
 
@@ -1184,7 +1221,7 @@ impl Database {
                 AVG(user_satisfaction) as avg_satisfaction,
                 SUM(error_count) as total_errors
             FROM model_performance_metrics WHERE model_name = ?
-            "#
+            "#,
         )
         .bind(model_name)
         .fetch_one(&self.pool)
@@ -1217,7 +1254,7 @@ impl Database {
             FROM model_performance_metrics 
             GROUP BY model_name
             ORDER BY analysis_count DESC
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -1238,7 +1275,6 @@ impl Database {
 
         Ok(results)
     }
-
 }
 
 #[cfg(test)]
@@ -1261,7 +1297,6 @@ mod tests {
             updated_at: Utc::now(),
         }
     }
-
 
     fn create_test_analysis(resume_id: &str) -> Analysis {
         Analysis {
@@ -1293,10 +1328,10 @@ mod tests {
     async fn test_resume_crud_operations() {
         let db = setup_test_db().await;
         let resume = create_test_resume();
-        
+
         // Test save
         db.save_resume(&resume).await.unwrap();
-        
+
         // Test get
         let retrieved = db.get_resume(&resume.id).await.unwrap();
         assert!(retrieved.is_some());
@@ -1304,41 +1339,40 @@ mod tests {
         assert_eq!(retrieved.id, resume.id);
         assert_eq!(retrieved.filename, resume.filename);
         assert_eq!(retrieved.content, resume.content);
-        
+
         // Test get all
         let all_resumes = db.get_all_resumes().await.unwrap();
         assert_eq!(all_resumes.len(), 1);
-        
+
         // Test delete
         db.delete_resume(&resume.id).await.unwrap();
         let retrieved = db.get_resume(&resume.id).await.unwrap();
         assert!(retrieved.is_none());
     }
 
-
     #[tokio::test]
     async fn test_analysis_operations() {
         let db = setup_test_db().await;
         let resume = create_test_resume();
         let analysis = create_test_analysis(&resume.id);
-        
+
         // Setup dependencies
         db.save_resume(&resume).await.unwrap();
-        
+
         // Test save analysis
         db.save_analysis(&analysis).await.unwrap();
-        
+
         // Test get analysis history
         let history = db.get_analysis_history(None).await.unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].id, analysis.id);
         assert_eq!(history[0].overall_score, analysis.overall_score);
-        
+
         // Test get analyses by resume
         let resume_analyses = db.get_analyses_by_resume(&resume.id).await.unwrap();
         assert_eq!(resume_analyses.len(), 1);
         assert_eq!(resume_analyses[0].resume_id, resume.id);
-        
+
         // Test limit
         let limited_history = db.get_analysis_history(Some(10)).await.unwrap();
         assert_eq!(limited_history.len(), 1);
@@ -1349,15 +1383,15 @@ mod tests {
         let db = setup_test_db().await;
         let resume = create_test_resume();
         let analysis = create_test_analysis(&resume.id);
-        
+
         // Setup data
         db.save_resume(&resume).await.unwrap();
         db.save_analysis(&analysis).await.unwrap();
-        
+
         // Verify analysis exists
         let history = db.get_analysis_history(None).await.unwrap();
         assert_eq!(history.len(), 1);
-        
+
         // Delete resume should cascade to analyses
         db.delete_resume(&resume.id).await.unwrap();
         let history = db.get_analysis_history(None).await.unwrap();

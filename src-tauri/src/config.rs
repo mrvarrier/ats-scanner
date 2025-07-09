@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use log::{info, warn};
 
-use crate::models::{AppConfig, OllamaConfig, AnalysisConfig, PerformanceConfig, LoggingConfig, OptimizationLevel};
+use crate::models::{
+    AnalysisConfig, AppConfig, LoggingConfig, OllamaConfig, OptimizationLevel, PerformanceConfig,
+};
 
 #[derive(Debug, Clone)]
 pub struct ConfigManager {
@@ -16,7 +18,7 @@ impl ConfigManager {
     pub fn new() -> Result<Self> {
         let config_path = Self::get_config_path()?;
         let config = Self::load_or_create_default_config(&config_path)?;
-        
+
         Ok(ConfigManager {
             config_path,
             config,
@@ -25,7 +27,7 @@ impl ConfigManager {
 
     pub fn new_with_path(config_path: PathBuf) -> Result<Self> {
         let config = Self::load_or_create_default_config(&config_path)?;
-        
+
         Ok(ConfigManager {
             config_path,
             config,
@@ -36,16 +38,15 @@ impl ConfigManager {
         let config_dir = dirs::config_dir()
             .or_else(|| dirs::home_dir().map(|h| h.join(".config")))
             .context("Could not determine config directory")?;
-        
+
         let app_config_dir = config_dir.join("ats-scanner");
-        
+
         // Create config directory if it doesn't exist
         if !app_config_dir.exists() {
-            fs::create_dir_all(&app_config_dir)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(&app_config_dir).context("Failed to create config directory")?;
             info!("Created config directory: {:?}", app_config_dir);
         }
-        
+
         Ok(app_config_dir.join("config.json"))
     }
 
@@ -62,30 +63,28 @@ impl ConfigManager {
     }
 
     fn load_config(config_path: &PathBuf) -> Result<AppConfig> {
-        let config_str = fs::read_to_string(config_path)
-            .context("Failed to read config file")?;
-        
-        let config: AppConfig = serde_json::from_str(&config_str)
-            .context("Failed to parse config file")?;
-        
+        let config_str = fs::read_to_string(config_path).context("Failed to read config file")?;
+
+        let config: AppConfig =
+            serde_json::from_str(&config_str).context("Failed to parse config file")?;
+
         info!("Configuration loaded successfully");
         Ok(config)
     }
 
     fn save_config_to_path(config: &AppConfig, config_path: &PathBuf) -> Result<()> {
-        let config_str = serde_json::to_string_pretty(config)
-            .context("Failed to serialize config")?;
-        
-        fs::write(config_path, config_str)
-            .context("Failed to write config file")?;
-        
+        let config_str =
+            serde_json::to_string_pretty(config).context("Failed to serialize config")?;
+
+        fs::write(config_path, config_str).context("Failed to write config file")?;
+
         info!("Configuration saved to: {:?}", config_path);
         Ok(())
     }
 
     fn default_config() -> AppConfig {
         AppConfig {
-            database_url: "sqlite::memory:".to_string(),
+            database_url: "sqlite:./data/ats_scanner.db".to_string(),
             ollama_config: OllamaConfig {
                 host: "localhost".to_string(),
                 port: 11434,
@@ -159,7 +158,10 @@ impl ConfigManager {
         self.save_config()
     }
 
-    pub fn update_performance_config(&mut self, performance_config: PerformanceConfig) -> Result<()> {
+    pub fn update_performance_config(
+        &mut self,
+        performance_config: PerformanceConfig,
+    ) -> Result<()> {
         self.config.performance_config = performance_config;
         self.save_config()
     }
@@ -210,8 +212,9 @@ impl ConfigManager {
             warnings.push("Max suggestions should be at least 1".to_string());
         }
 
-        if self.config.analysis_config.confidence_threshold < 0.0 || 
-           self.config.analysis_config.confidence_threshold > 1.0 {
+        if self.config.analysis_config.confidence_threshold < 0.0
+            || self.config.analysis_config.confidence_threshold > 1.0
+        {
             warnings.push("Confidence threshold must be between 0.0 and 1.0".to_string());
         }
 
@@ -270,8 +273,7 @@ impl ConfigManager {
 
     // Export configuration for debugging
     pub fn export_config(&self) -> Result<String> {
-        serde_json::to_string_pretty(&self.config)
-            .context("Failed to export configuration")
+        serde_json::to_string_pretty(&self.config).context("Failed to export configuration")
     }
 
     // Check if configuration file exists
@@ -336,7 +338,7 @@ impl ConfigManager {
         if let Some(models) = update.models {
             self.config.ollama_config.models = models;
         }
-        
+
         self.save_config()
     }
 
@@ -359,7 +361,7 @@ impl ConfigManager {
         if let Some(confidence) = update.confidence_threshold {
             self.config.analysis_config.confidence_threshold = confidence;
         }
-        
+
         self.save_config()
     }
 
@@ -379,7 +381,7 @@ impl ConfigManager {
         if let Some(timeout) = update.timeout_seconds {
             self.config.performance_config.timeout_seconds = timeout;
         }
-        
+
         self.save_config()
     }
 }
@@ -393,9 +395,9 @@ mod tests {
     fn test_config_creation() {
         let temp_dir = tempdir().unwrap();
         let config_path = temp_dir.path().join("test_config.json");
-        
+
         let config_manager = ConfigManager::new_with_path(config_path.clone()).unwrap();
-        
+
         assert!(config_path.exists());
         assert_eq!(config_manager.get_ollama_config().port, 11434);
     }
@@ -404,17 +406,20 @@ mod tests {
     fn test_config_validation() {
         let temp_dir = tempdir().unwrap();
         let config_path = temp_dir.path().join("test_config.json");
-        
+
         let mut config_manager = ConfigManager::new_with_path(config_path).unwrap();
-        
+
         // Test valid config
         let warnings = config_manager.validate_config().unwrap();
         assert!(warnings.is_empty());
-        
+
         // Test invalid config
         config_manager.config.ollama_config.port = 0;
-        config_manager.config.performance_config.max_concurrent_analyses = 0;
-        
+        config_manager
+            .config
+            .performance_config
+            .max_concurrent_analyses = 0;
+
         let warnings = config_manager.validate_config().unwrap();
         assert!(warnings.len() >= 2);
     }
@@ -423,9 +428,9 @@ mod tests {
     fn test_partial_updates() {
         let temp_dir = tempdir().unwrap();
         let config_path = temp_dir.path().join("test_config.json");
-        
+
         let mut config_manager = ConfigManager::new_with_path(config_path).unwrap();
-        
+
         // Test ollama config update
         let ollama_update = OllamaConfigUpdate {
             host: Some("new_host".to_string()),
@@ -435,9 +440,9 @@ mod tests {
             default_model: None,
             models: None,
         };
-        
+
         config_manager.partial_update_ollama(ollama_update).unwrap();
-        
+
         assert_eq!(config_manager.get_ollama_config().host, "new_host");
         assert_eq!(config_manager.get_ollama_config().port, 8080);
         // Unchanged values should remain the same

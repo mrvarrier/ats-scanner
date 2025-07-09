@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
+use log::info;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use regex::Regex;
-use log::info;
 
 use crate::database::Database;
 use crate::models::IndustryKeyword;
@@ -157,16 +157,20 @@ impl IndustryAnalyzer {
 
         // 1. Detect actual industry from resume content
         let detected_industry = self.detect_industry_from_content(resume_content).await?;
-        let confidence_score = self.calculate_industry_confidence(&detected_industry, target_industry);
+        let confidence_score =
+            self.calculate_industry_confidence(&detected_industry, target_industry);
 
         // 2. Analyze industry-specific keywords
-        let industry_keywords = self.analyze_industry_keywords(resume_content, target_industry).await?;
+        let industry_keywords = self
+            .analyze_industry_keywords(resume_content, target_industry)
+            .await?;
 
         // 3. Assess role level and experience
         let role_level_assessment = self.assess_role_level(resume_content, job_description);
 
         // 4. Check industry certifications
-        let required_certifications = self.check_industry_certifications(resume_content, target_industry);
+        let required_certifications =
+            self.check_industry_certifications(resume_content, target_industry);
 
         // 5. Analyze industry trends alignment
         let industry_trends = self.analyze_industry_trends(resume_content, target_industry);
@@ -209,14 +213,22 @@ impl IndustryAnalyzer {
                 let matches = pattern.find_iter(&content_lower).count();
                 score += matches as f64;
             }
-            
+
             if score > 0.0 {
                 industry_scores.insert(industry.clone(), score);
             }
         }
 
         // Also check database keywords
-        for industry in &["technology", "healthcare", "finance", "education", "manufacturing", "retail", "consulting"] {
+        for industry in &[
+            "technology",
+            "healthcare",
+            "finance",
+            "education",
+            "manufacturing",
+            "retail",
+            "consulting",
+        ] {
             if let Ok(keywords) = self.database.get_industry_keywords(industry).await {
                 let mut keyword_score = 0.0;
                 for keyword in keywords {
@@ -224,7 +236,7 @@ impl IndustryAnalyzer {
                         keyword_score += keyword.weight;
                     }
                 }
-                
+
                 let industry_key = industry.to_string();
                 let existing_score = industry_scores.get(&industry_key).unwrap_or(&0.0);
                 industry_scores.insert(industry_key, existing_score + keyword_score);
@@ -238,7 +250,10 @@ impl IndustryAnalyzer {
             .map(|(industry, _)| industry.clone())
             .unwrap_or_else(|| "general".to_string());
 
-        info!("Detected industry: {} with scores: {:?}", detected_industry, industry_scores);
+        info!(
+            "Detected industry: {} with scores: {:?}",
+            detected_industry, industry_scores
+        );
         Ok(detected_industry)
     }
 
@@ -254,7 +269,13 @@ impl IndustryAnalyzer {
 
     fn are_related_industries(&self, industry1: &str, industry2: &str) -> bool {
         let related_groups = vec![
-            vec!["technology", "software", "it", "computer science", "engineering"],
+            vec![
+                "technology",
+                "software",
+                "it",
+                "computer science",
+                "engineering",
+            ],
             vec!["healthcare", "medical", "pharmaceutical", "biotech"],
             vec!["finance", "banking", "investment", "fintech", "accounting"],
             vec!["education", "academic", "research", "training"],
@@ -262,8 +283,9 @@ impl IndustryAnalyzer {
         ];
 
         for group in related_groups {
-            if group.iter().any(|&i| i.contains(&industry1.to_lowercase())) &&
-               group.iter().any(|&i| i.contains(&industry2.to_lowercase())) {
+            if group.iter().any(|&i| i.contains(&industry1.to_lowercase()))
+                && group.iter().any(|&i| i.contains(&industry2.to_lowercase()))
+            {
                 return true;
             }
         }
@@ -275,7 +297,10 @@ impl IndustryAnalyzer {
         resume_content: &str,
         industry: &str,
     ) -> Result<Vec<IndustryKeywordMatch>> {
-        let keywords = self.database.get_industry_keywords(industry).await
+        let keywords = self
+            .database
+            .get_industry_keywords(industry)
+            .await
             .context("Failed to load industry keywords")?;
 
         let content_lower = resume_content.to_lowercase();
@@ -301,30 +326,44 @@ impl IndustryAnalyzer {
 
         // Sort by relevance (found keywords with higher weight first)
         keyword_matches.sort_by(|a, b| {
-            let score_a = if a.found { a.weight * (a.frequency as f64) } else { 0.0 };
-            let score_b = if b.found { b.weight * (b.frequency as f64) } else { 0.0 };
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            let score_a = if a.found {
+                a.weight * (a.frequency as f64)
+            } else {
+                0.0
+            };
+            let score_b = if b.found {
+                b.weight * (b.frequency as f64)
+            } else {
+                0.0
+            };
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         Ok(keyword_matches)
     }
 
-    fn assess_role_level(&self, resume_content: &str, job_description: &str) -> RoleLevelAssessment {
+    fn assess_role_level(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+    ) -> RoleLevelAssessment {
         let content_lower = resume_content.to_lowercase();
         let job_lower = job_description.to_lowercase();
 
         // Extract experience indicators
         let experience_indicators = self.extract_experience_indicators(&content_lower);
-        
+
         // Extract leadership indicators
         let leadership_indicators = self.extract_leadership_indicators(&content_lower);
-        
+
         // Estimate years of experience
         let years_of_experience_estimate = self.estimate_years_of_experience(&content_lower);
-        
+
         // Analyze seniority signals
         let seniority_signals = self.analyze_seniority_signals(&content_lower);
-        
+
         // Determine role level
         let (detected_level, confidence) = self.determine_role_level(
             &experience_indicators,
@@ -351,7 +390,7 @@ impl IndustryAnalyzer {
             for mat in pattern.find_iter(content) {
                 let matched_text = mat.as_str();
                 let context = self.extract_surrounding_context(content, mat.start(), mat.end(), 50);
-                
+
                 indicators.push(ExperienceIndicator {
                     indicator_type: "experience_mention".to_string(),
                     description: matched_text.to_string(),
@@ -396,11 +435,12 @@ impl IndustryAnalyzer {
         for pattern in &self.leadership_patterns {
             for mat in pattern.find_iter(content) {
                 let matched_text = mat.as_str();
-                let context = self.extract_surrounding_context(content, mat.start(), mat.end(), 100);
-                
+                let context =
+                    self.extract_surrounding_context(content, mat.start(), mat.end(), 100);
+
                 // Try to extract team size if mentioned
                 let team_size = self.extract_team_size(&context);
-                
+
                 indicators.push(LeadershipIndicator {
                     indicator_type: "leadership_mention".to_string(),
                     description: matched_text.to_string(),
@@ -435,7 +475,8 @@ impl IndustryAnalyzer {
 
         // Estimate based on role progression and job count
         let job_count = self.count_job_positions(content);
-        let has_senior_roles = content.contains("senior") || content.contains("lead") || content.contains("principal");
+        let has_senior_roles =
+            content.contains("senior") || content.contains("lead") || content.contains("principal");
         let has_management = content.contains("manager") || content.contains("director");
 
         match (job_count, has_senior_roles, has_management) {
@@ -456,15 +497,47 @@ impl IndustryAnalyzer {
 
         let seniority_indicators = [
             ("mentoring", 1.5, "Mentoring experience indicates seniority"),
-            ("architecture", 2.0, "Architecture decisions show senior technical role"),
-            ("strategy", 1.8, "Strategic involvement indicates senior position"),
-            ("budget", 1.7, "Budget responsibility shows management seniority"),
-            ("hiring", 1.6, "Hiring involvement indicates leadership role"),
+            (
+                "architecture",
+                2.0,
+                "Architecture decisions show senior technical role",
+            ),
+            (
+                "strategy",
+                1.8,
+                "Strategic involvement indicates senior position",
+            ),
+            (
+                "budget",
+                1.7,
+                "Budget responsibility shows management seniority",
+            ),
+            (
+                "hiring",
+                1.6,
+                "Hiring involvement indicates leadership role",
+            ),
             ("stakeholder", 1.4, "Stakeholder management shows seniority"),
-            ("cross-functional", 1.3, "Cross-functional work indicates experience"),
-            ("implemented", 1.2, "Implementation experience shows hands-on seniority"),
-            ("designed", 1.4, "Design responsibility indicates senior technical role"),
-            ("led initiative", 2.0, "Leading initiatives shows leadership seniority"),
+            (
+                "cross-functional",
+                1.3,
+                "Cross-functional work indicates experience",
+            ),
+            (
+                "implemented",
+                1.2,
+                "Implementation experience shows hands-on seniority",
+            ),
+            (
+                "designed",
+                1.4,
+                "Design responsibility indicates senior technical role",
+            ),
+            (
+                "led initiative",
+                2.0,
+                "Leading initiatives shows leadership seniority",
+            ),
         ];
 
         for (indicator, strength, description) in &seniority_indicators {
@@ -491,7 +564,7 @@ impl IndustryAnalyzer {
         job_description: &str,
     ) -> (String, f64) {
         let mut scores: HashMap<String, f64> = HashMap::new();
-        
+
         // Initialize scores
         for level in &["entry", "mid", "senior", "lead", "executive"] {
             scores.insert(level.to_string(), 0.0);
@@ -505,17 +578,25 @@ impl IndustryAnalyzer {
                 6..=8 => *scores.get_mut("senior").unwrap() += 2.0,
                 9..=12 => *scores.get_mut("lead").unwrap() += 2.0,
                 13.. => *scores.get_mut("executive").unwrap() += 2.0,
-                _ => {}, // Handle negative values (shouldn't happen in practice)
+                _ => {} // Handle negative values (shouldn't happen in practice)
             }
         }
 
         // Experience indicators scoring
         for indicator in experience_indicators {
             match indicator.description.as_str() {
-                desc if desc.contains("senior") => *scores.get_mut("senior").unwrap() += indicator.weight,
-                desc if desc.contains("lead") || desc.contains("principal") => *scores.get_mut("lead").unwrap() += indicator.weight,
-                desc if desc.contains("director") || desc.contains("vp") => *scores.get_mut("executive").unwrap() += indicator.weight,
-                desc if desc.contains("manager") => *scores.get_mut("lead").unwrap() += indicator.weight * 0.8,
+                desc if desc.contains("senior") => {
+                    *scores.get_mut("senior").unwrap() += indicator.weight
+                }
+                desc if desc.contains("lead") || desc.contains("principal") => {
+                    *scores.get_mut("lead").unwrap() += indicator.weight
+                }
+                desc if desc.contains("director") || desc.contains("vp") => {
+                    *scores.get_mut("executive").unwrap() += indicator.weight
+                }
+                desc if desc.contains("manager") => {
+                    *scores.get_mut("lead").unwrap() += indicator.weight * 0.8
+                }
                 _ => *scores.get_mut("mid").unwrap() += indicator.weight * 0.5,
             }
         }
@@ -527,7 +608,7 @@ impl IndustryAnalyzer {
                     1..=3 => *scores.get_mut("senior").unwrap() += 1.0,
                     4..=10 => *scores.get_mut("lead").unwrap() += 1.5,
                     11.. => *scores.get_mut("executive").unwrap() += 2.0,
-                    _ => {}, // Handle zero or negative values
+                    _ => {} // Handle zero or negative values
                 }
             } else {
                 *scores.get_mut("senior").unwrap() += 0.5;
@@ -580,23 +661,28 @@ impl IndustryAnalyzer {
         let mut contexts = Vec::new();
         let content_lower = content.to_lowercase();
         let keyword_lower = keyword.to_lowercase();
-        
+
         let mut start = 0;
         while let Some(pos) = content_lower[start..].find(&keyword_lower) {
             let actual_pos = start + pos;
             let context_start = (actual_pos as i32 - 50).max(0) as usize;
             let context_end = (actual_pos + keyword.len() + 50).min(content.len());
-            
+
             let context = content[context_start..context_end].trim().to_string();
             contexts.push(context);
-            
+
             start = actual_pos + keyword.len();
         }
-        
+
         contexts
     }
 
-    fn extract_keyword_context_simple(&self, content: &str, keyword: &str, context_size: usize) -> String {
+    fn extract_keyword_context_simple(
+        &self,
+        content: &str,
+        keyword: &str,
+        context_size: usize,
+    ) -> String {
         if let Some(pos) = content.to_lowercase().find(&keyword.to_lowercase()) {
             let start = (pos as i32 - context_size as i32 / 2).max(0) as usize;
             let end = (pos + keyword.len() + context_size / 2).min(content.len());
@@ -608,7 +694,7 @@ impl IndustryAnalyzer {
 
     fn find_synonyms_in_content(&self, content: &str, keyword: &IndustryKeyword) -> Vec<String> {
         let mut found_synonyms = Vec::new();
-        
+
         if let Ok(synonyms) = serde_json::from_str::<Vec<String>>(&keyword.synonyms) {
             for synonym in synonyms {
                 if content.contains(&synonym.to_lowercase()) {
@@ -616,19 +702,26 @@ impl IndustryAnalyzer {
                 }
             }
         }
-        
+
         found_synonyms
     }
 
-    fn extract_surrounding_context(&self, content: &str, start: usize, end: usize, context_size: usize) -> String {
+    fn extract_surrounding_context(
+        &self,
+        content: &str,
+        start: usize,
+        end: usize,
+        context_size: usize,
+    ) -> String {
         let context_start = (start as i32 - context_size as i32).max(0) as usize;
         let context_end = (end + context_size).min(content.len());
         content[context_start..context_end].trim().to_string()
     }
 
     fn extract_team_size(&self, context: &str) -> Option<i32> {
-        let team_pattern = Regex::new(r"(?i)team\s+of\s+(\d+)|(\d+)\s+(?:person|people|member)").unwrap();
-        
+        let team_pattern =
+            Regex::new(r"(?i)team\s+of\s+(\d+)|(\d+)\s+(?:person|people|member)").unwrap();
+
         if let Some(captures) = team_pattern.captures(context) {
             if let Some(size_str) = captures.get(1).or_else(|| captures.get(2)) {
                 if let Ok(size) = size_str.as_str().parse::<i32>() {
@@ -636,7 +729,7 @@ impl IndustryAnalyzer {
                 }
             }
         }
-        
+
         None
     }
 
@@ -658,22 +751,30 @@ impl IndustryAnalyzer {
             Regex::new(r"(?i)(?:^|\n)\s*\d{4}\s*[-–—]\s*(?:\d{4}|present)").unwrap(),
             Regex::new(r"(?i)(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}").unwrap(),
         ];
-        
+
         let mut job_count = 0;
         for pattern in &job_patterns {
             job_count += pattern.find_iter(content).count();
         }
-        
+
         // Remove duplicates and estimate
         (job_count / 2).max(1) // Rough estimate
     }
 
     // Placeholder implementations for certification and trend analysis
-    fn check_industry_certifications(&self, _resume_content: &str, _industry: &str) -> Vec<CertificationCheck> {
+    fn check_industry_certifications(
+        &self,
+        _resume_content: &str,
+        _industry: &str,
+    ) -> Vec<CertificationCheck> {
         vec![] // Simplified implementation
     }
 
-    fn analyze_industry_trends(&self, _resume_content: &str, _industry: &str) -> Vec<TrendAnalysis> {
+    fn analyze_industry_trends(
+        &self,
+        _resume_content: &str,
+        _industry: &str,
+    ) -> Vec<TrendAnalysis> {
         vec![] // Simplified implementation
     }
 
@@ -688,7 +789,8 @@ impl IndustryAnalyzer {
         }
 
         let total_weight: f64 = industry_keywords.iter().map(|kw| kw.weight).sum();
-        let matched_weight: f64 = industry_keywords.iter()
+        let matched_weight: f64 = industry_keywords
+            .iter()
             .filter(|kw| kw.found)
             .map(|kw| kw.weight * kw.frequency as f64)
             .sum();
@@ -717,17 +819,17 @@ impl IndustryAnalyzer {
 
     fn build_industry_patterns() -> HashMap<String, Vec<Regex>> {
         let mut patterns = HashMap::new();
-        
+
         // Technology patterns
         patterns.insert("technology".to_string(), vec![
             Regex::new(r"(?i)\b(?:software|programming|development|coding|algorithm|database|api|framework|javascript|python|java|react|angular|vue|node|docker|kubernetes|aws|azure|gcp|devops|agile|scrum|git)\b").unwrap(),
         ]);
-        
+
         // Healthcare patterns
         patterns.insert("healthcare".to_string(), vec![
             Regex::new(r"(?i)\b(?:medical|clinical|patient|healthcare|hospital|physician|nurse|pharmacy|medical device|fda|hipaa|ehr|emr|clinical trial)\b").unwrap(),
         ]);
-        
+
         // Finance patterns
         patterns.insert("finance".to_string(), vec![
             Regex::new(r"(?i)\b(?:financial|banking|investment|portfolio|trading|risk management|compliance|audit|accounting|fintech|blockchain|cryptocurrency|loan|credit|insurance)\b").unwrap(),
@@ -769,8 +871,11 @@ mod tests {
     async fn test_industry_detection() {
         let analyzer = setup_test_analyzer().await;
         let resume_content = "Experienced software engineer with Python and React development";
-        
-        let detected = analyzer.detect_industry_from_content(resume_content).await.unwrap();
+
+        let detected = analyzer
+            .detect_industry_from_content(resume_content)
+            .await
+            .unwrap();
         assert_eq!(detected, "technology");
     }
 
@@ -778,7 +883,7 @@ mod tests {
     async fn test_experience_estimation() {
         let analyzer = IndustryAnalyzer::new(Database::new().await.unwrap());
         let content = "Senior software engineer with 5 years of experience";
-        
+
         let years = analyzer.estimate_years_of_experience(&content.to_lowercase());
         assert_eq!(years, Some(5));
     }
@@ -788,7 +893,7 @@ mod tests {
         let analyzer = IndustryAnalyzer::new(Database::new().await.unwrap());
         let resume_content = "Senior software engineer who led a team of 5 developers";
         let job_description = "Looking for a senior engineer";
-        
+
         let assessment = analyzer.assess_role_level(resume_content, job_description);
         assert_eq!(assessment.detected_level, "senior");
         assert!(assessment.confidence > 0.5);

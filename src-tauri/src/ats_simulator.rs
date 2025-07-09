@@ -1,8 +1,8 @@
 use anyhow::Result;
+use log::info;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use regex::Regex;
-use log::info;
 
 use crate::database::Database;
 use crate::format_checker::{FormatCompatibilityChecker, FormatCompatibilityReport};
@@ -251,7 +251,9 @@ pub trait ATSParser: Send + Sync {
     fn parse_resume(&self, content: &str, format: &str) -> Result<ParsedResume>;
     fn extract_keywords(&self, content: &str) -> Result<Vec<String>>;
     fn check_format_compatibility(&self, content: &str) -> Result<FormatCompatibilityScore>;
+    #[allow(dead_code)]
     fn get_system_name(&self) -> &str;
+    #[allow(dead_code)]
     fn get_parsing_rules(&self) -> &[ParsingRule];
 }
 
@@ -289,6 +291,12 @@ pub struct ParsingRule {
 // Greenhouse ATS Parser
 pub struct GreenhouseParser {
     parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for GreenhouseParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GreenhouseParser {
@@ -354,14 +362,14 @@ impl ATSParser for GreenhouseParser {
 
     fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
         let mut keywords = Vec::new();
-        
+
         // Extract technical keywords
         let tech_patterns = vec![
             r"(?i)\b(python|java|javascript|react|angular|vue|node\.?js)\b",
             r"(?i)\b(aws|azure|gcp|docker|kubernetes|git)\b",
             r"(?i)\b(sql|mysql|postgresql|mongodb|redis)\b",
         ];
-        
+
         for pattern in tech_patterns {
             if let Ok(regex) = Regex::new(pattern) {
                 for captures in regex.captures_iter(content) {
@@ -415,7 +423,9 @@ impl ATSParser for GreenhouseParser {
 impl GreenhouseParser {
     fn parse_section(&self, content: &str, section: &str) -> Result<ParsedSection> {
         let pattern = match section {
-            "contact" => r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})",
+            "contact" => {
+                r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})"
+            }
             "summary" => r"(?i)(summary|objective|profile)[\s\S]*?(?=\n\s*[A-Z])",
             "experience" => r"(?i)(experience|employment)[\s\S]*?(?=\n\s*[A-Z])",
             "education" => r"(?i)(education|academic)[\s\S]*?(?=\n\s*[A-Z])",
@@ -449,6 +459,12 @@ pub struct LeverParser {
     parsing_rules: Vec<ParsingRule>,
 }
 
+impl Default for LeverParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LeverParser {
     pub fn new() -> Self {
         Self {
@@ -474,7 +490,7 @@ impl ATSParser for LeverParser {
     fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
         // Lever is better at parsing structured content but has issues with graphics
         let mut extracted_sections = HashMap::new();
-        let mut parsing_errors = Vec::new();
+        let parsing_errors = Vec::new();
 
         // Lever specific parsing logic
         for section in &["contact", "summary", "experience", "education", "skills"] {
@@ -482,13 +498,17 @@ impl ATSParser for LeverParser {
             extracted_sections.insert(section.to_string(), parsed_section);
         }
 
-        let success_rate = extracted_sections.values()
+        let success_rate = extracted_sections
+            .values()
             .map(|s| if s.confidence > 0.5 { 1.0 } else { 0.0 })
-            .sum::<f64>() / extracted_sections.len() as f64;
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
 
-        let confidence_score = extracted_sections.values()
+        let confidence_score = extracted_sections
+            .values()
             .map(|s| s.confidence)
-            .sum::<f64>() / extracted_sections.len() as f64;
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
 
         Ok(ParsedResume {
             success_rate,
@@ -501,7 +521,7 @@ impl ATSParser for LeverParser {
     fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
         // Lever is good at extracting keywords from bullet points
         let mut keywords = Vec::new();
-        
+
         let bullet_regex = Regex::new(r"[•\-\*]\s+(.+)").unwrap();
         for captures in bullet_regex.captures_iter(content) {
             if let Some(bullet_content) = captures.get(1) {
@@ -559,7 +579,7 @@ impl LeverParser {
         // Lever-specific parsing logic
         let confidence = match section {
             "experience" | "education" => 0.85, // Lever is good at these
-            "skills" => 0.90, // Excellent at skills
+            "skills" => 0.90,                   // Excellent at skills
             "summary" => 0.75,
             "contact" => 0.80,
             _ => 0.5,
@@ -577,6 +597,12 @@ impl LeverParser {
 // Workday ATS Parser
 pub struct WorkdayParser {
     parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for WorkdayParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WorkdayParser {
@@ -604,7 +630,7 @@ impl ATSParser for WorkdayParser {
     fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
         // Workday has strict format requirements
         let mut extracted_sections = HashMap::new();
-        let mut parsing_errors = Vec::new();
+        let parsing_errors = Vec::new();
 
         // Workday specific parsing with stricter requirements
         for section in &["contact", "summary", "experience", "education", "skills"] {
@@ -612,13 +638,17 @@ impl ATSParser for WorkdayParser {
             extracted_sections.insert(section.to_string(), parsed_section);
         }
 
-        let success_rate = extracted_sections.values()
+        let success_rate = extracted_sections
+            .values()
             .map(|s| if s.confidence > 0.6 { 1.0 } else { 0.0 })
-            .sum::<f64>() / extracted_sections.len() as f64;
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
 
-        let confidence_score = extracted_sections.values()
+        let confidence_score = extracted_sections
+            .values()
             .map(|s| s.confidence)
-            .sum::<f64>() / extracted_sections.len() as f64;
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
 
         Ok(ParsedResume {
             success_rate,
@@ -631,13 +661,13 @@ impl ATSParser for WorkdayParser {
     fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
         // Workday focuses heavily on education and certifications
         let mut keywords = Vec::new();
-        
+
         let patterns = vec![
             r"(?i)\b(bachelor|master|phd|doctorate|degree)\b",
             r"(?i)\b(certified|certification|license|accredited)\b",
             r"(?i)\b(university|college|institute|school)\b",
         ];
-        
+
         for pattern in patterns {
             if let Ok(regex) = Regex::new(pattern) {
                 for captures in regex.captures_iter(content) {
@@ -671,7 +701,8 @@ impl ATSParser for WorkdayParser {
             if content.to_lowercase().contains(font) {
                 score -= 10.0;
                 issues.push(format!("Non-standard font '{}' detected", font));
-                recommendations.push("Use professional fonts like Arial or Times New Roman".to_string());
+                recommendations
+                    .push("Use professional fonts like Arial or Times New Roman".to_string());
             }
         }
 
@@ -707,10 +738,10 @@ impl WorkdayParser {
             content: format!("Workday parsed {} section", section),
             confidence,
             structure_preserved: confidence > 0.7,
-            issues: if confidence < 0.7 { 
+            issues: if confidence < 0.7 {
                 vec![format!("Lower confidence parsing for {}", section)]
-            } else { 
-                vec![] 
+            } else {
+                vec![]
             },
         }
     }
@@ -731,7 +762,7 @@ impl ATSSimulator {
         let parsing_patterns = Self::build_parsing_patterns();
         let format_checkers = Self::build_format_checkers();
         let format_checker = FormatCompatibilityChecker::new();
-        
+
         // Initialize ATS parsers
         let mut parsers: HashMap<String, Box<dyn ATSParser>> = HashMap::new();
         parsers.insert("greenhouse".to_string(), Box::new(GreenhouseParser::new()));
@@ -759,7 +790,8 @@ impl ATSSimulator {
         let parsing_analysis = self.analyze_parsing_capability(resume_content).await?;
 
         // 2. Simulate keyword extraction
-        let keyword_extraction = self.simulate_keyword_extraction(resume_content, target_job_keywords);
+        let keyword_extraction =
+            self.simulate_keyword_extraction(resume_content, target_job_keywords);
 
         // 3. Analyze format compatibility
         let format_analysis = self.analyze_format_compatibility(resume_content);
@@ -767,13 +799,15 @@ impl ATSSimulator {
         // 4. Run system-specific simulations
         let mut system_simulations = HashMap::new();
         for (system_name, system_config) in &self.ats_systems {
-            let system_result = self.simulate_system_processing(
-                resume_content,
-                system_config,
-                target_job_keywords,
-                &parsing_analysis,
-                &format_analysis,
-            ).await?;
+            let system_result = self
+                .simulate_system_processing(
+                    resume_content,
+                    system_config,
+                    target_job_keywords,
+                    &parsing_analysis,
+                    &format_analysis,
+                )
+                .await?;
             system_simulations.insert(system_name.clone(), system_result);
         }
 
@@ -815,24 +849,28 @@ impl ATSSimulator {
         info!("Starting enhanced ATS simulation with multiple parsers");
 
         // 1. Run comprehensive format compatibility check
-        let format_report = self.format_checker.check_comprehensive_compatibility(resume_content)?;
+        let format_report = self
+            .format_checker
+            .check_comprehensive_compatibility(resume_content)?;
 
         // 2. Simulate parsing with each ATS system
         let mut system_simulations = HashMap::new();
         for (system_name, parser) in &self.parsers {
             info!("Simulating parsing with {}", system_name);
-            
+
             let parsed_resume = parser.parse_resume(resume_content, "docx")?;
             let extracted_keywords = parser.extract_keywords(resume_content)?;
             let format_compatibility = parser.check_format_compatibility(resume_content)?;
 
-            let keyword_detection_rate = self.calculate_keyword_detection_rate(&extracted_keywords, target_job_keywords);
-            
+            let keyword_detection_rate =
+                self.calculate_keyword_detection_rate(&extracted_keywords, target_job_keywords);
+
             let system_result = ATSSystemResult {
                 system_name: system_name.clone(),
                 compatibility_score: format_compatibility.score,
                 parsing_success_rate: parsed_resume.success_rate,
-                extracted_sections: self.convert_to_extraction_quality(&parsed_resume.extracted_sections),
+                extracted_sections: self
+                    .convert_to_extraction_quality(&parsed_resume.extracted_sections),
                 keyword_detection_rate,
                 format_compliance: FormatCompliance {
                     meets_standards: format_compatibility.score > 70.0,
@@ -843,34 +881,34 @@ impl ATSSimulator {
                 specific_issues: parsed_resume.parsing_errors,
                 recommendations: format_compatibility.recommendations,
             };
-            
+
             system_simulations.insert(system_name.clone(), system_result);
         }
 
         // 3. Calculate overall metrics
         let overall_ats_score = self.calculate_overall_ats_score(&system_simulations);
-        
+
         // 4. Create enhanced parsing analysis from format report
-        let parsing_analysis = self.create_parsing_analysis_from_format_report(&format_report, resume_content)?;
-        
+        let parsing_analysis =
+            self.create_parsing_analysis_from_format_report(&format_report, resume_content)?;
+
         // 5. Enhanced keyword extraction using all parsers
-        let keyword_extraction = self.enhanced_keyword_extraction(resume_content, target_job_keywords);
-        
+        let keyword_extraction =
+            self.enhanced_keyword_extraction(resume_content, target_job_keywords);
+
         // 6. Create format analysis from format report
         let format_analysis = self.create_format_analysis_from_report(&format_report);
-        
+
         // 7. Generate comprehensive optimization recommendations
         let optimization_recommendations = self.generate_enhanced_optimization_recommendations(
             &format_report,
             &system_simulations,
             &keyword_extraction,
         );
-        
+
         // 8. Identify critical compatibility issues
-        let compatibility_issues = self.identify_enhanced_compatibility_issues(
-            &format_report,
-            &system_simulations,
-        );
+        let compatibility_issues =
+            self.identify_enhanced_compatibility_issues(&format_report, &system_simulations);
 
         Ok(ATSSimulationResult {
             overall_ats_score,
@@ -883,39 +921,72 @@ impl ATSSimulator {
         })
     }
 
-    fn calculate_keyword_detection_rate(&self, extracted_keywords: &[String], target_keywords: &[String]) -> f64 {
+    fn calculate_keyword_detection_rate(
+        &self,
+        extracted_keywords: &[String],
+        target_keywords: &[String],
+    ) -> f64 {
         if target_keywords.is_empty() {
             return 1.0;
         }
-        
+
         let mut found_count = 0;
         for target in target_keywords {
-            if extracted_keywords.iter().any(|k| k.to_lowercase().contains(&target.to_lowercase())) {
+            if extracted_keywords
+                .iter()
+                .any(|k| k.to_lowercase().contains(&target.to_lowercase()))
+            {
                 found_count += 1;
             }
         }
-        
+
         found_count as f64 / target_keywords.len() as f64
     }
 
-    fn convert_to_extraction_quality(&self, sections: &HashMap<String, ParsedSection>) -> HashMap<String, ExtractionQuality> {
-        sections.iter().map(|(key, section)| {
-            (key.clone(), ExtractionQuality {
-                accuracy: section.confidence,
-                completeness: if section.content.is_empty() { 0.0 } else { 0.8 },
-                structure_preservation: if section.structure_preserved { 1.0 } else { 0.5 },
-                issues: section.issues.clone(),
+    fn convert_to_extraction_quality(
+        &self,
+        sections: &HashMap<String, ParsedSection>,
+    ) -> HashMap<String, ExtractionQuality> {
+        sections
+            .iter()
+            .map(|(key, section)| {
+                (
+                    key.clone(),
+                    ExtractionQuality {
+                        accuracy: section.confidence,
+                        completeness: if section.content.is_empty() { 0.0 } else { 0.8 },
+                        structure_preservation: if section.structure_preserved {
+                            1.0
+                        } else {
+                            0.5
+                        },
+                        issues: section.issues.clone(),
+                    },
+                )
             })
-        }).collect()
+            .collect()
     }
 
-    fn create_parsing_analysis_from_format_report(&self, format_report: &FormatCompatibilityReport, content: &str) -> Result<ParsingAnalysis> {
+    fn create_parsing_analysis_from_format_report(
+        &self,
+        format_report: &FormatCompatibilityReport,
+        content: &str,
+    ) -> Result<ParsingAnalysis> {
         // Convert format report data to parsing analysis
-        let section_detection = format_report.parsing_simulation.successful_sections.iter()
+        let section_detection = format_report
+            .parsing_simulation
+            .successful_sections
+            .iter()
             .map(|s| (s.clone(), true))
-            .chain(format_report.parsing_simulation.failed_sections.iter().map(|s| (s.clone(), false)))
+            .chain(
+                format_report
+                    .parsing_simulation
+                    .failed_sections
+                    .iter()
+                    .map(|s| (s.clone(), false)),
+            )
             .collect();
-        
+
         Ok(ParsingAnalysis {
             structure_clarity: format_report.parsing_simulation.extraction_accuracy,
             section_detection,
@@ -923,20 +994,28 @@ impl ATSSimulator {
             work_experience_parsing: self.analyze_experience_parsing(content),
             education_parsing: self.analyze_education_parsing(content),
             skills_parsing: self.analyze_skills_parsing(content),
-            formatting_issues: format_report.format_issues.iter().map(|issue| FormattingIssue {
-                issue_type: issue.issue_type.clone(),
-                description: issue.description.clone(),
-                severity: issue.severity.clone(),
-                line_number: None,
-                suggestion: issue.recommendation.clone(),
-            }).collect(),
+            formatting_issues: format_report
+                .format_issues
+                .iter()
+                .map(|issue| FormattingIssue {
+                    issue_type: issue.issue_type.clone(),
+                    description: issue.description.clone(),
+                    severity: issue.severity.clone(),
+                    line_number: None,
+                    suggestion: issue.recommendation.clone(),
+                })
+                .collect(),
         })
     }
 
-    fn enhanced_keyword_extraction(&self, resume_content: &str, target_keywords: &[String]) -> KeywordExtractionResult {
+    fn enhanced_keyword_extraction(
+        &self,
+        resume_content: &str,
+        target_keywords: &[String],
+    ) -> KeywordExtractionResult {
         let mut all_keywords = Vec::new();
         let mut extraction_scores = Vec::new();
-        
+
         // Use all parsers to extract keywords
         for parser in self.parsers.values() {
             if let Ok(keywords) = parser.extract_keywords(resume_content) {
@@ -944,33 +1023,46 @@ impl ATSSimulator {
                 extraction_scores.push(0.8); // Base confidence for parser extraction
             }
         }
-        
+
         // Remove duplicates
         all_keywords.sort();
         all_keywords.dedup();
-        
+
         // Convert to ExtractedKeyword format
-        let keywords_found: Vec<ExtractedKeyword> = all_keywords.iter().map(|keyword| {
-            ExtractedKeyword {
+        let keywords_found: Vec<ExtractedKeyword> = all_keywords
+            .iter()
+            .map(|keyword| ExtractedKeyword {
                 keyword: keyword.clone(),
                 confidence: 0.8,
                 context: "Extracted by ATS parser".to_string(),
                 section: "general".to_string(),
-                importance: if target_keywords.iter().any(|t| t.to_lowercase() == keyword.to_lowercase()) { 1.0 } else { 0.5 },
-            }
-        }).collect();
-        
-        let missed_keywords: Vec<String> = target_keywords.iter()
-            .filter(|target| !all_keywords.iter().any(|k| k.to_lowercase().contains(&target.to_lowercase())))
+                importance: if target_keywords
+                    .iter()
+                    .any(|t| t.to_lowercase() == keyword.to_lowercase())
+                {
+                    1.0
+                } else {
+                    0.5
+                },
+            })
+            .collect();
+
+        let missed_keywords: Vec<String> = target_keywords
+            .iter()
+            .filter(|target| {
+                !all_keywords
+                    .iter()
+                    .any(|k| k.to_lowercase().contains(&target.to_lowercase()))
+            })
             .cloned()
             .collect();
-        
+
         let extraction_accuracy = if target_keywords.is_empty() {
             1.0
         } else {
             (target_keywords.len() - missed_keywords.len()) as f64 / target_keywords.len() as f64
         };
-        
+
         KeywordExtractionResult {
             extraction_accuracy,
             keywords_found,
@@ -980,35 +1072,88 @@ impl ATSSimulator {
         }
     }
 
-    fn create_format_analysis_from_report(&self, format_report: &FormatCompatibilityReport) -> FormatAnalysis {
+    fn create_format_analysis_from_report(
+        &self,
+        format_report: &FormatCompatibilityReport,
+    ) -> FormatAnalysis {
         // Convert format compatibility report to format analysis
-        let file_format_compatibility = format_report.ats_specific_scores.iter()
+        let file_format_compatibility = format_report
+            .ats_specific_scores
+            .iter()
             .map(|(ats, score)| (ats.clone(), *score > 70.0))
             .collect();
-        
+
         FormatAnalysis {
             file_format_compatibility,
             layout_complexity: 100.0 - format_report.overall_score,
             font_compatibility: FontCompatibility {
-                standard_fonts_used: !format_report.format_issues.iter().any(|i| i.issue_type == "non_standard_font"),
+                standard_fonts_used: !format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "non_standard_font"),
                 font_consistency: 0.9,
                 readability_score: 0.85,
-                problematic_fonts: format_report.format_issues.iter()
+                problematic_fonts: format_report
+                    .format_issues
+                    .iter()
                     .filter(|i| i.issue_type == "non_standard_font")
                     .map(|i| i.description.clone())
                     .collect(),
             },
             graphics_elements: GraphicsAnalysis {
-                has_graphics: format_report.format_issues.iter().any(|i| i.issue_type == "text_in_images"),
-                graphics_compatibility: if format_report.format_issues.iter().any(|i| i.issue_type == "text_in_images") { 0.0 } else { 1.0 },
+                has_graphics: format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "text_in_images"),
+                graphics_compatibility: if format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "text_in_images")
+                {
+                    0.0
+                } else {
+                    1.0
+                },
                 alt_text_present: false,
-                graphics_impact: if format_report.format_issues.iter().any(|i| i.issue_type == "text_in_images") { "negative".to_string() } else { "neutral".to_string() },
+                graphics_impact: if format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "text_in_images")
+                {
+                    "negative".to_string()
+                } else {
+                    "neutral".to_string()
+                },
                 recommendations: vec!["Ensure all text is in readable format".to_string()],
             },
             table_usage: TableAnalysis {
-                tables_detected: if format_report.format_issues.iter().any(|i| i.issue_type == "tables") { 1 } else { 0 },
-                table_compatibility: if format_report.format_issues.iter().any(|i| i.issue_type == "tables") { 0.3 } else { 1.0 },
-                parsing_difficulty: if format_report.format_issues.iter().any(|i| i.issue_type == "tables") { 0.8 } else { 0.1 },
+                tables_detected: if format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "tables")
+                {
+                    1
+                } else {
+                    0
+                },
+                table_compatibility: if format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "tables")
+                {
+                    0.3
+                } else {
+                    1.0
+                },
+                parsing_difficulty: if format_report
+                    .format_issues
+                    .iter()
+                    .any(|i| i.issue_type == "tables")
+                {
+                    0.8
+                } else {
+                    0.1
+                },
                 alternative_suggestions: vec!["Convert tables to plain text format".to_string()],
             },
             line_spacing: 1.0,
@@ -1028,21 +1173,22 @@ impl ATSSimulator {
         _keyword_extraction: &KeywordExtractionResult,
     ) -> Vec<ATSOptimizationRecommendation> {
         let mut recommendations = Vec::new();
-        
+
         // Generate recommendations based on format issues
         for issue in &format_report.format_issues {
             let priority = match issue.severity.as_str() {
                 "critical" => "critical",
-                "high" => "high", 
+                "high" => "high",
                 "medium" => "medium",
                 _ => "low",
             };
-            
-            let affected_systems: Vec<String> = system_simulations.iter()
+
+            let affected_systems: Vec<String> = system_simulations
+                .iter()
                 .filter(|(_, result)| result.compatibility_score < 80.0)
                 .map(|(name, _)| name.clone())
                 .collect();
-            
+
             recommendations.push(ATSOptimizationRecommendation {
                 category: issue.issue_type.clone(),
                 priority: priority.to_string(),
@@ -1054,15 +1200,21 @@ impl ATSSimulator {
                 examples: vec![],
             });
         }
-        
+
         // Sort by priority
         recommendations.sort_by(|a, b| {
             let priority_order = ["critical", "high", "medium", "low"];
-            let a_index = priority_order.iter().position(|&p| p == a.priority).unwrap_or(3);
-            let b_index = priority_order.iter().position(|&p| p == b.priority).unwrap_or(3);
+            let a_index = priority_order
+                .iter()
+                .position(|&p| p == a.priority)
+                .unwrap_or(3);
+            let b_index = priority_order
+                .iter()
+                .position(|&p| p == b.priority)
+                .unwrap_or(3);
             a_index.cmp(&b_index)
         });
-        
+
         recommendations
     }
 
@@ -1072,27 +1224,35 @@ impl ATSSimulator {
         system_simulations: &HashMap<String, ATSSystemResult>,
     ) -> Vec<CompatibilityIssue> {
         let mut issues = Vec::new();
-        
+
         // Convert format issues to compatibility issues
         for format_issue in &format_report.format_issues {
-            let affected_systems: Vec<String> = system_simulations.iter()
+            let affected_systems: Vec<String> = system_simulations
+                .iter()
                 .filter(|(_, result)| {
-                    result.specific_issues.iter().any(|issue| issue.contains(&format_issue.issue_type))
+                    result
+                        .specific_issues
+                        .iter()
+                        .any(|issue| issue.contains(&format_issue.issue_type))
                 })
                 .map(|(name, _)| name.clone())
                 .collect();
-            
+
             issues.push(CompatibilityIssue {
                 severity: format_issue.severity.clone(),
                 issue_type: format_issue.issue_type.clone(),
                 description: format_issue.description.clone(),
                 affected_systems,
                 impact_score: format_issue.impact_score,
-                resolution_difficulty: if format_issue.impact_score > 20.0 { "hard".to_string() } else { "medium".to_string() },
+                resolution_difficulty: if format_issue.impact_score > 20.0 {
+                    "hard".to_string()
+                } else {
+                    "medium".to_string()
+                },
                 fix_suggestions: vec![format_issue.recommendation.clone()],
             });
         }
-        
+
         issues
     }
 
@@ -1117,7 +1277,11 @@ impl ATSSimulator {
         })
     }
 
-    fn simulate_keyword_extraction(&self, resume_content: &str, target_keywords: &[String]) -> KeywordExtractionResult {
+    fn simulate_keyword_extraction(
+        &self,
+        resume_content: &str,
+        target_keywords: &[String],
+    ) -> KeywordExtractionResult {
         let mut keywords_found = Vec::new();
         let mut missed_keywords = Vec::new();
         let content_lower = resume_content.to_lowercase();
@@ -1130,7 +1294,7 @@ impl ATSSimulator {
                     let start = (pos as i32 - 50).max(0) as usize;
                     let end = (pos + keyword_lower.len() + 50).min(resume_content.len());
                     let context = resume_content[start..end].trim().to_string();
-                    
+
                     keywords_found.push(ExtractedKeyword {
                         keyword: target_keyword.clone(),
                         confidence: 0.95,
@@ -1193,35 +1357,22 @@ impl ATSSimulator {
             format_analysis,
         );
 
-        let parsing_success_rate = self.calculate_parsing_success_rate(
-            system_config,
-            parsing_analysis,
-        );
+        let parsing_success_rate =
+            self.calculate_parsing_success_rate(system_config, parsing_analysis);
 
-        let extracted_sections = self.simulate_section_extraction(
-            system_config,
-            parsing_analysis,
-        );
+        let extracted_sections = self.simulate_section_extraction(system_config, parsing_analysis);
 
         // Extract keywords from content first
         let extracted_keywords = self.extract_keywords(resume_content);
-        let keyword_detection_rate = self.calculate_keyword_detection_rate(&extracted_keywords, target_keywords);
+        let keyword_detection_rate =
+            self.calculate_keyword_detection_rate(&extracted_keywords, target_keywords);
 
-        let format_compliance = self.assess_format_compliance(
-            system_config,
-            format_analysis,
-        );
+        let format_compliance = self.assess_format_compliance(system_config, format_analysis);
 
-        let specific_issues = self.identify_system_specific_issues(
-            system_config,
-            parsing_analysis,
-            format_analysis,
-        );
+        let specific_issues =
+            self.identify_system_specific_issues(system_config, parsing_analysis, format_analysis);
 
-        let recommendations = self.generate_system_recommendations(
-            system_config,
-            &specific_issues,
-        );
+        let recommendations = self.generate_system_recommendations(system_config, &specific_issues);
 
         Ok(ATSSystemResult {
             system_name: system_config.system_name.clone(),
@@ -1244,16 +1395,33 @@ impl ATSSimulator {
         let section_patterns = vec![
             ("contact_info", vec!["email", "phone", "@", "linkedin"]),
             ("summary", vec!["summary", "objective", "profile"]),
-            ("experience", vec!["experience", "employment", "work history", "professional"]),
-            ("education", vec!["education", "academic", "degree", "university", "college"]),
-            ("skills", vec!["skills", "technical", "proficiencies", "technologies"]),
-            ("certifications", vec!["certification", "certified", "license"]),
+            (
+                "experience",
+                vec!["experience", "employment", "work history", "professional"],
+            ),
+            (
+                "education",
+                vec!["education", "academic", "degree", "university", "college"],
+            ),
+            (
+                "skills",
+                vec!["skills", "technical", "proficiencies", "technologies"],
+            ),
+            (
+                "certifications",
+                vec!["certification", "certified", "license"],
+            ),
             ("projects", vec!["projects", "portfolio", "accomplishments"]),
-            ("awards", vec!["awards", "honors", "recognition", "achievements"]),
+            (
+                "awards",
+                vec!["awards", "honors", "recognition", "achievements"],
+            ),
         ];
 
         for (section_name, keywords) in section_patterns {
-            let found = keywords.iter().any(|&keyword| content_lower.contains(keyword));
+            let found = keywords
+                .iter()
+                .any(|&keyword| content_lower.contains(keyword));
             sections.insert(section_name.to_string(), found);
         }
 
@@ -1262,21 +1430,32 @@ impl ATSSimulator {
 
     fn analyze_contact_extraction(&self, content: &str) -> ContactExtractionResult {
         let email_pattern = Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
-        let phone_pattern = Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})").unwrap();
+        let phone_pattern =
+            Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})")
+                .unwrap();
         let linkedin_pattern = Regex::new(r"linkedin\.com/in/[a-zA-Z0-9-]+").unwrap();
 
         let email_detected = email_pattern.is_match(content);
         let phone_detected = phone_pattern.is_match(content);
-        let linkedin_detected = linkedin_pattern.is_match(content) || content.to_lowercase().contains("linkedin");
-        
-        // Simple address detection
-        let address_detected = content.to_lowercase().contains("address") || 
-                              content.contains(", ") && (content.contains("Street") || content.contains("Ave") || content.contains("Rd"));
+        let linkedin_detected =
+            linkedin_pattern.is_match(content) || content.to_lowercase().contains("linkedin");
 
-        let detected_count = [email_detected, phone_detected, address_detected, linkedin_detected]
-            .iter()
-            .filter(|&&x| x)
-            .count();
+        // Simple address detection
+        let address_detected = content.to_lowercase().contains("address")
+            || content.contains(", ")
+                && (content.contains("Street")
+                    || content.contains("Ave")
+                    || content.contains("Rd"));
+
+        let detected_count = [
+            email_detected,
+            phone_detected,
+            address_detected,
+            linkedin_detected,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
 
         let extraction_confidence = detected_count as f64 / 4.0;
 
@@ -1300,22 +1479,24 @@ impl ATSSimulator {
 
     fn analyze_experience_parsing(&self, content: &str) -> ExperienceParsingResult {
         let content_lower = content.to_lowercase();
-        
+
         // Count potential job entries
         let job_indicators = ["company", "employer", "position", "role", "title"];
-        let jobs_detected = job_indicators.iter()
+        let jobs_detected = job_indicators
+            .iter()
             .map(|&indicator| content_lower.matches(indicator).count())
             .max()
             .unwrap_or(0) as i32;
 
         // Analyze date patterns
-        let date_patterns = vec![
+        let date_patterns = [
             Regex::new(r"\d{4}\s*[-–]\s*\d{4}").unwrap(),
             Regex::new(r"\d{4}\s*[-–]\s*present").unwrap(),
             Regex::new(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}").unwrap(),
         ];
 
-        let date_matches: usize = date_patterns.iter()
+        let date_matches: usize = date_patterns
+            .iter()
             .map(|pattern| pattern.find_iter(content).count())
             .sum();
 
@@ -1325,17 +1506,19 @@ impl ATSSimulator {
             0.0
         };
 
-        let title_extraction_accuracy = if content_lower.contains("title") || content_lower.contains("position") {
-            0.9
-        } else {
-            0.6
-        };
+        let title_extraction_accuracy =
+            if content_lower.contains("title") || content_lower.contains("position") {
+                0.9
+            } else {
+                0.6
+            };
 
-        let company_extraction_accuracy = if content_lower.contains("company") || content_lower.contains("employer") {
-            0.9
-        } else {
-            0.7
-        };
+        let company_extraction_accuracy =
+            if content_lower.contains("company") || content_lower.contains("employer") {
+                0.9
+            } else {
+                0.7
+            };
 
         let description_parsing_quality = 0.8; // Simplified assessment
 
@@ -1362,15 +1545,34 @@ impl ATSSimulator {
 
     fn analyze_education_parsing(&self, content: &str) -> EducationParsingResult {
         let content_lower = content.to_lowercase();
-        
-        let education_keywords = ["university", "college", "degree", "bachelor", "master", "phd", "doctorate"];
-        let institutions_detected = education_keywords.iter()
+
+        let education_keywords = [
+            "university",
+            "college",
+            "degree",
+            "bachelor",
+            "master",
+            "phd",
+            "doctorate",
+        ];
+        let institutions_detected = education_keywords
+            .iter()
             .map(|&keyword| content_lower.matches(keyword).count())
             .max()
             .unwrap_or(0) as i32;
 
-        let degree_keywords = ["bachelor", "master", "phd", "doctorate", "b.s.", "m.s.", "b.a.", "m.a."];
-        let degree_mentions = degree_keywords.iter()
+        let degree_keywords = [
+            "bachelor",
+            "master",
+            "phd",
+            "doctorate",
+            "b.s.",
+            "m.s.",
+            "b.a.",
+            "m.a.",
+        ];
+        let degree_mentions = degree_keywords
+            .iter()
             .map(|&keyword| content_lower.matches(keyword).count())
             .sum::<usize>();
 
@@ -1382,9 +1584,10 @@ impl ATSSimulator {
 
         let date_parsing_accuracy = 0.8; // Simplified
         let gpa_detection = content_lower.contains("gpa") || content_lower.contains("grade point");
-        
+
         let certification_keywords = ["certification", "certified", "license", "credential"];
-        let certification_detection = certification_keywords.iter()
+        let certification_detection = certification_keywords
+            .iter()
             .map(|&keyword| content_lower.matches(keyword).count())
             .sum::<usize>() as i32;
 
@@ -1405,20 +1608,29 @@ impl ATSSimulator {
 
     fn analyze_skills_parsing(&self, content: &str) -> SkillsParsingResult {
         let content_lower = content.to_lowercase();
-        
+
         // Technical skills patterns
-        let technical_patterns = vec![
-            Regex::new(r"(?i)\b(python|java|javascript|c\+\+|sql|html|css|react|angular|vue)\b").unwrap(),
+        let technical_patterns = [
+            Regex::new(r"(?i)\b(python|java|javascript|c\+\+|sql|html|css|react|angular|vue)\b")
+                .unwrap(),
             Regex::new(r"(?i)\b(aws|azure|docker|kubernetes|git|linux|windows)\b").unwrap(),
         ];
 
-        let technical_skills: usize = technical_patterns.iter()
+        let technical_skills: usize = technical_patterns
+            .iter()
             .map(|pattern| pattern.find_iter(content).count())
             .sum();
 
         // Soft skills patterns
-        let soft_skills_keywords = ["leadership", "communication", "teamwork", "problem solving", "analytical"];
-        let soft_skills = soft_skills_keywords.iter()
+        let soft_skills_keywords = [
+            "leadership",
+            "communication",
+            "teamwork",
+            "problem solving",
+            "analytical",
+        ];
+        let soft_skills = soft_skills_keywords
+            .iter()
             .map(|&keyword| content_lower.matches(keyword).count())
             .sum::<usize>();
 
@@ -1470,11 +1682,12 @@ impl ATSSimulator {
         }
 
         // Check for inconsistent bullet points
-        let bullet_patterns = vec!["•", "◦", "*", "-", "▪"];
-        let bullet_counts: Vec<usize> = bullet_patterns.iter()
+        let bullet_patterns = ["•", "◦", "*", "-", "▪"];
+        let bullet_counts: Vec<usize> = bullet_patterns
+            .iter()
             .map(|&pattern| content.matches(pattern).count())
             .collect();
-        
+
         let different_bullets = bullet_counts.iter().filter(|&&count| count > 0).count();
         if different_bullets > 2 {
             issues.push(FormattingIssue {
@@ -1506,7 +1719,7 @@ impl ATSSimulator {
     fn calculate_structure_clarity(&self, _content: &str, sections: &HashMap<String, bool>) -> f64 {
         let total_sections = sections.len() as f64;
         let detected_sections = sections.values().filter(|&&detected| detected).count() as f64;
-        
+
         if total_sections > 0.0 {
             detected_sections / total_sections
         } else {
@@ -1517,7 +1730,7 @@ impl ATSSimulator {
     fn identify_keyword_section(&self, content: &str, position: usize) -> String {
         let before_keyword = &content[..position];
         let lines_before: Vec<&str> = before_keyword.lines().collect();
-        
+
         // Look for section headers in the preceding lines
         for line in lines_before.iter().rev().take(10) {
             let line_lower = line.to_lowercase();
@@ -1531,20 +1744,20 @@ impl ATSSimulator {
                 return "summary".to_string();
             }
         }
-        
+
         "unknown".to_string()
     }
 
     fn check_file_format_compatibility(&self) -> HashMap<String, bool> {
         let mut compatibility = HashMap::new();
-        
+
         // Simulate format compatibility checks
         compatibility.insert("pdf".to_string(), true);
         compatibility.insert("docx".to_string(), true);
         compatibility.insert("txt".to_string(), true);
         compatibility.insert("html".to_string(), false); // Usually not supported
         compatibility.insert("rtf".to_string(), true);
-        
+
         compatibility
     }
 
@@ -1557,15 +1770,13 @@ impl ATSSimulator {
         };
 
         // Simple complexity assessment based on length and structure
-        let complexity = if avg_line_length > 100.0 || line_count > 200 {
+        if avg_line_length > 100.0 || line_count > 200 {
             0.7 // High complexity
         } else if avg_line_length > 60.0 || line_count > 100 {
             0.5 // Medium complexity
         } else {
             0.3 // Low complexity
-        };
-
-        complexity
+        }
     }
 
     fn analyze_font_compatibility(&self, _content: &str) -> FontCompatibility {
@@ -1579,15 +1790,19 @@ impl ATSSimulator {
     }
 
     fn analyze_graphics_elements(&self, content: &str) -> GraphicsAnalysis {
-        let has_graphics = content.to_lowercase().contains("image") || 
-                          content.contains("[image]") || 
-                          content.contains("graphic");
+        let has_graphics = content.to_lowercase().contains("image")
+            || content.contains("[image]")
+            || content.contains("graphic");
 
         GraphicsAnalysis {
             has_graphics,
             graphics_compatibility: if has_graphics { 0.3 } else { 1.0 },
             alt_text_present: false,
-            graphics_impact: if has_graphics { "negative".to_string() } else { "neutral".to_string() },
+            graphics_impact: if has_graphics {
+                "negative".to_string()
+            } else {
+                "neutral".to_string()
+            },
             recommendations: if has_graphics {
                 vec!["Remove images and graphics for better ATS compatibility".to_string()]
             } else {
@@ -1605,7 +1820,10 @@ impl ATSSimulator {
             table_compatibility: if tables_detected > 0 { 0.4 } else { 1.0 },
             parsing_difficulty: if tables_detected > 0 { 0.8 } else { 0.0 },
             alternative_suggestions: if tables_detected > 0 {
-                vec!["Convert tables to bulleted lists".to_string(), "Use simple formatting instead of tables".to_string()]
+                vec![
+                    "Convert tables to bulleted lists".to_string(),
+                    "Use simple formatting instead of tables".to_string(),
+                ]
             } else {
                 vec![]
             },
@@ -1642,7 +1860,10 @@ impl ATSSimulator {
     ) -> f64 {
         let parsing_score = parsing_analysis.structure_clarity * 0.4;
         let format_score = (1.0 - format_analysis.layout_complexity) * 0.3;
-        let extraction_score = parsing_analysis.contact_info_extraction.extraction_confidence * 0.3;
+        let extraction_score = parsing_analysis
+            .contact_info_extraction
+            .extraction_confidence
+            * 0.3;
 
         parsing_score + format_score + extraction_score
     }
@@ -1652,7 +1873,9 @@ impl ATSSimulator {
         _system_config: &ATSSystemConfig,
         parsing_analysis: &ParsingAnalysis,
     ) -> f64 {
-        let sections_detected = parsing_analysis.section_detection.values()
+        let sections_detected = parsing_analysis
+            .section_detection
+            .values()
             .filter(|&&detected| detected)
             .count() as f64;
         let total_sections = parsing_analysis.section_detection.len() as f64;
@@ -1695,8 +1918,14 @@ impl ATSSimulator {
 
     fn extract_keywords(&self, content: &str) -> Vec<String> {
         // Simple keyword extraction - this could be enhanced
-        content.split_whitespace()
-            .map(|word| word.to_lowercase().chars().filter(|c| c.is_alphabetic()).collect())
+        content
+            .split_whitespace()
+            .map(|word| {
+                word.to_lowercase()
+                    .chars()
+                    .filter(|c| c.is_alphabetic())
+                    .collect()
+            })
             .filter(|word: &String| word.len() > 2)
             .collect()
     }
@@ -1754,16 +1983,33 @@ impl ATSSimulator {
         let mut issues = Vec::new();
 
         // Check against system capabilities
-        if !system_config.parsing_capabilities.table_parsing && format_analysis.table_usage.tables_detected > 0 {
-            issues.push(format!("{} has limited table parsing capabilities", system_config.system_name));
+        if !system_config.parsing_capabilities.table_parsing
+            && format_analysis.table_usage.tables_detected > 0
+        {
+            issues.push(format!(
+                "{} has limited table parsing capabilities",
+                system_config.system_name
+            ));
         }
 
-        if !system_config.parsing_capabilities.multi_column_support && format_analysis.layout_complexity > 0.5 {
-            issues.push(format!("{} may struggle with multi-column layouts", system_config.system_name));
+        if !system_config.parsing_capabilities.multi_column_support
+            && format_analysis.layout_complexity > 0.5
+        {
+            issues.push(format!(
+                "{} may struggle with multi-column layouts",
+                system_config.system_name
+            ));
         }
 
-        if parsing_analysis.contact_info_extraction.extraction_confidence < 0.7 {
-            issues.push(format!("Contact information may not be extracted correctly by {}", system_config.system_name));
+        if parsing_analysis
+            .contact_info_extraction
+            .extraction_confidence
+            < 0.7
+        {
+            issues.push(format!(
+                "Contact information may not be extracted correctly by {}",
+                system_config.system_name
+            ));
         }
 
         issues
@@ -1791,12 +2037,16 @@ impl ATSSimulator {
         recommendations
     }
 
-    fn calculate_overall_ats_score(&self, system_simulations: &HashMap<String, ATSSystemResult>) -> f64 {
+    fn calculate_overall_ats_score(
+        &self,
+        system_simulations: &HashMap<String, ATSSystemResult>,
+    ) -> f64 {
         if system_simulations.is_empty() {
             return 0.0;
         }
 
-        let total_score: f64 = system_simulations.values()
+        let total_score: f64 = system_simulations
+            .values()
             .map(|result| result.compatibility_score)
             .sum();
 
@@ -1818,7 +2068,8 @@ impl ATSSimulator {
                 category: "Keywords".to_string(),
                 priority: "high".to_string(),
                 title: "Improve Keyword Integration".to_string(),
-                description: "Include more relevant keywords naturally throughout your resume".to_string(),
+                description: "Include more relevant keywords naturally throughout your resume"
+                    .to_string(),
                 implementation_steps: vec![
                     "Review job description for key terms".to_string(),
                     "Integrate keywords in context, not as lists".to_string(),
@@ -1827,7 +2078,7 @@ impl ATSSimulator {
                 expected_improvement: 15.0,
                 affected_systems: vec!["All ATS systems".to_string()],
                 examples: vec![
-                    "Instead of 'coded', use 'developed software applications'".to_string(),
+                    "Instead of 'coded', use 'developed software applications'".to_string()
                 ],
             });
         }
@@ -1846,9 +2097,7 @@ impl ATSSimulator {
                 ],
                 expected_improvement: 25.0,
                 affected_systems: vec!["Most ATS systems".to_string()],
-                examples: vec![
-                    "Remove header logos and profile pictures".to_string(),
-                ],
+                examples: vec!["Remove header logos and profile pictures".to_string()],
             });
         }
 
@@ -1858,7 +2107,8 @@ impl ATSSimulator {
                 category: "Structure".to_string(),
                 priority: "high".to_string(),
                 title: "Improve Document Structure".to_string(),
-                description: "Clear section headers help ATS systems parse your resume correctly".to_string(),
+                description: "Clear section headers help ATS systems parse your resume correctly"
+                    .to_string(),
                 implementation_steps: vec![
                     "Use standard section headers (Experience, Education, Skills)".to_string(),
                     "Maintain consistent formatting throughout".to_string(),
@@ -1866,9 +2116,7 @@ impl ATSSimulator {
                 ],
                 expected_improvement: 20.0,
                 affected_systems: vec!["All ATS systems".to_string()],
-                examples: vec![
-                    "Use 'Work Experience' instead of 'My Journey'".to_string(),
-                ],
+                examples: vec!["Use 'Work Experience' instead of 'My Journey'".to_string()],
             });
         }
 
@@ -1888,8 +2136,13 @@ impl ATSSimulator {
             issues.push(CompatibilityIssue {
                 severity: "critical".to_string(),
                 issue_type: "graphics".to_string(),
-                description: "Graphics and images detected - will likely cause parsing failures".to_string(),
-                affected_systems: vec!["Greenhouse".to_string(), "Lever".to_string(), "Workday".to_string()],
+                description: "Graphics and images detected - will likely cause parsing failures"
+                    .to_string(),
+                affected_systems: vec![
+                    "Greenhouse".to_string(),
+                    "Lever".to_string(),
+                    "Workday".to_string(),
+                ],
                 impact_score: 0.8,
                 resolution_difficulty: "easy".to_string(),
                 fix_suggestions: vec![
@@ -1900,7 +2153,11 @@ impl ATSSimulator {
         }
 
         // Major issues
-        if parsing_analysis.contact_info_extraction.extraction_confidence < 0.5 {
+        if parsing_analysis
+            .contact_info_extraction
+            .extraction_confidence
+            < 0.5
+        {
             issues.push(CompatibilityIssue {
                 severity: "major".to_string(),
                 issue_type: "contact_info".to_string(),
@@ -1939,167 +2196,186 @@ impl ATSSimulator {
         let mut systems = HashMap::new();
 
         // Greenhouse ATS
-        systems.insert("greenhouse".to_string(), ATSSystemConfig {
-            system_name: "Greenhouse".to_string(),
-            parsing_capabilities: ParsingCapabilities {
-                pdf_support: true,
-                docx_support: true,
-                txt_support: true,
-                html_support: false,
-                image_text_extraction: false,
-                table_parsing: false,
-                multi_column_support: false,
-                header_footer_handling: true,
+        systems.insert(
+            "greenhouse".to_string(),
+            ATSSystemConfig {
+                system_name: "Greenhouse".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: false,
+                    image_text_extraction: false,
+                    table_parsing: false,
+                    multi_column_support: false,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec!["Arial".to_string(), "Times New Roman".to_string()],
+                    max_pages: Some(2),
+                    preferred_margins: "1 inch".to_string(),
+                    bullet_point_style: vec!["•".to_string(), "-".to_string()],
+                    date_format_preferences: vec!["MM/YYYY".to_string(), "Month YYYY".to_string()],
+                    section_header_style: "Bold".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 1.0,
+                    partial_match_weight: 0.7,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: true,
+                    frequency_consideration: true,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "weighted".to_string(),
+                    weights: [
+                        ("keywords".to_string(), 0.3),
+                        ("experience".to_string(), 0.25),
+                        ("education".to_string(), 0.2),
+                        ("skills".to_string(), 0.15),
+                        ("format".to_string(), 0.1),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.3,
+                    experience_importance: 0.25,
+                    education_importance: 0.2,
+                    skills_importance: 0.15,
+                    format_penalty_factor: 0.1,
+                },
+                known_limitations: vec![
+                    "Limited table parsing".to_string(),
+                    "No image text extraction".to_string(),
+                    "Struggles with complex layouts".to_string(),
+                ],
+                optimization_tips: vec![
+                    "Use standard section headers".to_string(),
+                    "Avoid tables and graphics".to_string(),
+                    "Keep formatting simple".to_string(),
+                ],
             },
-            format_preferences: FormatPreferences {
-                preferred_fonts: vec!["Arial".to_string(), "Times New Roman".to_string()],
-                max_pages: Some(2),
-                preferred_margins: "1 inch".to_string(),
-                bullet_point_style: vec!["•".to_string(), "-".to_string()],
-                date_format_preferences: vec!["MM/YYYY".to_string(), "Month YYYY".to_string()],
-                section_header_style: "Bold".to_string(),
-            },
-            keyword_matching: KeywordMatchingConfig {
-                exact_match_weight: 1.0,
-                partial_match_weight: 0.7,
-                synonym_support: true,
-                case_sensitive: false,
-                context_analysis: true,
-                frequency_consideration: true,
-            },
-            scoring_algorithm: ScoringAlgorithm {
-                algorithm_type: "weighted".to_string(),
-                weights: [
-                    ("keywords".to_string(), 0.3),
-                    ("experience".to_string(), 0.25),
-                    ("education".to_string(), 0.2),
-                    ("skills".to_string(), 0.15),
-                    ("format".to_string(), 0.1),
-                ].iter().cloned().collect(),
-                keyword_importance: 0.3,
-                experience_importance: 0.25,
-                education_importance: 0.2,
-                skills_importance: 0.15,
-                format_penalty_factor: 0.1,
-            },
-            known_limitations: vec![
-                "Limited table parsing".to_string(),
-                "No image text extraction".to_string(),
-                "Struggles with complex layouts".to_string(),
-            ],
-            optimization_tips: vec![
-                "Use standard section headers".to_string(),
-                "Avoid tables and graphics".to_string(),
-                "Keep formatting simple".to_string(),
-            ],
-        });
+        );
 
         // Lever ATS
-        systems.insert("lever".to_string(), ATSSystemConfig {
-            system_name: "Lever".to_string(),
-            parsing_capabilities: ParsingCapabilities {
-                pdf_support: true,
-                docx_support: true,
-                txt_support: true,
-                html_support: false,
-                image_text_extraction: false,
-                table_parsing: true,
-                multi_column_support: false,
-                header_footer_handling: true,
+        systems.insert(
+            "lever".to_string(),
+            ATSSystemConfig {
+                system_name: "Lever".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: false,
+                    image_text_extraction: false,
+                    table_parsing: true,
+                    multi_column_support: false,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec!["Arial".to_string(), "Helvetica".to_string()],
+                    max_pages: Some(3),
+                    preferred_margins: "0.75 inch".to_string(),
+                    bullet_point_style: vec!["•".to_string()],
+                    date_format_preferences: vec!["YYYY-MM".to_string(), "Month YYYY".to_string()],
+                    section_header_style: "Bold and Underlined".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 0.9,
+                    partial_match_weight: 0.6,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: false,
+                    frequency_consideration: true,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "machine_learning".to_string(),
+                    weights: [
+                        ("keywords".to_string(), 0.35),
+                        ("experience".to_string(), 0.3),
+                        ("skills".to_string(), 0.2),
+                        ("education".to_string(), 0.1),
+                        ("format".to_string(), 0.05),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.35,
+                    experience_importance: 0.3,
+                    education_importance: 0.1,
+                    skills_importance: 0.2,
+                    format_penalty_factor: 0.05,
+                },
+                known_limitations: vec![
+                    "Limited context analysis".to_string(),
+                    "No multi-column support".to_string(),
+                ],
+                optimization_tips: vec![
+                    "Focus on keyword density".to_string(),
+                    "Use action verbs consistently".to_string(),
+                ],
             },
-            format_preferences: FormatPreferences {
-                preferred_fonts: vec!["Arial".to_string(), "Helvetica".to_string()],
-                max_pages: Some(3),
-                preferred_margins: "0.75 inch".to_string(),
-                bullet_point_style: vec!["•".to_string()],
-                date_format_preferences: vec!["YYYY-MM".to_string(), "Month YYYY".to_string()],
-                section_header_style: "Bold and Underlined".to_string(),
-            },
-            keyword_matching: KeywordMatchingConfig {
-                exact_match_weight: 0.9,
-                partial_match_weight: 0.6,
-                synonym_support: true,
-                case_sensitive: false,
-                context_analysis: false,
-                frequency_consideration: true,
-            },
-            scoring_algorithm: ScoringAlgorithm {
-                algorithm_type: "machine_learning".to_string(),
-                weights: [
-                    ("keywords".to_string(), 0.35),
-                    ("experience".to_string(), 0.3),
-                    ("skills".to_string(), 0.2),
-                    ("education".to_string(), 0.1),
-                    ("format".to_string(), 0.05),
-                ].iter().cloned().collect(),
-                keyword_importance: 0.35,
-                experience_importance: 0.3,
-                education_importance: 0.1,
-                skills_importance: 0.2,
-                format_penalty_factor: 0.05,
-            },
-            known_limitations: vec![
-                "Limited context analysis".to_string(),
-                "No multi-column support".to_string(),
-            ],
-            optimization_tips: vec![
-                "Focus on keyword density".to_string(),
-                "Use action verbs consistently".to_string(),
-            ],
-        });
+        );
 
         // Add more ATS systems as needed...
-        systems.insert("workday".to_string(), ATSSystemConfig {
-            system_name: "Workday".to_string(),
-            parsing_capabilities: ParsingCapabilities {
-                pdf_support: true,
-                docx_support: true,
-                txt_support: true,
-                html_support: true,
-                image_text_extraction: true,
-                table_parsing: true,
-                multi_column_support: true,
-                header_footer_handling: true,
+        systems.insert(
+            "workday".to_string(),
+            ATSSystemConfig {
+                system_name: "Workday".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: true,
+                    image_text_extraction: true,
+                    table_parsing: true,
+                    multi_column_support: true,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec!["Arial".to_string(), "Calibri".to_string()],
+                    max_pages: Some(4),
+                    preferred_margins: "1 inch".to_string(),
+                    bullet_point_style: vec!["•".to_string(), "◦".to_string()],
+                    date_format_preferences: vec![
+                        "MM/DD/YYYY".to_string(),
+                        "Month DD, YYYY".to_string(),
+                    ],
+                    section_header_style: "Bold".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 1.0,
+                    partial_match_weight: 0.8,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: true,
+                    frequency_consideration: false,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "advanced_ml".to_string(),
+                    weights: [
+                        ("experience".to_string(), 0.4),
+                        ("skills".to_string(), 0.25),
+                        ("keywords".to_string(), 0.2),
+                        ("education".to_string(), 0.1),
+                        ("format".to_string(), 0.05),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.2,
+                    experience_importance: 0.4,
+                    education_importance: 0.1,
+                    skills_importance: 0.25,
+                    format_penalty_factor: 0.05,
+                },
+                known_limitations: vec!["Complex parsing may miss nuances".to_string()],
+                optimization_tips: vec![
+                    "Focus on quantified achievements".to_string(),
+                    "Use industry-standard terminology".to_string(),
+                ],
             },
-            format_preferences: FormatPreferences {
-                preferred_fonts: vec!["Arial".to_string(), "Calibri".to_string()],
-                max_pages: Some(4),
-                preferred_margins: "1 inch".to_string(),
-                bullet_point_style: vec!["•".to_string(), "◦".to_string()],
-                date_format_preferences: vec!["MM/DD/YYYY".to_string(), "Month DD, YYYY".to_string()],
-                section_header_style: "Bold".to_string(),
-            },
-            keyword_matching: KeywordMatchingConfig {
-                exact_match_weight: 1.0,
-                partial_match_weight: 0.8,
-                synonym_support: true,
-                case_sensitive: false,
-                context_analysis: true,
-                frequency_consideration: false,
-            },
-            scoring_algorithm: ScoringAlgorithm {
-                algorithm_type: "advanced_ml".to_string(),
-                weights: [
-                    ("experience".to_string(), 0.4),
-                    ("skills".to_string(), 0.25),
-                    ("keywords".to_string(), 0.2),
-                    ("education".to_string(), 0.1),
-                    ("format".to_string(), 0.05),
-                ].iter().cloned().collect(),
-                keyword_importance: 0.2,
-                experience_importance: 0.4,
-                education_importance: 0.1,
-                skills_importance: 0.25,
-                format_penalty_factor: 0.05,
-            },
-            known_limitations: vec![
-                "Complex parsing may miss nuances".to_string(),
-            ],
-            optimization_tips: vec![
-                "Focus on quantified achievements".to_string(),
-                "Use industry-standard terminology".to_string(),
-            ],
-        });
+        );
 
         systems
     }
@@ -2107,19 +2383,27 @@ impl ATSSimulator {
     fn build_parsing_patterns() -> HashMap<String, Vec<Regex>> {
         let mut patterns = HashMap::new();
 
-        patterns.insert("email".to_string(), vec![
-            Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap(),
-        ]);
+        patterns.insert(
+            "email".to_string(),
+            vec![Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap()],
+        );
 
-        patterns.insert("phone".to_string(), vec![
-            Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})").unwrap(),
-        ]);
+        patterns.insert(
+            "phone".to_string(),
+            vec![
+                Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})")
+                    .unwrap(),
+            ],
+        );
 
-        patterns.insert("dates".to_string(), vec![
-            Regex::new(r"\d{4}\s*[-–]\s*\d{4}").unwrap(),
-            Regex::new(r"\d{4}\s*[-–]\s*present").unwrap(),
-            Regex::new(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}").unwrap(),
-        ]);
+        patterns.insert(
+            "dates".to_string(),
+            vec![
+                Regex::new(r"\d{4}\s*[-–]\s*\d{4}").unwrap(),
+                Regex::new(r"\d{4}\s*[-–]\s*present").unwrap(),
+                Regex::new(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}").unwrap(),
+            ],
+        );
 
         patterns
     }
@@ -2127,11 +2411,18 @@ impl ATSSimulator {
     fn build_format_checkers() -> HashMap<String, Regex> {
         let mut checkers = HashMap::new();
 
-        checkers.insert("bullet_consistency".to_string(), 
-            Regex::new(r"[•◦▪▫‣⁃*-]").unwrap());
-        
-        checkers.insert("section_headers".to_string(), 
-            Regex::new(r"(?i)^(experience|education|skills|summary|objective|certifications|projects)").unwrap());
+        checkers.insert(
+            "bullet_consistency".to_string(),
+            Regex::new(r"[•◦▪▫‣⁃*-]").unwrap(),
+        );
+
+        checkers.insert(
+            "section_headers".to_string(),
+            Regex::new(
+                r"(?i)^(experience|education|skills|summary|objective|certifications|projects)",
+            )
+            .unwrap(),
+        );
 
         checkers
     }
@@ -2151,25 +2442,39 @@ mod tests {
     async fn test_ats_simulation_basic() {
         let simulator = setup_test_simulator().await;
         let resume_content = "John Doe\njohn@email.com\n(555) 123-4567\n\nExperience:\nSoftware Engineer at TechCorp\n2020-2023\n\nEducation:\nB.S. Computer Science\nTech University, 2020";
-        let keywords = vec!["software engineer".to_string(), "computer science".to_string()];
+        let keywords = vec![
+            "software engineer".to_string(),
+            "computer science".to_string(),
+        ];
 
-        let result = simulator.simulate_ats_processing(resume_content, &keywords).await;
+        let result = simulator
+            .simulate_ats_processing(resume_content, &keywords)
+            .await;
         assert!(result.is_ok());
 
         let simulation = result.unwrap();
         assert!(simulation.overall_ats_score >= 0.0);
         assert!(!simulation.system_simulations.is_empty());
-        assert!(simulation.parsing_analysis.contact_info_extraction.email_detected);
+        assert!(
+            simulation
+                .parsing_analysis
+                .contact_info_extraction
+                .email_detected
+        );
     }
 
     #[tokio::test]
     async fn test_keyword_extraction_simulation() {
         let simulator = setup_test_simulator().await;
         let resume_content = "Python developer with React experience";
-        let keywords = vec!["Python".to_string(), "React".to_string(), "Node.js".to_string()];
+        let keywords = vec![
+            "Python".to_string(),
+            "React".to_string(),
+            "Node.js".to_string(),
+        ];
 
         let result = simulator.simulate_keyword_extraction(resume_content, &keywords);
-        
+
         assert_eq!(result.keywords_found.len(), 2); // Python and React found
         assert_eq!(result.missed_keywords.len(), 1); // Node.js missed
         assert!(result.extraction_accuracy > 0.5);
@@ -2181,7 +2486,7 @@ mod tests {
         let resume_content = "Simple text resume without graphics or tables";
 
         let format_analysis = simulator.analyze_format_compatibility(resume_content);
-        
+
         assert!(!format_analysis.graphics_elements.has_graphics);
         assert_eq!(format_analysis.table_usage.tables_detected, 0);
         assert!(format_analysis.layout_complexity < 0.5);

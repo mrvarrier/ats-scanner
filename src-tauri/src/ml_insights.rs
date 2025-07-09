@@ -1,8 +1,8 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use log::info;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::database::Database;
 use crate::models::Analysis;
@@ -94,8 +94,8 @@ pub struct ROIAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EffortImpactPoint {
     pub improvement: String,
-    pub effort_score: f64, // 1-10 scale
-    pub impact_score: f64, // 1-10 scale
+    pub effort_score: f64,         // 1-10 scale
+    pub impact_score: f64,         // 1-10 scale
     pub priority_quadrant: String, // "quick_wins", "major_projects", "fill_ins", "thankless_tasks"
 }
 
@@ -447,7 +447,13 @@ pub struct ModelPerformance {
 
 // Feature extraction traits and implementations
 pub trait FeatureExtractor: Send + Sync {
-    fn extract_features(&self, resume_content: &str, job_description: &str, history: &[Analysis]) -> Result<Vec<f64>>;
+    fn extract_features(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+        history: &[Analysis],
+    ) -> Result<Vec<f64>>;
+    #[allow(dead_code)]
     fn get_feature_names(&self) -> Vec<String>;
 }
 
@@ -455,17 +461,28 @@ pub trait FeatureExtractor: Send + Sync {
 pub struct TextualFeatureExtractor;
 
 impl FeatureExtractor for TextualFeatureExtractor {
-    fn extract_features(&self, resume_content: &str, job_description: &str, _history: &[Analysis]) -> Result<Vec<f64>> {
+    fn extract_features(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+        _history: &[Analysis],
+    ) -> Result<Vec<f64>> {
         // Extract basic textual features
         let word_count = resume_content.split_whitespace().count() as f64;
         let sentence_count = resume_content.split('.').count() as f64;
         let avg_word_length = resume_content.chars().count() as f64 / word_count.max(1.0);
         let keyword_density = self.calculate_keyword_density(resume_content, job_description);
         let readability_score = self.calculate_readability_score(resume_content);
-        
-        Ok(vec![word_count, sentence_count, avg_word_length, keyword_density, readability_score])
+
+        Ok(vec![
+            word_count,
+            sentence_count,
+            avg_word_length,
+            keyword_density,
+            readability_score,
+        ])
     }
-    
+
     fn get_feature_names(&self) -> Vec<String> {
         vec![
             "word_count".to_string(),
@@ -481,34 +498,30 @@ impl TextualFeatureExtractor {
     fn calculate_keyword_density(&self, resume_content: &str, job_description: &str) -> f64 {
         let resume_lower = resume_content.to_lowercase();
         let job_lower = job_description.to_lowercase();
-        
-        let resume_words: std::collections::HashSet<_> = resume_lower
-            .split_whitespace()
-            .collect();
-        let job_words: std::collections::HashSet<_> = job_lower
-            .split_whitespace()
-            .collect();
-        
+
+        let resume_words: std::collections::HashSet<_> = resume_lower.split_whitespace().collect();
+        let job_words: std::collections::HashSet<_> = job_lower.split_whitespace().collect();
+
         let intersection_count = resume_words.intersection(&job_words).count() as f64;
         let total_job_words = job_words.len() as f64;
-        
+
         if total_job_words > 0.0 {
             intersection_count / total_job_words
         } else {
             0.0
         }
     }
-    
+
     fn calculate_readability_score(&self, content: &str) -> f64 {
         // Simplified readability score based on sentence and word complexity
         let words = content.split_whitespace().count() as f64;
         let sentences = content.split('.').count() as f64;
         let avg_sentence_length = words / sentences.max(1.0);
-        
+
         // Simple scoring: penalize very short or very long sentences
-        if avg_sentence_length >= 15.0 && avg_sentence_length <= 25.0 {
+        if (15.0..=25.0).contains(&avg_sentence_length) {
             100.0
-        } else if avg_sentence_length < 10.0 || avg_sentence_length > 30.0 {
+        } else if !(10.0..=30.0).contains(&avg_sentence_length) {
             50.0
         } else {
             75.0
@@ -520,15 +533,25 @@ impl TextualFeatureExtractor {
 pub struct StructuralFeatureExtractor;
 
 impl FeatureExtractor for StructuralFeatureExtractor {
-    fn extract_features(&self, resume_content: &str, _job_description: &str, _history: &[Analysis]) -> Result<Vec<f64>> {
+    fn extract_features(
+        &self,
+        resume_content: &str,
+        _job_description: &str,
+        _history: &[Analysis],
+    ) -> Result<Vec<f64>> {
         let section_count = self.count_sections(resume_content);
         let bullet_count = self.count_bullet_points(resume_content);
         let contact_info_completeness = self.assess_contact_info(resume_content);
         let formatting_score = self.assess_formatting(resume_content);
-        
-        Ok(vec![section_count, bullet_count, contact_info_completeness, formatting_score])
+
+        Ok(vec![
+            section_count,
+            bullet_count,
+            contact_info_completeness,
+            formatting_score,
+        ])
     }
-    
+
     fn get_feature_names(&self) -> Vec<String> {
         vec![
             "section_count".to_string(),
@@ -542,46 +565,55 @@ impl FeatureExtractor for StructuralFeatureExtractor {
 impl StructuralFeatureExtractor {
     fn count_sections(&self, content: &str) -> f64 {
         let common_sections = ["experience", "education", "skills", "summary", "objective"];
-        common_sections.iter()
+        common_sections
+            .iter()
             .filter(|&section| content.to_lowercase().contains(section))
             .count() as f64
     }
-    
+
     fn count_bullet_points(&self, content: &str) -> f64 {
-        content.lines()
+        content
+            .lines()
             .filter(|line| line.trim_start().starts_with('•') || line.trim_start().starts_with('-'))
             .count() as f64
     }
-    
+
     fn assess_contact_info(&self, content: &str) -> f64 {
         let contact_elements = ["@", "phone", "linkedin", "github"];
-        let found_elements = contact_elements.iter()
+        let found_elements = contact_elements
+            .iter()
             .filter(|&element| content.to_lowercase().contains(element))
             .count() as f64;
-        
+
         found_elements / contact_elements.len() as f64
     }
-    
+
     fn assess_formatting(&self, content: &str) -> f64 {
         // Simple formatting assessment
         let has_proper_capitalization = content.chars().any(|c| c.is_uppercase());
         let has_proper_punctuation = content.contains('.') || content.contains(',');
         let has_consistent_spacing = !content.contains("  "); // No double spaces
-        
-        let score = [has_proper_capitalization, has_proper_punctuation, has_consistent_spacing]
-            .iter()
-            .filter(|&&x| x)
-            .count() as f64;
-        
+
+        let score = [
+            has_proper_capitalization,
+            has_proper_punctuation,
+            has_consistent_spacing,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count() as f64;
+
         score / 3.0 * 100.0
     }
 }
 
 #[derive(Debug)]
 pub struct PredictionModel {
+    #[allow(dead_code)]
     pub model_type: String,
     pub weights: Vec<f64>,
     pub bias: f64,
+    #[allow(dead_code)]
     pub feature_names: Vec<String>,
 }
 
@@ -590,14 +622,15 @@ impl PredictionModel {
         if features.len() != self.weights.len() {
             return 0.5; // Default prediction if feature mismatch
         }
-        
-        let weighted_sum: f64 = features.iter()
+
+        let weighted_sum: f64 = features
+            .iter()
             .zip(self.weights.iter())
             .map(|(feature, weight)| feature * weight)
             .sum();
-        
+
         let result = weighted_sum + self.bias;
-        
+
         // Apply sigmoid function to get probability
         1.0 / (1.0 + (-result).exp())
     }
@@ -606,40 +639,61 @@ impl PredictionModel {
 pub struct MLInsightsEngine {
     prediction_models: HashMap<String, PredictionModel>,
     feature_extractors: Vec<Box<dyn FeatureExtractor>>,
+    #[allow(dead_code)]
     database: Database,
 }
 
 impl MLInsightsEngine {
     pub fn new(database: Database) -> Self {
         let mut prediction_models = HashMap::new();
-        
+
         // Initialize prediction models with dummy weights for demonstration
-        prediction_models.insert("success_prediction".to_string(), PredictionModel {
-            model_type: "logistic_regression".to_string(),
-            weights: vec![0.1, 0.2, 0.15, 0.3, 0.25],
-            bias: -0.5,
-            feature_names: vec!["word_count".to_string(), "sentence_count".to_string(), "avg_word_length".to_string(), "keyword_density".to_string(), "readability_score".to_string()],
-        });
-        
-        prediction_models.insert("interview_probability".to_string(), PredictionModel {
-            model_type: "logistic_regression".to_string(),
-            weights: vec![0.05, 0.1, 0.08, 0.4, 0.2, 0.1, 0.07],
-            bias: -0.3,
-            feature_names: vec!["word_count".to_string(), "sentence_count".to_string(), "avg_word_length".to_string(), "keyword_density".to_string(), "readability_score".to_string(), "section_count".to_string(), "bullet_count".to_string()],
-        });
-        
+        prediction_models.insert(
+            "success_prediction".to_string(),
+            PredictionModel {
+                model_type: "logistic_regression".to_string(),
+                weights: vec![0.1, 0.2, 0.15, 0.3, 0.25],
+                bias: -0.5,
+                feature_names: vec![
+                    "word_count".to_string(),
+                    "sentence_count".to_string(),
+                    "avg_word_length".to_string(),
+                    "keyword_density".to_string(),
+                    "readability_score".to_string(),
+                ],
+            },
+        );
+
+        prediction_models.insert(
+            "interview_probability".to_string(),
+            PredictionModel {
+                model_type: "logistic_regression".to_string(),
+                weights: vec![0.05, 0.1, 0.08, 0.4, 0.2, 0.1, 0.07],
+                bias: -0.3,
+                feature_names: vec![
+                    "word_count".to_string(),
+                    "sentence_count".to_string(),
+                    "avg_word_length".to_string(),
+                    "keyword_density".to_string(),
+                    "readability_score".to_string(),
+                    "section_count".to_string(),
+                    "bullet_count".to_string(),
+                ],
+            },
+        );
+
         let feature_extractors: Vec<Box<dyn FeatureExtractor>> = vec![
             Box::new(TextualFeatureExtractor),
             Box::new(StructuralFeatureExtractor),
         ];
-        
+
         Self {
             prediction_models,
             feature_extractors,
             database,
         }
     }
-    
+
     pub async fn generate_ml_insights(
         &self,
         resume_content: &str,
@@ -647,20 +701,27 @@ impl MLInsightsEngine {
         user_history: &[Analysis],
     ) -> Result<MLInsights> {
         info!("Generating ML insights for resume analysis");
-        
+
         // Extract comprehensive features
-        let features = self.extract_comprehensive_features(resume_content, job_description, user_history)?;
-        
+        let features =
+            self.extract_comprehensive_features(resume_content, job_description, user_history)?;
+
         // Generate predictions
         let success_prediction = self.predict_application_success(&features).await?;
         let interview_probability = self.predict_interview_probability(&features).await?;
         let salary_prediction = self.predict_salary_range(&features).await?;
         let skill_demand_forecast = self.forecast_skill_demand(resume_content).await?;
-        let career_path_suggestions = self.generate_career_path_suggestions(resume_content, user_history).await?;
-        let optimization_prioritization = self.prioritize_optimizations(&features, resume_content).await?;
-        let recommendation_engine = self.generate_ml_recommendations(resume_content, job_description, &features).await?;
+        let career_path_suggestions = self
+            .generate_career_path_suggestions(resume_content, user_history)
+            .await?;
+        let optimization_prioritization = self
+            .prioritize_optimizations(&features, resume_content)
+            .await?;
+        let recommendation_engine = self
+            .generate_ml_recommendations(resume_content, job_description, &features)
+            .await?;
         let confidence_metrics = self.calculate_confidence_metrics(&features).await?;
-        
+
         Ok(MLInsights {
             success_prediction,
             interview_probability,
@@ -673,7 +734,7 @@ impl MLInsightsEngine {
             generated_at: Utc::now(),
         })
     }
-    
+
     fn extract_comprehensive_features(
         &self,
         resume_content: &str,
@@ -681,18 +742,19 @@ impl MLInsightsEngine {
         user_history: &[Analysis],
     ) -> Result<Vec<f64>> {
         let mut all_features = Vec::new();
-        
+
         for extractor in &self.feature_extractors {
-            let mut features = extractor.extract_features(resume_content, job_description, user_history)?;
+            let mut features =
+                extractor.extract_features(resume_content, job_description, user_history)?;
             all_features.append(&mut features);
         }
-        
+
         Ok(all_features)
     }
-    
+
     async fn predict_application_success(&self, features: &[f64]) -> Result<SuccessPrediction> {
         use crate::ollama::OllamaClient;
-        
+
         // Create comprehensive feature analysis prompt
         let success_prediction_prompt = format!(
             "Analyze this resume data and predict application success probability based on the following feature scores.
@@ -731,7 +793,7 @@ Return JSON format:
     \"percentile_ranking\": 78.5,
     \"improvement_potential\": 22.0
 }}",
-            features.get(0).unwrap_or(&50.0),
+            features.first().unwrap_or(&50.0),
             features.get(1).unwrap_or(&50.0),
             features.get(2).unwrap_or(&50.0),
             features.get(3).unwrap_or(&50.0),
@@ -739,64 +801,84 @@ Return JSON format:
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("qwen2.5:14b", &success_prediction_prompt, "success_prediction").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis(
+                "qwen2.5:14b",
+                &success_prediction_prompt,
+                "success_prediction",
+            )
+            .await?;
+
         match serde_json::from_str::<serde_json::Value>(&response) {
             Ok(analysis) => {
                 info!("ML success prediction analysis completed");
                 self.parse_success_prediction(&analysis, features)
             }
             Err(e) => {
-                log::warn!("ML success prediction parsing failed: {}, using fallback", e);
+                log::warn!(
+                    "ML success prediction parsing failed: {}, using fallback",
+                    e
+                );
                 self.fallback_success_prediction(features)
             }
         }
     }
-    
-    fn parse_success_prediction(&self, analysis: &serde_json::Value, features: &[f64]) -> Result<SuccessPrediction> {
+
+    fn parse_success_prediction(
+        &self,
+        analysis: &serde_json::Value,
+        features: &[f64],
+    ) -> Result<SuccessPrediction> {
         let probability = analysis["overall_probability"].as_f64().unwrap_or(0.5);
         let confidence = analysis["confidence_score"].as_f64().unwrap_or(0.6);
         let percentile = analysis["percentile_ranking"].as_f64().unwrap_or(50.0);
         let improvement_potential = analysis["improvement_potential"].as_f64().unwrap_or(20.0);
-        
+
         // Parse contributing factors
-        let contributing_factors = if let Some(factors) = analysis["contributing_factors"].as_array() {
-            factors.iter().filter_map(|factor| {
-                Some(PredictionFactor {
-                    factor_name: factor["factor_name"].as_str()?.to_string(),
-                    impact_weight: factor["impact_weight"].as_f64()?,
-                    current_score: factor["current_score"].as_f64()?,
-                    benchmark_score: factor["benchmark_score"].as_f64()?,
-                    improvement_suggestions: factor["improvement_suggestions"]
-                        .as_array()?
-                        .iter()
-                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
-                        .collect(),
-                })
-            }).collect()
-        } else {
-            self.generate_default_factors(features)
-        };
-        
+        let contributing_factors =
+            if let Some(factors) = analysis["contributing_factors"].as_array() {
+                factors
+                    .iter()
+                    .filter_map(|factor| {
+                        Some(PredictionFactor {
+                            factor_name: factor["factor_name"].as_str()?.to_string(),
+                            impact_weight: factor["impact_weight"].as_f64()?,
+                            current_score: factor["current_score"].as_f64()?,
+                            benchmark_score: factor["benchmark_score"].as_f64()?,
+                            improvement_suggestions: factor["improvement_suggestions"]
+                                .as_array()?
+                                .iter()
+                                .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                                .collect(),
+                        })
+                    })
+                    .collect()
+            } else {
+                self.generate_default_factors(features)
+            };
+
         // Parse risk factors
         let risk_factors = if let Some(risks) = analysis["risk_factors"].as_array() {
-            risks.iter().filter_map(|risk| {
-                Some(RiskFactor {
-                    risk_type: risk["risk_type"].as_str()?.to_string(),
-                    severity: risk["severity"].as_str()?.to_string(),
-                    impact: risk["impact"].as_f64()?,
-                    mitigation_strategies: risk["mitigation_strategies"]
-                        .as_array()?
-                        .iter()
-                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
-                        .collect(),
-                    timeline_to_fix: risk["timeline_to_fix"].as_str()?.to_string(),
+            risks
+                .iter()
+                .filter_map(|risk| {
+                    Some(RiskFactor {
+                        risk_type: risk["risk_type"].as_str()?.to_string(),
+                        severity: risk["severity"].as_str()?.to_string(),
+                        impact: risk["impact"].as_f64()?,
+                        mitigation_strategies: risk["mitigation_strategies"]
+                            .as_array()?
+                            .iter()
+                            .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                            .collect(),
+                        timeline_to_fix: risk["timeline_to_fix"].as_str()?.to_string(),
+                    })
                 })
-            }).collect()
+                .collect()
         } else {
             self.generate_default_risks(features)
         };
-        
+
         Ok(SuccessPrediction {
             overall_probability: probability,
             confidence_score: confidence,
@@ -816,116 +898,108 @@ Return JSON format:
             },
         })
     }
-    
+
     fn fallback_success_prediction(&self, features: &[f64]) -> Result<SuccessPrediction> {
         // Rule-based fallback when ML parsing fails
         let avg_score = features.iter().sum::<f64>() / features.len() as f64;
-        let probability = (avg_score / 100.0).min(0.95).max(0.05);
-        
-        info!("Using fallback success prediction with probability: {:.2}", probability);
-        
+        let probability = (avg_score / 100.0).clamp(0.05, 0.95);
+
+        info!(
+            "Using fallback success prediction with probability: {:.2}",
+            probability
+        );
+
         Ok(SuccessPrediction {
             overall_probability: probability,
             confidence_score: 0.6, // Lower confidence for fallback
             contributing_factors: self.generate_default_factors(features),
             risk_factors: self.generate_default_risks(features),
             benchmark_comparison: BenchmarkComparison {
-                percentile_ranking: avg_score.max(10.0).min(90.0),
+                percentile_ranking: avg_score.clamp(10.0, 90.0),
                 industry_average: 0.65,
                 top_performer_threshold: 0.90,
                 gap_to_top_quartile: (0.75 - probability).max(0.0),
             },
             improvement_potential: ImprovementPotential {
                 max_achievable_score: (probability + 0.25).min(0.95),
-                quick_wins: vec![
-                    QuickWin {
-                        improvement: "Add quantified achievements".to_string(),
-                        expected_impact: 0.08,
-                        effort_required: "low".to_string(),
-                        implementation_time: "1 hour".to_string(),
-                        success_probability: 0.9,
+                quick_wins: vec![QuickWin {
+                    improvement: "Add quantified achievements".to_string(),
+                    expected_impact: 0.08,
+                    effort_required: "low".to_string(),
+                    implementation_time: "1 hour".to_string(),
+                    success_probability: 0.9,
+                }],
+                long_term_improvements: vec![LongTermImprovement {
+                    improvement: "Acquire trending technical skills".to_string(),
+                    expected_impact: 0.15,
+                    effort_required: "high".to_string(),
+                    timeline: "3-6 months".to_string(),
+                    prerequisites: vec!["Complete relevant courses".to_string()],
+                    roi_analysis: ROIAnalysis {
+                        investment_required: "50-100 hours".to_string(),
+                        expected_return: 0.15,
+                        payback_period: "6-12 months".to_string(),
+                        risk_assessment: "low".to_string(),
                     },
-                ],
-                long_term_improvements: vec![
-                    LongTermImprovement {
-                        improvement: "Acquire trending technical skills".to_string(),
-                        expected_impact: 0.15,
-                        effort_required: "high".to_string(),
-                        timeline: "3-6 months".to_string(),
-                        prerequisites: vec!["Complete relevant courses".to_string()],
-                        roi_analysis: ROIAnalysis {
-                            investment_required: "50-100 hours".to_string(),
-                            expected_return: 0.15,
-                            payback_period: "6-12 months".to_string(),
-                            risk_assessment: "low".to_string(),
-                        },
-                    },
-                ],
-                effort_vs_impact_matrix: vec![
-                    EffortImpactPoint {
-                        improvement: "Keyword optimization".to_string(),
-                        effort_score: 2.0,
-                        impact_score: 8.0,
-                        priority_quadrant: "quick_wins".to_string(),
-                    },
-                ],
+                }],
+                effort_vs_impact_matrix: vec![EffortImpactPoint {
+                    improvement: "Keyword optimization".to_string(),
+                    effort_score: 2.0,
+                    impact_score: 8.0,
+                    priority_quadrant: "quick_wins".to_string(),
+                }],
             },
         })
     }
-    
-    async fn predict_interview_probability(&self, features: &[f64]) -> Result<InterviewProbability> {
-        let model = self.prediction_models.get("interview_probability")
+
+    async fn predict_interview_probability(
+        &self,
+        features: &[f64],
+    ) -> Result<InterviewProbability> {
+        let model = self
+            .prediction_models
+            .get("interview_probability")
             .ok_or_else(|| anyhow::anyhow!("Interview probability model not found"))?;
-        
+
         let probability = model.predict(&features[0..7.min(features.len())]);
-        
+
         Ok(InterviewProbability {
             probability,
-            key_strengths: vec![
-                StrengthFactor {
-                    strength: "Technical Skills".to_string(),
-                    market_value: 0.9,
-                    rarity_score: 0.7,
-                    leverage_opportunities: vec![
-                        "Highlight specific technologies used".to_string(),
-                        "Include project outcomes".to_string(),
-                    ],
-                },
-            ],
-            improvement_areas: vec![
-                ImprovementArea {
-                    area: "Leadership Experience".to_string(),
-                    current_gap: 0.3,
-                    market_impact: 0.6,
-                    improvement_strategies: vec![
-                        "Add examples of team leadership".to_string(),
-                        "Quantify team sizes managed".to_string(),
-                    ],
-                },
-            ],
+            key_strengths: vec![StrengthFactor {
+                strength: "Technical Skills".to_string(),
+                market_value: 0.9,
+                rarity_score: 0.7,
+                leverage_opportunities: vec![
+                    "Highlight specific technologies used".to_string(),
+                    "Include project outcomes".to_string(),
+                ],
+            }],
+            improvement_areas: vec![ImprovementArea {
+                area: "Leadership Experience".to_string(),
+                current_gap: 0.3,
+                market_impact: 0.6,
+                improvement_strategies: vec![
+                    "Add examples of team leadership".to_string(),
+                    "Quantify team sizes managed".to_string(),
+                ],
+            }],
             industry_specific_insights: IndustryInsights {
-                hiring_trends: vec![
-                    HiringTrend {
-                        trend: "Remote work experience valued".to_string(),
-                        impact_on_candidate: 0.15,
-                        recommendation: "Emphasize remote collaboration skills".to_string(),
-                    },
-                ],
-                skill_priorities: vec![
-                    SkillPriority {
-                        skill: "Cloud Technologies".to_string(),
-                        priority_score: 0.9,
-                        demand_trend: "increasing".to_string(),
-                        salary_impact: 0.2,
-                    },
-                ],
-                company_preferences: vec![
-                    CompanyPreference {
-                        preference_type: "Continuous Learning".to_string(),
-                        importance: 0.8,
-                        user_alignment: 0.7,
-                    },
-                ],
+                hiring_trends: vec![HiringTrend {
+                    trend: "Remote work experience valued".to_string(),
+                    impact_on_candidate: 0.15,
+                    recommendation: "Emphasize remote collaboration skills".to_string(),
+                }],
+                skill_priorities: vec![SkillPriority {
+                    skill: "Cloud Technologies".to_string(),
+                    priority_score: 0.9,
+                    demand_trend: "increasing".to_string(),
+                    salary_impact: 0.2,
+                }],
+                company_preferences: vec![CompanyPreference {
+                    preference_type: "Continuous Learning".to_string(),
+                    importance: 0.8,
+                    user_alignment: 0.7,
+                }],
             },
             ats_compatibility_impact: ATSImpact {
                 compatibility_score: 0.85,
@@ -935,10 +1009,10 @@ Return JSON format:
             },
         })
     }
-    
+
     async fn predict_salary_range(&self, features: &[f64]) -> Result<SalaryPrediction> {
         use crate::ollama::OllamaClient;
-        
+
         let salary_prediction_prompt = format!(
             "Analyze this professional profile and predict salary ranges based on the feature scores.
 
@@ -992,16 +1066,22 @@ Return JSON format:
         \"next_5_years\": 160000
     }}
 }}",
-            features.get(0).unwrap_or(&50.0),
-            features.get(1).unwrap_or(&50.0), 
+            features.first().unwrap_or(&50.0),
+            features.get(1).unwrap_or(&50.0),
             features.get(2).unwrap_or(&50.0),
             features.get(3).unwrap_or(&50.0),
             features.get(4).unwrap_or(&50.0)
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("mistral:latest", &salary_prediction_prompt, "salary_prediction").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis(
+                "mistral:latest",
+                &salary_prediction_prompt,
+                "salary_prediction",
+            )
+            .await?;
+
         match serde_json::from_str::<serde_json::Value>(&response) {
             Ok(analysis) => {
                 info!("ML salary prediction analysis completed");
@@ -1013,24 +1093,40 @@ Return JSON format:
             }
         }
     }
-    
-    fn parse_salary_prediction(&self, analysis: &serde_json::Value, features: &[f64]) -> Result<SalaryPrediction> {
+
+    fn parse_salary_prediction(
+        &self,
+        analysis: &serde_json::Value,
+        _features: &[f64],
+    ) -> Result<SalaryPrediction> {
         let current_value = analysis["current_market_value"].as_f64().unwrap_or(75000.0);
         let confidence = analysis["confidence_level"].as_f64().unwrap_or(0.7);
-        
+
         // Parse salary ranges
         let ranges = &analysis["salary_ranges"];
-        let percentile_25 = ranges["percentile_25"].as_f64().unwrap_or(current_value * 0.8);
+        let percentile_25 = ranges["percentile_25"]
+            .as_f64()
+            .unwrap_or(current_value * 0.8);
         let percentile_50 = ranges["percentile_50"].as_f64().unwrap_or(current_value);
-        let percentile_75 = ranges["percentile_75"].as_f64().unwrap_or(current_value * 1.25);
-        let percentile_90 = ranges["percentile_90"].as_f64().unwrap_or(current_value * 1.45);
-        
+        let _percentile_75 = ranges["percentile_75"]
+            .as_f64()
+            .unwrap_or(current_value * 1.25);
+        let percentile_90 = ranges["percentile_90"]
+            .as_f64()
+            .unwrap_or(current_value * 1.45);
+
         // Parse growth trajectory
         let growth = &analysis["growth_trajectory"];
-        let next_1_year = growth["next_1_year"].as_f64().unwrap_or(current_value * 1.05);
-        let next_3_years = growth["next_3_years"].as_f64().unwrap_or(current_value * 1.25);
-        let next_5_years = growth["next_5_years"].as_f64().unwrap_or(current_value * 1.55);
-        
+        let next_1_year = growth["next_1_year"]
+            .as_f64()
+            .unwrap_or(current_value * 1.05);
+        let _next_3_years = growth["next_3_years"]
+            .as_f64()
+            .unwrap_or(current_value * 1.25);
+        let _next_5_years = growth["next_5_years"]
+            .as_f64()
+            .unwrap_or(current_value * 1.55);
+
         Ok(SalaryPrediction {
             estimated_range: SalaryRange {
                 minimum: percentile_25,
@@ -1058,9 +1154,14 @@ Return JSON format:
                     "High-demand technical skills".to_string(),
                     "Proven experience with modern technologies".to_string(),
                 ],
-                market_conditions: if percentile_50 > 80000.0 { "strong" } else { "moderate" }.to_string(),
+                market_conditions: if percentile_50 > 80000.0 {
+                    "strong"
+                } else {
+                    "moderate"
+                }
+                .to_string(),
                 timing_recommendations: vec![
-                    "Tech hiring is competitive - good time to negotiate".to_string(),
+                    "Tech hiring is competitive - good time to negotiate".to_string()
                 ],
                 preparation_strategies: vec![
                     "Research market rates thoroughly".to_string(),
@@ -1087,17 +1188,20 @@ Return JSON format:
             },
         })
     }
-    
+
     fn fallback_salary_prediction(&self, features: &[f64]) -> Result<SalaryPrediction> {
         // Rule-based salary estimation
         let avg_score = features.iter().sum::<f64>() / features.len() as f64;
-        
+
         // Base salary calculation based on feature scores
         let base_salary = 60000.0 + (avg_score * 1000.0); // $60k base + $1k per score point
-        let estimated_median = base_salary.max(45000.0).min(200000.0);
-        
-        info!("Using fallback salary prediction with median: ${:.0}", estimated_median);
-        
+        let estimated_median = base_salary.clamp(45000.0, 200000.0);
+
+        info!(
+            "Using fallback salary prediction with median: ${:.0}",
+            estimated_median
+        );
+
         Ok(SalaryPrediction {
             estimated_range: SalaryRange {
                 minimum: 75000.0,
@@ -1126,9 +1230,7 @@ Return JSON format:
                     "Relevant industry experience".to_string(),
                 ],
                 market_conditions: "Favorable for candidates".to_string(),
-                timing_recommendations: vec![
-                    "Best time to negotiate: Q1 or Q4".to_string(),
-                ],
+                timing_recommendations: vec!["Best time to negotiate: Q1 or Q4".to_string()],
                 preparation_strategies: vec![
                     "Research company salary bands".to_string(),
                     "Prepare quantified achievements".to_string(),
@@ -1136,22 +1238,20 @@ Return JSON format:
             },
             improvement_impact: SalaryImprovementImpact {
                 potential_increase: 15000.0,
-                improvement_strategies: vec![
-                    SalaryImprovementStrategy {
-                        strategy: "Acquire cloud certifications".to_string(),
-                        expected_impact: 8000.0,
-                        implementation_difficulty: "medium".to_string(),
-                        timeline: "3-6 months".to_string(),
-                    },
-                ],
+                improvement_strategies: vec![SalaryImprovementStrategy {
+                    strategy: "Acquire cloud certifications".to_string(),
+                    expected_impact: 8000.0,
+                    implementation_difficulty: "medium".to_string(),
+                    timeline: "3-6 months".to_string(),
+                }],
                 timeline_to_impact: "6-12 months".to_string(),
             },
         })
     }
-    
+
     async fn forecast_skill_demand(&self, resume_content: &str) -> Result<SkillDemandForecast> {
         let _skills = self.extract_skills_from_resume(resume_content);
-        
+
         Ok(SkillDemandForecast {
             trending_skills: vec![
                 TrendingSkill {
@@ -1177,239 +1277,236 @@ Return JSON format:
                     time_to_proficiency: "3-6 months".to_string(),
                 },
             ],
-            declining_skills: vec![
-                DecliningSkill {
-                    skill: "Legacy Database Management".to_string(),
-                    decline_rate: -0.15,
-                    replacement_skills: vec![
-                        "NoSQL Databases".to_string(),
-                        "Cloud Database Services".to_string(),
-                    ],
-                    transition_timeline: "12-18 months".to_string(),
-                },
-            ],
-            emerging_technologies: vec![
-                EmergingTechnology {
-                    technology: "Quantum Computing".to_string(),
-                    adoption_timeline: "5-10 years".to_string(),
-                    market_impact: 0.6,
-                    learning_priority: 0.3,
-                    related_skills: vec![
-                        "Linear Algebra".to_string(),
-                        "Python Programming".to_string(),
-                    ],
-                },
-            ],
-            skill_combinations: vec![
-                SkillCombination {
-                    skills: vec!["Python".to_string(), "Machine Learning".to_string(), "Cloud Platforms".to_string()],
-                    synergy_score: 0.9,
-                    market_value: 0.95,
-                    rarity_bonus: 0.15,
-                },
-            ],
-            market_predictions: vec![
-                MarketPrediction {
-                    prediction: "AI skills will be essential for most tech roles".to_string(),
-                    confidence: 0.85,
-                    timeline: "2-3 years".to_string(),
-                    impact_on_candidate: 0.7,
-                },
-            ],
+            declining_skills: vec![DecliningSkill {
+                skill: "Legacy Database Management".to_string(),
+                decline_rate: -0.15,
+                replacement_skills: vec![
+                    "NoSQL Databases".to_string(),
+                    "Cloud Database Services".to_string(),
+                ],
+                transition_timeline: "12-18 months".to_string(),
+            }],
+            emerging_technologies: vec![EmergingTechnology {
+                technology: "Quantum Computing".to_string(),
+                adoption_timeline: "5-10 years".to_string(),
+                market_impact: 0.6,
+                learning_priority: 0.3,
+                related_skills: vec![
+                    "Linear Algebra".to_string(),
+                    "Python Programming".to_string(),
+                ],
+            }],
+            skill_combinations: vec![SkillCombination {
+                skills: vec![
+                    "Python".to_string(),
+                    "Machine Learning".to_string(),
+                    "Cloud Platforms".to_string(),
+                ],
+                synergy_score: 0.9,
+                market_value: 0.95,
+                rarity_bonus: 0.15,
+            }],
+            market_predictions: vec![MarketPrediction {
+                prediction: "AI skills will be essential for most tech roles".to_string(),
+                confidence: 0.85,
+                timeline: "2-3 years".to_string(),
+                impact_on_candidate: 0.7,
+            }],
         })
     }
-    
+
     fn extract_skills_from_resume(&self, resume_content: &str) -> Vec<String> {
         // Simple skill extraction - in practice, this would use NLP
         let common_skills = [
-            "python", "java", "javascript", "react", "node.js", "sql", "aws", "docker",
-            "kubernetes", "machine learning", "data analysis", "project management"
+            "python",
+            "java",
+            "javascript",
+            "react",
+            "node.js",
+            "sql",
+            "aws",
+            "docker",
+            "kubernetes",
+            "machine learning",
+            "data analysis",
+            "project management",
         ];
-        
-        common_skills.iter()
+
+        common_skills
+            .iter()
             .filter(|&skill| resume_content.to_lowercase().contains(skill))
             .map(|&skill| skill.to_string())
             .collect()
     }
-    
-    async fn generate_career_path_suggestions(&self, resume_content: &str, _user_history: &[Analysis]) -> Result<CareerPathSuggestions> {
+
+    async fn generate_career_path_suggestions(
+        &self,
+        resume_content: &str,
+        _user_history: &[Analysis],
+    ) -> Result<CareerPathSuggestions> {
         let skills = self.extract_skills_from_resume(resume_content);
-        
+
         Ok(CareerPathSuggestions {
-            recommended_paths: vec![
-                CareerPath {
-                    path_name: "Senior Software Engineer".to_string(),
-                    progression_timeline: "2-3 years".to_string(),
-                    required_skills: vec![
-                        "Advanced programming".to_string(),
-                        "System design".to_string(),
-                        "Team leadership".to_string(),
-                    ],
-                    salary_progression: vec![
-                        SalaryMilestone {
-                            year: 1,
-                            expected_salary: 110000.0,
-                            role_level: "Senior".to_string(),
-                        },
-                        SalaryMilestone {
-                            year: 3,
-                            expected_salary: 130000.0,
-                            role_level: "Staff".to_string(),
-                        },
-                    ],
-                    success_probability: 0.78,
-                    key_milestones: vec![
-                        CareerMilestone {
-                            milestone: "Lead a major project".to_string(),
-                            timeline: "6-12 months".to_string(),
-                            requirements: vec!["Demonstrate technical leadership".to_string()],
-                            success_indicators: vec!["Project delivered on time".to_string()],
-                        },
-                    ],
-                },
-            ],
-            skill_development_roadmap: SkillRoadmap {
-                immediate_priorities: skills.into_iter().take(3).map(|skill| SkillPriority {
-                    skill,
-                    priority_score: 0.8,
-                    demand_trend: "increasing".to_string(),
-                    salary_impact: 0.15,
-                }).collect(),
-                medium_term_goals: vec![
-                    SkillPriority {
-                        skill: "System Design".to_string(),
-                        priority_score: 0.9,
-                        demand_trend: "increasing".to_string(),
-                        salary_impact: 0.25,
+            recommended_paths: vec![CareerPath {
+                path_name: "Senior Software Engineer".to_string(),
+                progression_timeline: "2-3 years".to_string(),
+                required_skills: vec![
+                    "Advanced programming".to_string(),
+                    "System design".to_string(),
+                    "Team leadership".to_string(),
+                ],
+                salary_progression: vec![
+                    SalaryMilestone {
+                        year: 1,
+                        expected_salary: 110000.0,
+                        role_level: "Senior".to_string(),
+                    },
+                    SalaryMilestone {
+                        year: 3,
+                        expected_salary: 130000.0,
+                        role_level: "Staff".to_string(),
                     },
                 ],
-                long_term_aspirations: vec![
-                    SkillPriority {
-                        skill: "Engineering Management".to_string(),
-                        priority_score: 0.7,
-                        demand_trend: "stable".to_string(),
-                        salary_impact: 0.3,
-                    },
-                ],
-                learning_sequence: vec![
-                    LearningStep {
-                        step: "Complete advanced algorithms course".to_string(),
-                        duration: "2-3 months".to_string(),
-                        prerequisites: vec!["Basic programming skills".to_string()],
-                        resources: vec!["LeetCode practice".to_string()],
-                        success_metrics: vec!["Pass technical interviews".to_string()],
-                    },
-                ],
-            },
-            experience_gaps: vec![
-                ExperienceGap {
-                    gap_type: "Team Leadership".to_string(),
-                    importance: 0.8,
-                    bridging_strategies: vec![
-                        "Volunteer to lead small projects".to_string(),
-                        "Mentor junior developers".to_string(),
-                    ],
-                    timeline_to_close: "6-12 months".to_string(),
-                },
-            ],
-            networking_recommendations: vec![
-                NetworkingRecommendation {
-                    platform: "LinkedIn".to_string(),
-                    strategy: "Connect with industry leaders".to_string(),
-                    target_connections: vec!["Senior Engineers".to_string(), "Tech Leads".to_string()],
-                    expected_impact: 0.6,
-                },
-            ],
-        })
-    }
-    
-    async fn prioritize_optimizations(&self, _features: &[f64], _resume_content: &str) -> Result<OptimizationPrioritization> {
-        Ok(OptimizationPrioritization {
-            high_impact_actions: vec![
-                PriorityAction {
-                    action: "Add quantified achievements".to_string(),
-                    expected_impact: 0.15,
-                    effort_required: 0.3,
-                    timeline: "1-2 hours".to_string(),
-                    success_probability: 0.9,
-                    dependencies: vec![],
-                },
-            ],
-            quick_wins: vec![
-                PriorityAction {
-                    action: "Optimize keywords for ATS".to_string(),
-                    expected_impact: 0.12,
-                    effort_required: 0.2,
-                    timeline: "30 minutes".to_string(),
-                    success_probability: 0.95,
-                    dependencies: vec![],
-                },
-            ],
-            long_term_investments: vec![
-                PriorityAction {
-                    action: "Acquire trending skills".to_string(),
-                    expected_impact: 0.25,
-                    effort_required: 0.8,
-                    timeline: "3-6 months".to_string(),
-                    success_probability: 0.7,
-                    dependencies: vec!["Identify skill gaps".to_string()],
-                },
-            ],
-            roi_ranking: vec![
-                ROIRanking {
-                    improvement: "Keyword optimization".to_string(),
-                    roi_score: 0.95,
-                    investment: "Low".to_string(),
-                    expected_return: 0.12,
-                    risk_level: "Very Low".to_string(),
-                },
-            ],
-        })
-    }
-    
-    async fn generate_ml_recommendations(&self, _resume_content: &str, _job_description: &str, _features: &[f64]) -> Result<MLRecommendations> {
-        Ok(MLRecommendations {
-            personalized_suggestions: vec![
-                PersonalizedSuggestion {
-                    suggestion: "Highlight your machine learning projects more prominently".to_string(),
-                    category: "Content".to_string(),
-                    priority: 0.85,
-                    reasoning: "ML skills are highly valued in your target industry".to_string(),
-                    expected_outcome: "Increased interview callbacks".to_string(),
-                },
-            ],
-            content_recommendations: vec![
-                ContentRecommendation {
-                    content_type: "Technical Skills".to_string(),
-                    specific_recommendation: "Add specific ML frameworks and tools".to_string(),
-                    rationale: "Demonstrates hands-on experience".to_string(),
-                    impact_prediction: 0.15,
-                },
-            ],
-            learning_recommendations: vec![
-                LearningRecommendation {
-                    skill: "Deep Learning".to_string(),
-                    urgency: 0.7,
-                    learning_path: vec![
-                        "Complete neural networks course".to_string(),
-                        "Build portfolio projects".to_string(),
-                    ],
-                    estimated_time: "4-6 months".to_string(),
-                    expected_impact: 0.2,
-                },
-            ],
-            career_recommendations: vec![
-                CareerRecommendation {
-                    recommendation_type: "Role Transition".to_string(),
-                    specific_action: "Consider ML Engineer positions".to_string(),
+                success_probability: 0.78,
+                key_milestones: vec![CareerMilestone {
+                    milestone: "Lead a major project".to_string(),
                     timeline: "6-12 months".to_string(),
-                    success_probability: 0.65,
-                    alternative_options: vec!["Data Scientist".to_string(), "AI Research Engineer".to_string()],
-                },
-            ],
+                    requirements: vec!["Demonstrate technical leadership".to_string()],
+                    success_indicators: vec!["Project delivered on time".to_string()],
+                }],
+            }],
+            skill_development_roadmap: SkillRoadmap {
+                immediate_priorities: skills
+                    .into_iter()
+                    .take(3)
+                    .map(|skill| SkillPriority {
+                        skill,
+                        priority_score: 0.8,
+                        demand_trend: "increasing".to_string(),
+                        salary_impact: 0.15,
+                    })
+                    .collect(),
+                medium_term_goals: vec![SkillPriority {
+                    skill: "System Design".to_string(),
+                    priority_score: 0.9,
+                    demand_trend: "increasing".to_string(),
+                    salary_impact: 0.25,
+                }],
+                long_term_aspirations: vec![SkillPriority {
+                    skill: "Engineering Management".to_string(),
+                    priority_score: 0.7,
+                    demand_trend: "stable".to_string(),
+                    salary_impact: 0.3,
+                }],
+                learning_sequence: vec![LearningStep {
+                    step: "Complete advanced algorithms course".to_string(),
+                    duration: "2-3 months".to_string(),
+                    prerequisites: vec!["Basic programming skills".to_string()],
+                    resources: vec!["LeetCode practice".to_string()],
+                    success_metrics: vec!["Pass technical interviews".to_string()],
+                }],
+            },
+            experience_gaps: vec![ExperienceGap {
+                gap_type: "Team Leadership".to_string(),
+                importance: 0.8,
+                bridging_strategies: vec![
+                    "Volunteer to lead small projects".to_string(),
+                    "Mentor junior developers".to_string(),
+                ],
+                timeline_to_close: "6-12 months".to_string(),
+            }],
+            networking_recommendations: vec![NetworkingRecommendation {
+                platform: "LinkedIn".to_string(),
+                strategy: "Connect with industry leaders".to_string(),
+                target_connections: vec!["Senior Engineers".to_string(), "Tech Leads".to_string()],
+                expected_impact: 0.6,
+            }],
         })
     }
-    
+
+    async fn prioritize_optimizations(
+        &self,
+        _features: &[f64],
+        _resume_content: &str,
+    ) -> Result<OptimizationPrioritization> {
+        Ok(OptimizationPrioritization {
+            high_impact_actions: vec![PriorityAction {
+                action: "Add quantified achievements".to_string(),
+                expected_impact: 0.15,
+                effort_required: 0.3,
+                timeline: "1-2 hours".to_string(),
+                success_probability: 0.9,
+                dependencies: vec![],
+            }],
+            quick_wins: vec![PriorityAction {
+                action: "Optimize keywords for ATS".to_string(),
+                expected_impact: 0.12,
+                effort_required: 0.2,
+                timeline: "30 minutes".to_string(),
+                success_probability: 0.95,
+                dependencies: vec![],
+            }],
+            long_term_investments: vec![PriorityAction {
+                action: "Acquire trending skills".to_string(),
+                expected_impact: 0.25,
+                effort_required: 0.8,
+                timeline: "3-6 months".to_string(),
+                success_probability: 0.7,
+                dependencies: vec!["Identify skill gaps".to_string()],
+            }],
+            roi_ranking: vec![ROIRanking {
+                improvement: "Keyword optimization".to_string(),
+                roi_score: 0.95,
+                investment: "Low".to_string(),
+                expected_return: 0.12,
+                risk_level: "Very Low".to_string(),
+            }],
+        })
+    }
+
+    async fn generate_ml_recommendations(
+        &self,
+        _resume_content: &str,
+        _job_description: &str,
+        _features: &[f64],
+    ) -> Result<MLRecommendations> {
+        Ok(MLRecommendations {
+            personalized_suggestions: vec![PersonalizedSuggestion {
+                suggestion: "Highlight your machine learning projects more prominently".to_string(),
+                category: "Content".to_string(),
+                priority: 0.85,
+                reasoning: "ML skills are highly valued in your target industry".to_string(),
+                expected_outcome: "Increased interview callbacks".to_string(),
+            }],
+            content_recommendations: vec![ContentRecommendation {
+                content_type: "Technical Skills".to_string(),
+                specific_recommendation: "Add specific ML frameworks and tools".to_string(),
+                rationale: "Demonstrates hands-on experience".to_string(),
+                impact_prediction: 0.15,
+            }],
+            learning_recommendations: vec![LearningRecommendation {
+                skill: "Deep Learning".to_string(),
+                urgency: 0.7,
+                learning_path: vec![
+                    "Complete neural networks course".to_string(),
+                    "Build portfolio projects".to_string(),
+                ],
+                estimated_time: "4-6 months".to_string(),
+                expected_impact: 0.2,
+            }],
+            career_recommendations: vec![CareerRecommendation {
+                recommendation_type: "Role Transition".to_string(),
+                specific_action: "Consider ML Engineer positions".to_string(),
+                timeline: "6-12 months".to_string(),
+                success_probability: 0.65,
+                alternative_options: vec![
+                    "Data Scientist".to_string(),
+                    "AI Research Engineer".to_string(),
+                ],
+            }],
+        })
+    }
+
     async fn calculate_confidence_metrics(&self, _features: &[f64]) -> Result<ConfidenceMetrics> {
         Ok(ConfidenceMetrics {
             overall_confidence: 0.82,
@@ -1429,16 +1526,28 @@ Return JSON format:
             },
         })
     }
-    
+
     // Helper methods that were missing
+    #[allow(dead_code)]
     fn parse_market_factors(&self, _market_factors: &serde_json::Value) -> Vec<String> {
-        vec!["Technology sector growth".to_string(), "Remote work impact".to_string()]
+        vec![
+            "Technology sector growth".to_string(),
+            "Remote work impact".to_string(),
+        ]
     }
-    
-    fn parse_geographic_variations(&self, _geographic_adjustments: &serde_json::Value) -> Vec<String> {
-        vec!["Cost of living adjustments".to_string(), "Regional demand differences".to_string()]
+
+    #[allow(dead_code)]
+    fn parse_geographic_variations(
+        &self,
+        _geographic_adjustments: &serde_json::Value,
+    ) -> Vec<String> {
+        vec![
+            "Cost of living adjustments".to_string(),
+            "Regional demand differences".to_string(),
+        ]
     }
-    
+
+    #[allow(dead_code)]
     fn estimate_experience_level(&self, features: &[f64]) -> String {
         let avg_score = features.iter().sum::<f64>() / features.len() as f64;
         if avg_score > 80.0 {
@@ -1449,39 +1558,38 @@ Return JSON format:
             "Junior".to_string()
         }
     }
-    
-    fn calculate_skill_premiums(&self, features: &[f64]) -> Vec<(String, f64)> {
+
+    #[allow(dead_code)]
+    fn calculate_skill_premiums(&self, _features: &[f64]) -> Vec<(String, f64)> {
         vec![
             ("Python".to_string(), 0.15),
             ("Machine Learning".to_string(), 0.20),
             ("Cloud Technologies".to_string(), 0.10),
         ]
     }
-    
+
     fn generate_default_factors(&self, _features: &[f64]) -> Vec<PredictionFactor> {
-        vec![
-            PredictionFactor {
-                factor_name: "Technical Skills Match".to_string(),
-                impact_weight: 0.4,
-                current_score: 0.8,
-                benchmark_score: 0.7,
-                improvement_suggestions: vec!["Expand technical skill set".to_string()],
-            }
-        ]
+        vec![PredictionFactor {
+            factor_name: "Technical Skills Match".to_string(),
+            impact_weight: 0.4,
+            current_score: 0.8,
+            benchmark_score: 0.7,
+            improvement_suggestions: vec!["Expand technical skill set".to_string()],
+        }]
     }
-    
+
     fn generate_default_risks(&self, _features: &[f64]) -> Vec<RiskFactor> {
         vec![]
     }
-    
+
     fn generate_quick_wins(&self, _features: &[f64]) -> Vec<QuickWin> {
         vec![]
     }
-    
+
     fn generate_long_term_improvements(&self, _features: &[f64]) -> Vec<LongTermImprovement> {
         vec![]
     }
-    
+
     fn generate_effort_impact_matrix(&self, _features: &[f64]) -> Vec<EffortImpactPoint> {
         vec![]
     }
@@ -1496,7 +1604,7 @@ mod tests {
     async fn test_ml_insights_engine_creation() {
         let db = Database::new().await.unwrap();
         let ml_engine = MLInsightsEngine::new(db);
-        
+
         assert_eq!(ml_engine.prediction_models.len(), 2);
         assert_eq!(ml_engine.feature_extractors.len(), 2);
     }
@@ -1505,12 +1613,15 @@ mod tests {
     async fn test_feature_extraction() {
         let db = Database::new().await.unwrap();
         let ml_engine = MLInsightsEngine::new(db);
-        
-        let resume_content = "Software Engineer with 5 years experience in Python and machine learning.";
+
+        let resume_content =
+            "Software Engineer with 5 years experience in Python and machine learning.";
         let job_description = "Looking for Python developer with ML experience.";
         let history = vec![];
-        
-        let features = ml_engine.extract_comprehensive_features(resume_content, job_description, &history).unwrap();
+
+        let features = ml_engine
+            .extract_comprehensive_features(resume_content, job_description, &history)
+            .unwrap();
         assert!(!features.is_empty());
     }
 
@@ -1518,13 +1629,17 @@ mod tests {
     async fn test_ml_insights_generation() {
         let db = Database::new().await.unwrap();
         let ml_engine = MLInsightsEngine::new(db);
-        
-        let resume_content = "Software Engineer with expertise in Python, machine learning, and cloud technologies.";
+
+        let resume_content =
+            "Software Engineer with expertise in Python, machine learning, and cloud technologies.";
         let job_description = "Seeking ML Engineer with Python and AWS experience.";
         let history = vec![];
-        
-        let insights = ml_engine.generate_ml_insights(resume_content, job_description, &history).await.unwrap();
-        
+
+        let insights = ml_engine
+            .generate_ml_insights(resume_content, job_description, &history)
+            .await
+            .unwrap();
+
         assert!(insights.success_prediction.overall_probability > 0.0);
         assert!(insights.interview_probability.probability > 0.0);
         assert!(insights.salary_prediction.estimated_range.median > 0.0);

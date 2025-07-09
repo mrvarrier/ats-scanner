@@ -44,6 +44,13 @@ function App() {
     }
   }, [isDarkMode, userPreferences?.theme]);
 
+  // Initialize light theme on component mount
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add('light');
+    html.classList.remove('dark', 'high-contrast');
+  }, []);
+
   useEffect(() => {
     // Initialize app data when preferences are available
     const initializeApp = async () => {
@@ -54,7 +61,7 @@ function App() {
         if (shouldAutoConnect) {
           // Test Ollama connection
           const connectionResult = await invoke<any>('test_ollama_connection');
-          if (connectionResult.success) {
+          if (connectionResult.success && connectionResult.data) {
             setOllamaConnection(true);
             
             // Get available models
@@ -68,6 +75,8 @@ function App() {
                 setSelectedModel(userPreferences.default_model);
               }
             }
+          } else {
+            setOllamaConnection(false);
           }
         }
 
@@ -91,6 +100,45 @@ function App() {
       initializeApp();
     }
   }, [setModels, setOllamaConnection, setAnalysisHistory, userPreferences, loadedPreferences, setSelectedModel]);
+
+  // Periodic Ollama connection monitoring
+  useEffect(() => {
+    const checkOllamaConnection = async () => {
+      try {
+        const result = await invoke<any>('test_ollama_connection');
+        const isConnected = result.success && result.data;
+        
+        // Only update if connection status changed
+        if (isConnected !== isOllamaConnected) {
+          setOllamaConnection(isConnected);
+          
+          // If connected, refresh models list
+          if (isConnected) {
+            const modelsResult = await invoke<any>('get_ollama_models');
+            if (modelsResult.success) {
+              setModels(modelsResult.data || []);
+            }
+          } else {
+            // If disconnected, clear models
+            setModels([]);
+            setSelectedModel(null);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check Ollama connection:', error);
+        setOllamaConnection(false);
+        setModels([]);
+        setSelectedModel(null);
+      }
+    };
+
+    // Start periodic monitoring after app is initialized
+    if (loadedPreferences !== undefined) {
+      const interval = setInterval(checkOllamaConnection, 5000); // Check every 5 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [loadedPreferences, isOllamaConnected, setOllamaConnection, setModels, setSelectedModel]);
 
   const renderActivePage = () => {
     switch (activeTab) {

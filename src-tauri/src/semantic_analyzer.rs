@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
+use log::info;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use regex::Regex;
-use log::info;
 
 use crate::database::Database;
 use crate::models::IndustryKeyword;
@@ -74,7 +74,10 @@ impl SemanticAnalyzer {
         info!("Starting semantic analysis for industry: {}", industry);
 
         // 1. Load industry-specific keywords
-        let industry_keywords = self.database.get_industry_keywords(industry).await
+        let industry_keywords = self
+            .database
+            .get_industry_keywords(industry)
+            .await
             .context("Failed to load industry keywords")?;
 
         // 2. Extract keywords from both resume and job description
@@ -82,35 +85,23 @@ impl SemanticAnalyzer {
         let job_keywords = self.extract_keywords(job_description);
 
         // 3. Perform semantic matching
-        let keyword_matches = self.perform_semantic_matching(
-            &resume_keywords,
-            &job_keywords,
-            &industry_keywords,
-        );
+        let keyword_matches =
+            self.perform_semantic_matching(&resume_keywords, &job_keywords, &industry_keywords);
 
         // 4. Calculate semantic similarity score
-        let semantic_similarity_score = self.calculate_semantic_similarity(
-            resume_content,
-            job_description,
-        );
+        let semantic_similarity_score =
+            self.calculate_semantic_similarity(resume_content, job_description);
 
         // 5. Calculate industry relevance
-        let industry_relevance_score = self.calculate_industry_relevance(
-            &resume_keywords,
-            &industry_keywords,
-        );
+        let industry_relevance_score =
+            self.calculate_industry_relevance(&resume_keywords, &industry_keywords);
 
         // 6. Identify skill gaps
-        let skill_gaps = self.identify_skill_gaps(
-            &keyword_matches,
-            &industry_keywords,
-        );
+        let skill_gaps = self.identify_skill_gaps(&keyword_matches, &industry_keywords);
 
         // 7. Generate skill recommendations
-        let recommended_skills = self.generate_skill_recommendations(
-            &skill_gaps,
-            &industry_keywords,
-        );
+        let recommended_skills =
+            self.generate_skill_recommendations(&skill_gaps, &industry_keywords);
 
         // 8. Calculate overall confidence
         let confidence_score = self.calculate_confidence_score(
@@ -147,19 +138,23 @@ impl SemanticAnalyzer {
 
         // Extract general keywords
         let words: Vec<&str> = text.split_whitespace().collect();
-        for window in words.windows(1).chain(words.windows(2)).chain(words.windows(3)) {
+        for window in words
+            .windows(1)
+            .chain(words.windows(2))
+            .chain(words.windows(3))
+        {
             let phrase = window.join(" ");
             let cleaned = self.clean_keyword(&phrase);
-            
+
             if self.is_valid_keyword(&cleaned) {
                 keywords.push(cleaned);
             }
         }
 
         // Remove duplicates and sort by length (longer phrases first)
-        keywords.sort_by(|a, b| b.len().cmp(&a.len()));
+        keywords.sort_by_key(|b| std::cmp::Reverse(b.len()));
         keywords.dedup();
-        
+
         keywords
     }
 
@@ -198,7 +193,9 @@ impl SemanticAnalyzer {
             }
 
             // Semantic similarity using built-in synonyms
-            if let Some(semantic_synonyms) = self.skill_synonyms.get(&industry_kw.keyword.to_lowercase()) {
+            if let Some(semantic_synonyms) =
+                self.skill_synonyms.get(&industry_kw.keyword.to_lowercase())
+            {
                 for synonym in semantic_synonyms {
                     if self.contains_keyword(resume_keywords, synonym) {
                         found_in_resume = true;
@@ -210,12 +207,16 @@ impl SemanticAnalyzer {
             }
 
             // Partial matching for compound skills
-            let partial_score = self.calculate_partial_match_score(resume_keywords, &industry_kw.keyword);
+            let partial_score =
+                self.calculate_partial_match_score(resume_keywords, &industry_kw.keyword);
             if partial_score > 0.5 {
                 relevance_score += partial_score * 0.4;
                 if !found_in_resume && partial_score > 0.7 {
                     found_in_resume = true;
-                    context = format!("Partial match: {} (score: {:.2})", industry_kw.keyword, partial_score);
+                    context = format!(
+                        "Partial match: {} (score: {:.2})",
+                        industry_kw.keyword, partial_score
+                    );
                 }
             }
 
@@ -233,7 +234,9 @@ impl SemanticAnalyzer {
 
         // Sort by relevance score and weight
         matches.sort_by(|a, b| {
-            (b.relevance_score * b.weight).partial_cmp(&(a.relevance_score * a.weight)).unwrap_or(std::cmp::Ordering::Equal)
+            (b.relevance_score * b.weight)
+                .partial_cmp(&(a.relevance_score * a.weight))
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         matches
@@ -281,10 +284,11 @@ impl SemanticAnalyzer {
 
         for industry_kw in industry_keywords {
             total_weight += industry_kw.weight;
-            
+
             if self.contains_keyword(resume_keywords, &industry_kw.keyword) {
                 matched_weight += industry_kw.weight;
-            } else if let Ok(synonyms) = serde_json::from_str::<Vec<String>>(&industry_kw.synonyms) {
+            } else if let Ok(synonyms) = serde_json::from_str::<Vec<String>>(&industry_kw.synonyms)
+            {
                 for synonym in synonyms {
                     if self.contains_keyword(resume_keywords, &synonym) {
                         matched_weight += industry_kw.weight * 0.8; // Slightly lower weight for synonyms
@@ -309,10 +313,14 @@ impl SemanticAnalyzer {
         let mut skill_gaps = Vec::new();
 
         for industry_kw in industry_keywords {
-            if let Some(match_result) = keyword_matches.iter().find(|m| m.keyword == industry_kw.keyword) {
+            if let Some(match_result) = keyword_matches
+                .iter()
+                .find(|m| m.keyword == industry_kw.keyword)
+            {
                 if !match_result.found_in_resume && industry_kw.weight > 1.0 {
-                    let suggestions = self.generate_skill_suggestions(&industry_kw.keyword, &industry_kw.category);
-                    
+                    let suggestions = self
+                        .generate_skill_suggestions(&industry_kw.keyword, &industry_kw.category);
+
                     skill_gaps.push(SkillGap {
                         missing_skill: industry_kw.keyword.clone(),
                         importance: industry_kw.weight,
@@ -324,8 +332,12 @@ impl SemanticAnalyzer {
         }
 
         // Sort by importance
-        skill_gaps.sort_by(|a, b| b.importance.partial_cmp(&a.importance).unwrap_or(std::cmp::Ordering::Equal));
-        
+        skill_gaps.sort_by(|a, b| {
+            b.importance
+                .partial_cmp(&a.importance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         // Return top 10 most important gaps
         skill_gaps.into_iter().take(10).collect()
     }
@@ -345,10 +357,11 @@ impl SemanticAnalyzer {
         // Add trending skills in the same categories
         let gap_categories: Vec<&String> = skill_gaps.iter().map(|g| &g.category).collect();
         for industry_kw in industry_keywords {
-            if gap_categories.contains(&&industry_kw.category) && industry_kw.weight > 1.5 {
-                if !recommendations.contains(&industry_kw.keyword) {
-                    recommendations.push(industry_kw.keyword.clone());
-                }
+            if gap_categories.contains(&&industry_kw.category)
+                && industry_kw.weight > 1.5
+                && !recommendations.contains(&industry_kw.keyword)
+            {
+                recommendations.push(industry_kw.keyword.clone());
             }
         }
 
@@ -364,9 +377,11 @@ impl SemanticAnalyzer {
         let match_confidence = if keyword_matches.is_empty() {
             0.0
         } else {
-            keyword_matches.iter()
+            keyword_matches
+                .iter()
                 .map(|m| m.relevance_score * m.weight)
-                .sum::<f64>() / keyword_matches.len() as f64
+                .sum::<f64>()
+                / keyword_matches.len() as f64
         };
 
         // Weighted average of different confidence factors
@@ -421,8 +436,8 @@ impl SemanticAnalyzer {
         let len2 = s2.len();
         let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
 
-        for i in 0..=len1 {
-            matrix[i][0] = i;
+        for (i, item) in matrix.iter_mut().enumerate().take(len1 + 1) {
+            item[0] = i;
         }
         for j in 0..=len2 {
             matrix[0][j] = j;
@@ -443,9 +458,12 @@ impl SemanticAnalyzer {
     fn clean_keyword(&self, keyword: &str) -> String {
         let cleaned = keyword
             .trim()
-            .replace(&['.', ',', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}'][..], "")
+            .replace(
+                &['.', ',', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}'][..],
+                "",
+            )
             .replace("  ", " ");
-        
+
         cleaned.trim().to_string()
     }
 
@@ -453,7 +471,7 @@ impl SemanticAnalyzer {
         if keyword.len() < 2 || keyword.len() > 50 {
             return false;
         }
-        
+
         if self.stop_words.contains(&keyword.to_lowercase()) {
             return false;
         }
@@ -461,13 +479,13 @@ impl SemanticAnalyzer {
         // Check if it's mostly alphabetic or contains technical characters
         let alpha_count = keyword.chars().filter(|c| c.is_alphabetic()).count();
         let total_chars = keyword.chars().count();
-        
+
         alpha_count as f64 / total_chars as f64 > 0.5
     }
 
     fn generate_skill_suggestions(&self, skill: &str, category: &str) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         // Add generic suggestions based on category
         match category {
             "programming_language" => {
@@ -499,54 +517,228 @@ impl SemanticAnalyzer {
 
     fn build_skill_synonyms_map() -> HashMap<String, Vec<String>> {
         let mut synonyms = HashMap::new();
-        
+
         // Programming languages
-        synonyms.insert("javascript".to_string(), vec!["js".to_string(), "node.js".to_string(), "nodejs".to_string()]);
+        synonyms.insert(
+            "javascript".to_string(),
+            vec![
+                "js".to_string(),
+                "node.js".to_string(),
+                "nodejs".to_string(),
+            ],
+        );
         synonyms.insert("typescript".to_string(), vec!["ts".to_string()]);
-        synonyms.insert("python".to_string(), vec!["py".to_string(), "python3".to_string()]);
-        synonyms.insert("c++".to_string(), vec!["cpp".to_string(), "c plus plus".to_string()]);
-        synonyms.insert("c#".to_string(), vec!["csharp".to_string(), "c sharp".to_string()]);
-        
+        synonyms.insert(
+            "python".to_string(),
+            vec!["py".to_string(), "python3".to_string()],
+        );
+        synonyms.insert(
+            "c++".to_string(),
+            vec!["cpp".to_string(), "c plus plus".to_string()],
+        );
+        synonyms.insert(
+            "c#".to_string(),
+            vec!["csharp".to_string(), "c sharp".to_string()],
+        );
+
         // Frameworks
-        synonyms.insert("react".to_string(), vec!["reactjs".to_string(), "react.js".to_string()]);
-        synonyms.insert("angular".to_string(), vec!["angularjs".to_string(), "angular.js".to_string()]);
-        synonyms.insert("vue".to_string(), vec!["vuejs".to_string(), "vue.js".to_string()]);
-        
+        synonyms.insert(
+            "react".to_string(),
+            vec!["reactjs".to_string(), "react.js".to_string()],
+        );
+        synonyms.insert(
+            "angular".to_string(),
+            vec!["angularjs".to_string(), "angular.js".to_string()],
+        );
+        synonyms.insert(
+            "vue".to_string(),
+            vec!["vuejs".to_string(), "vue.js".to_string()],
+        );
+
         // Databases
-        synonyms.insert("postgresql".to_string(), vec!["postgres".to_string(), "psql".to_string()]);
+        synonyms.insert(
+            "postgresql".to_string(),
+            vec!["postgres".to_string(), "psql".to_string()],
+        );
         synonyms.insert("mysql".to_string(), vec!["my sql".to_string()]);
-        synonyms.insert("mongodb".to_string(), vec!["mongo".to_string(), "mongo db".to_string()]);
-        
+        synonyms.insert(
+            "mongodb".to_string(),
+            vec!["mongo".to_string(), "mongo db".to_string()],
+        );
+
         // Cloud platforms
         synonyms.insert("amazon web services".to_string(), vec!["aws".to_string()]);
-        synonyms.insert("google cloud platform".to_string(), vec!["gcp".to_string(), "google cloud".to_string()]);
+        synonyms.insert(
+            "google cloud platform".to_string(),
+            vec!["gcp".to_string(), "google cloud".to_string()],
+        );
         synonyms.insert("microsoft azure".to_string(), vec!["azure".to_string()]);
-        
+
         // DevOps
         synonyms.insert("kubernetes".to_string(), vec!["k8s".to_string()]);
         synonyms.insert("docker".to_string(), vec!["containerization".to_string()]);
-        
+
         synonyms
     }
 
     fn build_stop_words_list() -> Vec<String> {
         vec![
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-            "by", "from", "up", "about", "into", "through", "during", "before", "after", "above",
-            "below", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once",
-            "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few",
-            "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
-            "so", "than", "too", "very", "can", "will", "just", "should", "now", "also", "as",
-            "well", "like", "want", "need", "use", "work", "make", "take", "get", "go", "come",
-            "see", "know", "think", "say", "tell", "ask", "become", "leave", "put", "mean", "keep",
-            "let", "begin", "seem", "help", "talk", "turn", "start", "might", "show", "hear",
-            "play", "run", "move", "live", "believe", "hold", "bring", "happen", "write", "provide",
-            "sit", "stand", "lose", "pay", "meet", "include", "continue", "set", "learn", "change",
-            "lead", "understand", "watch", "follow", "stop", "create", "speak", "read", "allow",
-            "add", "spend", "grow", "open", "walk", "win", "offer", "remember", "love", "consider",
-            "appear", "buy", "wait", "serve", "die", "send", "expect", "build", "stay", "fall",
-            "cut", "reach", "kill", "remain"
-        ].iter().map(|s| s.to_string()).collect()
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "up",
+            "about",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "up",
+            "down",
+            "out",
+            "off",
+            "over",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "any",
+            "both",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "can",
+            "will",
+            "just",
+            "should",
+            "now",
+            "also",
+            "as",
+            "well",
+            "like",
+            "want",
+            "need",
+            "use",
+            "work",
+            "make",
+            "take",
+            "get",
+            "go",
+            "come",
+            "see",
+            "know",
+            "think",
+            "say",
+            "tell",
+            "ask",
+            "become",
+            "leave",
+            "put",
+            "mean",
+            "keep",
+            "let",
+            "begin",
+            "seem",
+            "help",
+            "talk",
+            "turn",
+            "start",
+            "might",
+            "show",
+            "hear",
+            "play",
+            "run",
+            "move",
+            "live",
+            "believe",
+            "hold",
+            "bring",
+            "happen",
+            "write",
+            "provide",
+            "sit",
+            "stand",
+            "lose",
+            "pay",
+            "meet",
+            "include",
+            "continue",
+            "set",
+            "learn",
+            "change",
+            "lead",
+            "understand",
+            "watch",
+            "follow",
+            "stop",
+            "create",
+            "speak",
+            "read",
+            "allow",
+            "add",
+            "spend",
+            "grow",
+            "open",
+            "walk",
+            "win",
+            "offer",
+            "remember",
+            "love",
+            "consider",
+            "appear",
+            "buy",
+            "wait",
+            "serve",
+            "die",
+            "send",
+            "expect",
+            "build",
+            "stay",
+            "fall",
+            "cut",
+            "reach",
+            "kill",
+            "remain",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
     }
 
     fn build_technical_patterns() -> Vec<Regex> {
@@ -569,7 +761,7 @@ impl SemanticAnalyzer {
     #[allow(dead_code)]
     pub fn detect_skill_synonyms(&self, skill: &str) -> Vec<String> {
         let skill_lower = skill.to_lowercase();
-        
+
         if let Some(synonyms) = self.skill_synonyms.get(&skill_lower) {
             synonyms.clone()
         } else {
@@ -577,7 +769,12 @@ impl SemanticAnalyzer {
             for (key, synonyms) in &self.skill_synonyms {
                 if synonyms.iter().any(|s| s.to_lowercase() == skill_lower) {
                     let mut result = vec![key.clone()];
-                    result.extend(synonyms.iter().filter(|s| s.to_lowercase() != skill_lower).cloned());
+                    result.extend(
+                        synonyms
+                            .iter()
+                            .filter(|s| s.to_lowercase() != skill_lower)
+                            .cloned(),
+                    );
                     return result;
                 }
             }
@@ -601,7 +798,7 @@ mod tests {
         let analyzer = setup_test_analyzer().await;
         let text = "I have experience with Python, JavaScript, and React.js development";
         let keywords = analyzer.extract_keywords(text);
-        
+
         assert!(keywords.contains(&"python".to_string()));
         assert!(keywords.contains(&"javascript".to_string()));
         assert!(keywords.contains(&"react.js".to_string()));
@@ -611,7 +808,7 @@ mod tests {
     async fn test_skill_synonyms() {
         let analyzer = setup_test_analyzer().await;
         let synonyms = analyzer.detect_skill_synonyms("javascript");
-        
+
         assert!(synonyms.contains(&"js".to_string()));
         assert!(synonyms.contains(&"node.js".to_string()));
     }
@@ -621,7 +818,7 @@ mod tests {
         let analyzer = setup_test_analyzer().await;
         let text1 = "Python developer with Django experience";
         let text2 = "Looking for Python engineer with web framework knowledge";
-        
+
         let similarity = analyzer.calculate_semantic_similarity(text1, text2);
         assert!(similarity > 0.5);
     }
@@ -634,8 +831,11 @@ mod tests {
             stop_words: Vec::new(),
             technical_patterns: Vec::new(),
         };
-        
-        assert_eq!(analyzer.calculate_string_similarity("python", "python"), 1.0);
+
+        assert_eq!(
+            analyzer.calculate_string_similarity("python", "python"),
+            1.0
+        );
         assert!(analyzer.calculate_string_similarity("python", "python3") > 0.8);
         assert!(analyzer.calculate_string_similarity("react", "angular") < 0.5);
     }

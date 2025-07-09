@@ -1,7 +1,10 @@
 use ats_scanner::{
-    database::Database,
-    models::{IndustryKeyword, ATSCompatibilityRule, ScoringBenchmark, UserFeedback, ModelPerformanceMetrics},
     config::ConfigManager,
+    database::Database,
+    models::{
+        ATSCompatibilityRule, IndustryKeyword, ModelPerformanceMetrics, ScoringBenchmark,
+        UserFeedback,
+    },
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -9,10 +12,12 @@ use uuid::Uuid;
 #[tokio::test]
 async fn test_phase1_database_functionality() {
     // Initialize database with Phase 1 schema
-    let db = Database::new().await.expect("Failed to initialize database");
-    
+    let db = Database::new()
+        .await
+        .expect("Failed to initialize database");
+
     println!("✅ Database initialized with Phase 1 schema");
-    
+
     // Test Industry Keywords
     let keyword = IndustryKeyword {
         id: Uuid::new_v4().to_string(),
@@ -23,13 +28,18 @@ async fn test_phase1_database_functionality() {
         synonyms: r#"["python3", "py"]"#.to_string(),
         created_at: Utc::now(),
     };
-    
-    db.save_industry_keyword(&keyword).await.expect("Failed to save industry keyword");
-    let keywords = db.get_industry_keywords("Software Engineering").await.expect("Failed to get keywords");
+
+    db.save_industry_keyword(&keyword)
+        .await
+        .expect("Failed to save industry keyword");
+    let keywords = db
+        .get_industry_keywords("Software Engineering")
+        .await
+        .expect("Failed to get keywords");
     assert_eq!(keywords.len(), 1);
     assert_eq!(keywords[0].keyword, "Python");
     println!("✅ Industry keywords functionality working");
-    
+
     // Test ATS Compatibility Rules
     let rule = ATSCompatibilityRule {
         id: Uuid::new_v4().to_string(),
@@ -42,13 +52,18 @@ async fn test_phase1_database_functionality() {
         severity: "medium".to_string(),
         created_at: Utc::now(),
     };
-    
-    db.save_ats_rule(&rule).await.expect("Failed to save ATS rule");
-    let rules = db.get_ats_rules(Some("Greenhouse")).await.expect("Failed to get ATS rules");
+
+    db.save_ats_rule(&rule)
+        .await
+        .expect("Failed to save ATS rule");
+    let rules = db
+        .get_ats_rules(Some("Greenhouse"))
+        .await
+        .expect("Failed to get ATS rules");
     assert_eq!(rules.len(), 1);
     assert_eq!(rules[0].rule_type, "format");
     println!("✅ ATS compatibility rules functionality working");
-    
+
     // Test Scoring Benchmarks
     let benchmark = ScoringBenchmark {
         id: Uuid::new_v4().to_string(),
@@ -60,13 +75,18 @@ async fn test_phase1_database_functionality() {
         description: "Senior software engineer benchmark".to_string(),
         created_at: Utc::now(),
     };
-    
-    db.save_scoring_benchmark(&benchmark).await.expect("Failed to save benchmark");
-    let benchmarks = db.get_scoring_benchmarks("Software Engineering", "senior").await.expect("Failed to get benchmarks");
+
+    db.save_scoring_benchmark(&benchmark)
+        .await
+        .expect("Failed to save benchmark");
+    let benchmarks = db
+        .get_scoring_benchmarks("Software Engineering", "senior")
+        .await
+        .expect("Failed to get benchmarks");
     assert_eq!(benchmarks.len(), 1);
     assert_eq!(benchmarks[0].score_threshold, 85.0);
     println!("✅ Scoring benchmarks functionality working");
-    
+
     // Test User Feedback
     let feedback = UserFeedback {
         id: Uuid::new_v4().to_string(),
@@ -78,13 +98,18 @@ async fn test_phase1_database_functionality() {
         helpful_suggestions: r#"["keyword optimization", "format improvements"]"#.to_string(),
         created_at: Utc::now(),
     };
-    
-    db.save_user_feedback(&feedback).await.expect("Failed to save feedback");
-    let feedback_list = db.get_feedback_by_analysis(&feedback.analysis_id).await.expect("Failed to get feedback");
+
+    db.save_user_feedback(&feedback)
+        .await
+        .expect("Failed to save feedback");
+    let feedback_list = db
+        .get_feedback_by_analysis(&feedback.analysis_id)
+        .await
+        .expect("Failed to get feedback");
     assert_eq!(feedback_list.len(), 1);
     assert_eq!(feedback_list[0].rating, 4);
     println!("✅ User feedback functionality working");
-    
+
     // Test Model Performance Metrics
     let metrics = ModelPerformanceMetrics {
         id: Uuid::new_v4().to_string(),
@@ -97,59 +122,72 @@ async fn test_phase1_database_functionality() {
         error_count: 0,
         created_at: Utc::now(),
     };
-    
-    db.save_model_performance(&metrics).await.expect("Failed to save performance metrics");
-    let stats = db.get_model_performance_stats("llama2").await.expect("Failed to get performance stats");
-    
+
+    db.save_model_performance(&metrics)
+        .await
+        .expect("Failed to save performance metrics");
+    let stats = db
+        .get_model_performance_stats("llama2")
+        .await
+        .expect("Failed to get performance stats");
+
     // Verify the stats structure
     assert!(stats.get("model_name").is_some());
     assert!(stats.get("analysis_count").is_some());
     println!("✅ Model performance metrics functionality working");
-    
+
     // Test analytics
-    let feedback_stats = db.get_feedback_stats(Some(30)).await.expect("Failed to get feedback stats");
+    let feedback_stats = db
+        .get_feedback_stats(Some(30))
+        .await
+        .expect("Failed to get feedback stats");
     assert!(feedback_stats.get("total_feedback").is_some());
     println!("✅ Analytics functionality working");
-    
+
     println!("🎉 All Phase 1 database functionality tests passed!");
 }
 
 #[tokio::test]
 async fn test_phase1_configuration_system() {
     use tempfile::tempdir;
-    
+
     // Create a temporary directory for config
     let temp_dir = tempdir().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("test_config.json");
-    
+
     // Test configuration creation
-    let config_manager = ConfigManager::new_with_path(config_path.clone()).expect("Failed to create config manager");
+    let config_manager =
+        ConfigManager::new_with_path(config_path.clone()).expect("Failed to create config manager");
     assert!(config_path.exists());
     println!("✅ Configuration file creation working");
-    
+
     // Test configuration validation
-    let warnings = config_manager.validate_config().expect("Failed to validate config");
+    let warnings = config_manager
+        .validate_config()
+        .expect("Failed to validate config");
     assert!(warnings.is_empty()); // Should have no warnings with default config
     println!("✅ Configuration validation working");
-    
+
     // Test configuration export
-    let config_json = config_manager.export_config().expect("Failed to export config");
+    let config_json = config_manager
+        .export_config()
+        .expect("Failed to export config");
     assert!(!config_json.is_empty());
     assert!(config_json.contains("ollama_config"));
     println!("✅ Configuration export working");
-    
+
     // Test getting individual config sections
     let ollama_config = config_manager.get_ollama_config();
     assert_eq!(ollama_config.port, 11434);
     assert_eq!(ollama_config.host, "localhost");
     println!("✅ Configuration section access working");
-    
+
     let analysis_config = config_manager.get_analysis_config();
     assert!(analysis_config.enable_industry_analysis);
     assert!(analysis_config.enable_ats_compatibility);
     assert!(analysis_config.enable_benchmark_comparison);
     println!("✅ Analysis configuration working");
-    
+
     println!("🎉 All Phase 1 configuration system tests passed!");
 }
 
@@ -165,12 +203,13 @@ fn test_phase1_data_models() {
         synonyms: r#"["rust-lang"]"#.to_string(),
         created_at: Utc::now(),
     };
-    
+
     let serialized = serde_json::to_string(&keyword).expect("Failed to serialize keyword");
-    let deserialized: IndustryKeyword = serde_json::from_str(&serialized).expect("Failed to deserialize keyword");
+    let deserialized: IndustryKeyword =
+        serde_json::from_str(&serialized).expect("Failed to deserialize keyword");
     assert_eq!(keyword.keyword, deserialized.keyword);
     println!("✅ IndustryKeyword serialization working");
-    
+
     let rule = ATSCompatibilityRule {
         id: Uuid::new_v4().to_string(),
         ats_system: "Workday".to_string(),
@@ -182,12 +221,13 @@ fn test_phase1_data_models() {
         severity: "low".to_string(),
         created_at: Utc::now(),
     };
-    
+
     let serialized = serde_json::to_string(&rule).expect("Failed to serialize rule");
-    let deserialized: ATSCompatibilityRule = serde_json::from_str(&serialized).expect("Failed to deserialize rule");
+    let deserialized: ATSCompatibilityRule =
+        serde_json::from_str(&serialized).expect("Failed to deserialize rule");
     assert_eq!(rule.ats_system, deserialized.ats_system);
     println!("✅ ATSCompatibilityRule serialization working");
-    
+
     // Test other models...
     println!("🎉 All Phase 1 data model tests passed!");
 }

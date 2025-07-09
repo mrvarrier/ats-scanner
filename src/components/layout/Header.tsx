@@ -18,7 +18,7 @@ export function Header() {
   const handleRefreshConnection = async () => {
     try {
       const result = await invoke('test_ollama_connection');
-      if (result.success) {
+      if (result.success && result.data) {
         setOllamaConnection(true);
         
         const modelsResult = await invoke('get_ollama_models');

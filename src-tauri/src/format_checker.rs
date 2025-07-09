@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use log::info;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use log::{info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormatCompatibilityReport {
@@ -55,15 +55,18 @@ impl FormatCompatibilityChecker {
             structure_patterns: Vec::new(),
             problematic_elements: Vec::new(),
         };
-        
+
         checker.initialize_ats_rules();
         checker.initialize_patterns();
         checker
     }
 
-    pub fn check_comprehensive_compatibility(&self, content: &str) -> Result<FormatCompatibilityReport> {
+    pub fn check_comprehensive_compatibility(
+        &self,
+        content: &str,
+    ) -> Result<FormatCompatibilityReport> {
         info!("Starting comprehensive format compatibility check");
-        
+
         let mut issues = Vec::new();
         let mut scores = HashMap::new();
 
@@ -99,7 +102,11 @@ impl FormatCompatibilityChecker {
         })
     }
 
-    fn check_ats_specific_format(&self, content: &str, rules: &[FormatRule]) -> (f64, Vec<FormatIssue>) {
+    fn check_ats_specific_format(
+        &self,
+        content: &str,
+        rules: &[FormatRule],
+    ) -> (f64, Vec<FormatIssue>) {
         let mut score = 100.0;
         let mut issues = Vec::new();
 
@@ -131,7 +138,8 @@ impl FormatCompatibilityChecker {
                 issue_type: "tables".to_string(),
                 severity: "critical".to_string(),
                 description: "Tables can cause parsing errors in ATS systems".to_string(),
-                recommendation: "Convert table content to plain text with clear headings".to_string(),
+                recommendation: "Convert table content to plain text with clear headings"
+                    .to_string(),
                 section_affected: "document_structure".to_string(),
                 impact_score: 25.0,
             });
@@ -155,7 +163,8 @@ impl FormatCompatibilityChecker {
                 issue_type: "text_in_images".to_string(),
                 severity: "critical".to_string(),
                 description: "Text within images cannot be read by ATS systems".to_string(),
-                recommendation: "Convert all text in images to regular text in the document".to_string(),
+                recommendation: "Convert all text in images to regular text in the document"
+                    .to_string(),
                 section_affected: "document_structure".to_string(),
                 impact_score: 30.0,
             });
@@ -167,7 +176,8 @@ impl FormatCompatibilityChecker {
                 issue_type: "complex_formatting".to_string(),
                 severity: "medium".to_string(),
                 description: "Complex formatting may not be preserved in ATS parsing".to_string(),
-                recommendation: "Use simple, clean formatting with clear section headers".to_string(),
+                recommendation: "Use simple, clean formatting with clear section headers"
+                    .to_string(),
                 section_affected: "formatting".to_string(),
                 impact_score: 10.0,
             });
@@ -180,7 +190,8 @@ impl FormatCompatibilityChecker {
                 issue_type: "non_standard_font".to_string(),
                 severity: "medium".to_string(),
                 description: format!("Font '{}' may not be ATS-friendly", font),
-                recommendation: "Use standard fonts like Arial, Calibri, or Times New Roman".to_string(),
+                recommendation: "Use standard fonts like Arial, Calibri, or Times New Roman"
+                    .to_string(),
                 section_affected: "formatting".to_string(),
                 impact_score: 5.0,
             });
@@ -191,7 +202,8 @@ impl FormatCompatibilityChecker {
             issues.push(FormatIssue {
                 issue_type: "special_characters".to_string(),
                 severity: "low".to_string(),
-                description: "Special characters may not parse correctly in all ATS systems".to_string(),
+                description: "Special characters may not parse correctly in all ATS systems"
+                    .to_string(),
                 recommendation: "Replace special characters with standard equivalents".to_string(),
                 section_affected: "content".to_string(),
                 impact_score: 3.0,
@@ -204,7 +216,9 @@ impl FormatCompatibilityChecker {
                 issue_type: "unclear_sections".to_string(),
                 severity: "medium".to_string(),
                 description: "Document lacks clear section headers for ATS parsing".to_string(),
-                recommendation: "Add clear, standard section headers (Experience, Education, Skills, etc.)".to_string(),
+                recommendation:
+                    "Add clear, standard section headers (Experience, Education, Skills, etc.)"
+                        .to_string(),
                 section_affected: "structure".to_string(),
                 impact_score: 15.0,
             });
@@ -215,12 +229,17 @@ impl FormatCompatibilityChecker {
 
     fn simulate_parsing_process(&self, content: &str) -> ParsingSimulation {
         let standard_sections = vec![
-            "contact", "summary", "experience", "education", "skills", "certifications"
+            "contact",
+            "summary",
+            "experience",
+            "education",
+            "skills",
+            "certifications",
         ];
-        
+
         let mut successful_sections = Vec::new();
         let mut failed_sections = Vec::new();
-        
+
         for section in &standard_sections {
             if self.can_identify_section(content, section) {
                 successful_sections.push(section.to_string());
@@ -228,13 +247,13 @@ impl FormatCompatibilityChecker {
                 failed_sections.push(section.to_string());
             }
         }
-        
+
         let extraction_accuracy = successful_sections.len() as f64 / standard_sections.len() as f64;
-        
+
         // Calculate predicted parsing score based on format issues
         let format_penalty = self.calculate_format_penalty(content);
         let predicted_parsing_score = (extraction_accuracy * 100.0 - format_penalty).max(0.0);
-        
+
         ParsingSimulation {
             successful_sections,
             failed_sections,
@@ -245,19 +264,27 @@ impl FormatCompatibilityChecker {
 
     fn generate_format_recommendations(&self, issues: &[FormatIssue]) -> Vec<String> {
         let mut recommendations = Vec::new();
-        
+
         // Group issues by type and generate consolidated recommendations
         let mut issue_groups: HashMap<String, Vec<&FormatIssue>> = HashMap::new();
         for issue in issues {
-            issue_groups.entry(issue.issue_type.clone()).or_insert_with(Vec::new).push(issue);
+            issue_groups
+                .entry(issue.issue_type.clone())
+                .or_default()
+                .push(issue);
         }
-        
+
         // Priority order for recommendations
         let priority_order = vec![
-            "text_in_images", "tables", "text_boxes", "unclear_sections", 
-            "complex_formatting", "non_standard_font", "special_characters"
+            "text_in_images",
+            "tables",
+            "text_boxes",
+            "unclear_sections",
+            "complex_formatting",
+            "non_standard_font",
+            "special_characters",
         ];
-        
+
         for issue_type in priority_order {
             if let Some(type_issues) = issue_groups.get(issue_type) {
                 if !type_issues.is_empty() {
@@ -265,58 +292,63 @@ impl FormatCompatibilityChecker {
                 }
             }
         }
-        
+
         // Add general recommendations if any critical issues exist
         let has_critical_issues = issues.iter().any(|i| i.severity == "critical");
         if has_critical_issues {
-            recommendations.push("Consider recreating the resume using a simple template to avoid parsing issues".to_string());
+            recommendations.push(
+                "Consider recreating the resume using a simple template to avoid parsing issues"
+                    .to_string(),
+            );
         }
-        
+
         // Add positive recommendations
         if issues.is_empty() {
-            recommendations.push("Your resume format is well-optimized for ATS systems".to_string());
+            recommendations
+                .push("Your resume format is well-optimized for ATS systems".to_string());
         } else if issues.iter().all(|i| i.severity == "low") {
-            recommendations.push("Your resume has good ATS compatibility with minor improvements needed".to_string());
+            recommendations.push(
+                "Your resume has good ATS compatibility with minor improvements needed".to_string(),
+            );
         }
-        
+
         recommendations
     }
 
     // Helper methods for specific checks
     fn contains_tables(&self, content: &str) -> bool {
         // Check for common table indicators
-        let table_patterns = vec![
+        let table_patterns = [
             r"<table",
             r"<tr>",
             r"<td>",
             r"\|\s*\|", // ASCII table borders
-            r"┌.*┐", // Unicode table borders
+            r"┌.*┐",    // Unicode table borders
             r"│.*│",
         ];
-        
+
         table_patterns.iter().any(|pattern| {
-            Regex::new(pattern).map(|re| re.is_match(content)).unwrap_or(false)
+            Regex::new(pattern)
+                .map(|re| re.is_match(content))
+                .unwrap_or(false)
         })
     }
 
     fn contains_text_boxes(&self, content: &str) -> bool {
         // Check for text box indicators
-        let textbox_patterns = vec![
-            r"<textbox",
-            r"text-box",
-            r"textBox",
-            r"floating.*text",
-        ];
-        
+        let textbox_patterns = [r"<textbox", r"text-box", r"textBox", r"floating.*text"];
+
         textbox_patterns.iter().any(|pattern| {
-            Regex::new(pattern).map(|re| re.is_match(content)).unwrap_or(false)
+            Regex::new(pattern)
+                .map(|re| re.is_match(content))
+                .unwrap_or(false)
         })
     }
 
     fn contains_text_in_images(&self, content: &str) -> bool {
         // This is harder to detect from text content alone
         // We can check for image tags and warn about potential text in images
-        let image_patterns = vec![
+        let image_patterns = [
             r"<img",
             r"\[image\]",
             r"\.jpg",
@@ -324,67 +356,87 @@ impl FormatCompatibilityChecker {
             r"\.gif",
             r"\.jpeg",
         ];
-        
+
         image_patterns.iter().any(|pattern| {
-            Regex::new(pattern).map(|re| re.is_match(content)).unwrap_or(false)
+            Regex::new(pattern)
+                .map(|re| re.is_match(content))
+                .unwrap_or(false)
         })
     }
 
     fn has_complex_formatting(&self, content: &str) -> bool {
-        let complex_patterns = vec![
+        let complex_patterns = [
             r"<style",
             r"text-align:\s*justify",
             r"columns:\s*\d+",
             r"float:\s*(left|right)",
             r"position:\s*absolute",
         ];
-        
+
         complex_patterns.iter().any(|pattern| {
-            Regex::new(pattern).map(|re| re.is_match(content)).unwrap_or(false)
+            Regex::new(pattern)
+                .map(|re| re.is_match(content))
+                .unwrap_or(false)
         })
     }
 
     fn check_fonts(&self, content: &str) -> Vec<String> {
         let mut problematic_fonts = Vec::new();
-        
+
         // Common problematic fonts for ATS
         let problematic_font_names = vec![
-            "Comic Sans", "Papyrus", "Brush Script", "Chalkduster", 
-            "Fantasy", "Decorative", "Script", "Handwriting"
+            "Comic Sans",
+            "Papyrus",
+            "Brush Script",
+            "Chalkduster",
+            "Fantasy",
+            "Decorative",
+            "Script",
+            "Handwriting",
         ];
-        
+
         for font in &problematic_font_names {
             if content.to_lowercase().contains(&font.to_lowercase()) {
                 problematic_fonts.push(font.to_string());
             }
         }
-        
+
         problematic_fonts
     }
 
     fn has_problematic_characters(&self, content: &str) -> bool {
         // Check for characters that might cause parsing issues
         let problematic_chars = vec![
-            "•", "→", "←", "↑", "↓", "★", "♦", "♣", "♠", "♥",
-            "✓", "✗", "⚫", "⚪", "◆", "◇", "■", "□", "▲", "▼"
+            "•", "→", "←", "↑", "↓", "★", "♦", "♣", "♠", "♥", "✓", "✗", "⚫", "⚪", "◆", "◇", "■",
+            "□", "▲", "▼",
         ];
-        
+
         problematic_chars.iter().any(|char| content.contains(char))
     }
 
     fn has_clear_section_headers(&self, content: &str) -> bool {
-        let standard_headers = vec![
-            "experience", "education", "skills", "summary", "contact",
-            "work experience", "employment", "qualifications", "background"
+        let standard_headers = [
+            "experience",
+            "education",
+            "skills",
+            "summary",
+            "contact",
+            "work experience",
+            "employment",
+            "qualifications",
+            "background",
         ];
-        
-        let found_headers = standard_headers.iter()
+
+        let found_headers = standard_headers
+            .iter()
             .filter(|header| {
                 let pattern = format!(r"(?i)\b{}\b", regex::escape(header));
-                Regex::new(&pattern).map(|re| re.is_match(content)).unwrap_or(false)
+                Regex::new(&pattern)
+                    .map(|re| re.is_match(content))
+                    .unwrap_or(false)
             })
             .count();
-        
+
         found_headers >= 3 // At least 3 standard sections should be identifiable
     }
 
@@ -392,27 +444,55 @@ impl FormatCompatibilityChecker {
         let section_patterns = match section {
             "contact" => vec![r"@\w+\.\w+", r"\(\d{3}\)", r"\d{3}-\d{3}-\d{4}"],
             "summary" => vec![r"(?i)\bsummary\b", r"(?i)\bobjective\b", r"(?i)\bprofile\b"],
-            "experience" => vec![r"(?i)\bexperience\b", r"(?i)\bemployment\b", r"(?i)\bwork history\b"],
-            "education" => vec![r"(?i)\beducation\b", r"(?i)\bdegree\b", r"(?i)\buniversity\b"],
-            "skills" => vec![r"(?i)\bskills\b", r"(?i)\btechnical\b", r"(?i)\bcompetencies\b"],
-            "certifications" => vec![r"(?i)\bcertification\b", r"(?i)\bcertified\b", r"(?i)\blicense\b"],
+            "experience" => vec![
+                r"(?i)\bexperience\b",
+                r"(?i)\bemployment\b",
+                r"(?i)\bwork history\b",
+            ],
+            "education" => vec![
+                r"(?i)\beducation\b",
+                r"(?i)\bdegree\b",
+                r"(?i)\buniversity\b",
+            ],
+            "skills" => vec![
+                r"(?i)\bskills\b",
+                r"(?i)\btechnical\b",
+                r"(?i)\bcompetencies\b",
+            ],
+            "certifications" => vec![
+                r"(?i)\bcertification\b",
+                r"(?i)\bcertified\b",
+                r"(?i)\blicense\b",
+            ],
             _ => vec![""],
         };
-        
+
         section_patterns.iter().any(|pattern| {
-            Regex::new(pattern).map(|re| re.is_match(content)).unwrap_or(false)
+            Regex::new(pattern)
+                .map(|re| re.is_match(content))
+                .unwrap_or(false)
         })
     }
 
     fn calculate_format_penalty(&self, content: &str) -> f64 {
         let mut penalty = 0.0;
-        
-        if self.contains_tables(content) { penalty += 25.0; }
-        if self.contains_text_boxes(content) { penalty += 20.0; }
-        if self.contains_text_in_images(content) { penalty += 30.0; }
-        if self.has_complex_formatting(content) { penalty += 10.0; }
-        if !self.has_clear_section_headers(content) { penalty += 15.0; }
-        
+
+        if self.contains_tables(content) {
+            penalty += 25.0;
+        }
+        if self.contains_text_boxes(content) {
+            penalty += 20.0;
+        }
+        if self.contains_text_in_images(content) {
+            penalty += 30.0;
+        }
+        if self.has_complex_formatting(content) {
+            penalty += 10.0;
+        }
+        if !self.has_clear_section_headers(content) {
+            penalty += 15.0;
+        }
+
         penalty
     }
 
@@ -428,9 +508,9 @@ impl FormatCompatibilityChecker {
     fn identify_affected_section(&self, content: &str, regex: &Regex) -> String {
         // Try to identify which section of the resume is affected
         if let Some(matched) = regex.find(content) {
-            let context = &content[matched.start().saturating_sub(100)..
-                                  (matched.end() + 100).min(content.len())];
-            
+            let context = &content
+                [matched.start().saturating_sub(100)..(matched.end() + 100).min(content.len())];
+
             if context.to_lowercase().contains("experience") {
                 "experience".to_string()
             } else if context.to_lowercase().contains("education") {
@@ -465,7 +545,8 @@ impl FormatCompatibilityChecker {
                 recommendation: "Use standard bullet points and symbols".to_string(),
             },
         ];
-        self.ats_rules.insert("greenhouse".to_string(), greenhouse_rules);
+        self.ats_rules
+            .insert("greenhouse".to_string(), greenhouse_rules);
 
         // Lever rules
         let lever_rules = vec![
@@ -493,28 +574,29 @@ impl FormatCompatibilityChecker {
                 pattern: r"<img|\.jpg|\.png|\.gif".to_string(),
                 penalty_weight: 30.0,
                 description: "Workday cannot extract text from images".to_string(),
-                recommendation: "Ensure all text is in readable format, not embedded in images".to_string(),
+                recommendation: "Ensure all text is in readable format, not embedded in images"
+                    .to_string(),
             },
             FormatRule {
                 rule_type: "font_issues".to_string(),
                 pattern: r"(?i)(comic sans|papyrus|brush script)".to_string(),
                 penalty_weight: 10.0,
                 description: "Non-standard fonts may not render correctly".to_string(),
-                recommendation: "Use professional fonts like Arial, Calibri, or Times New Roman".to_string(),
+                recommendation: "Use professional fonts like Arial, Calibri, or Times New Roman"
+                    .to_string(),
             },
         ];
         self.ats_rules.insert("workday".to_string(), workday_rules);
 
         // iCIMS rules
-        let icims_rules = vec![
-            FormatRule {
-                rule_type: "section_headers".to_string(),
-                pattern: r"^(?!.*(?i)(experience|education|skills|summary))".to_string(),
-                penalty_weight: 15.0,
-                description: "iCIMS relies heavily on clear section headers".to_string(),
-                recommendation: "Use standard section headers that are clearly identifiable".to_string(),
-            },
-        ];
+        let icims_rules = vec![FormatRule {
+            rule_type: "section_headers".to_string(),
+            pattern: r"^(?!.*(?i)(experience|education|skills|summary))".to_string(),
+            penalty_weight: 15.0,
+            description: "iCIMS relies heavily on clear section headers".to_string(),
+            recommendation: "Use standard section headers that are clearly identifiable"
+                .to_string(),
+        }];
         self.ats_rules.insert("icims".to_string(), icims_rules);
     }
 
@@ -552,10 +634,10 @@ mod tests {
     #[test]
     fn test_table_detection() {
         let checker = FormatCompatibilityChecker::new();
-        
+
         let content_with_table = "<table><tr><td>Name</td><td>Value</td></tr></table>";
         assert!(checker.contains_tables(content_with_table));
-        
+
         let content_without_table = "This is regular text content without tables.";
         assert!(!checker.contains_tables(content_without_table));
     }
@@ -563,7 +645,7 @@ mod tests {
     #[test]
     fn test_section_identification() {
         let checker = FormatCompatibilityChecker::new();
-        
+
         let content = "EXPERIENCE\nSoftware Engineer at Company\nEDUCATION\nBachelor's Degree";
         assert!(checker.can_identify_section(content, "experience"));
         assert!(checker.can_identify_section(content, "education"));
@@ -573,10 +655,12 @@ mod tests {
     #[test]
     fn test_format_compatibility_check() {
         let checker = FormatCompatibilityChecker::new();
-        
+
         let good_content = "John Doe\njohn@email.com\n\nEXPERIENCE\nSoftware Engineer\n\nEDUCATION\nBS Computer Science";
-        let result = checker.check_comprehensive_compatibility(good_content).unwrap();
-        
+        let result = checker
+            .check_comprehensive_compatibility(good_content)
+            .unwrap();
+
         assert!(result.overall_score > 80.0);
         assert!(result.format_issues.len() < 3);
     }
@@ -584,14 +668,18 @@ mod tests {
     #[test]
     fn test_problematic_content() {
         let checker = FormatCompatibilityChecker::new();
-        
+
         let bad_content = "<table><tr><td>Experience</td></tr></table><img src='test.jpg'>";
-        let result = checker.check_comprehensive_compatibility(bad_content).unwrap();
-        
+        let result = checker
+            .check_comprehensive_compatibility(bad_content)
+            .unwrap();
+
         assert!(result.overall_score < 70.0);
         assert!(result.format_issues.len() > 0);
-        
-        let critical_issues: Vec<_> = result.format_issues.iter()
+
+        let critical_issues: Vec<_> = result
+            .format_issues
+            .iter()
             .filter(|issue| issue.severity == "critical")
             .collect();
         assert!(critical_issues.len() > 0);
@@ -600,14 +688,22 @@ mod tests {
     #[test]
     fn test_parsing_simulation() {
         let checker = FormatCompatibilityChecker::new();
-        
+
         let content = "John Doe\nemail@test.com\n\nSUMMARY\nExperienced developer\n\nEXPERIENCE\nSoftware Engineer\n\nSKILLS\nPython, JavaScript";
         let simulation = checker.simulate_parsing_process(content);
-        
+
         assert!(simulation.extraction_accuracy > 0.5);
-        assert!(simulation.successful_sections.contains(&"contact".to_string()));
-        assert!(simulation.successful_sections.contains(&"summary".to_string()));
-        assert!(simulation.successful_sections.contains(&"experience".to_string()));
-        assert!(simulation.successful_sections.contains(&"skills".to_string()));
+        assert!(simulation
+            .successful_sections
+            .contains(&"contact".to_string()));
+        assert!(simulation
+            .successful_sections
+            .contains(&"summary".to_string()));
+        assert!(simulation
+            .successful_sections
+            .contains(&"experience".to_string()));
+        assert!(simulation
+            .successful_sections
+            .contains(&"skills".to_string()));
     }
 }

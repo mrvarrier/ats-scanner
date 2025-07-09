@@ -169,9 +169,13 @@ export const useAppStore = create<AppState>()(
       setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
       setCurrentDetailedAnalysis: (analysis) => set({ currentDetailedAnalysis: analysis }),
       setUserPreferences: (preferences) => {
+        const currentState = get();
+        const previousPreferences = currentState.userPreferences;
+        
         set({ userPreferences: preferences });
-        // Apply theme preference
-        if (preferences) {
+        
+        // Only apply theme if it actually changed or if this is the first time loading preferences
+        if (preferences && (!previousPreferences || previousPreferences.theme !== preferences.theme)) {
           const applyTheme = (theme: string) => {
             let isDark = false;
             

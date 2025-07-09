@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use log::info;
 
 use crate::database::Database;
-use crate::semantic_analyzer::{SemanticAnalyzer, SemanticAnalysisResult};
 use crate::models::{AnalysisResult, CategoryScores};
+use crate::semantic_analyzer::{SemanticAnalysisResult, SemanticAnalyzer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnhancedAnalysisResult {
@@ -153,7 +153,7 @@ pub struct EnhancedScoringEngine {
 impl EnhancedScoringEngine {
     pub fn new(database: Database) -> Self {
         let semantic_analyzer = SemanticAnalyzer::new(database.clone());
-        
+
         EnhancedScoringEngine {
             database,
             semantic_analyzer,
@@ -167,20 +167,22 @@ impl EnhancedScoringEngine {
         target_industry: &str,
         target_role_level: &str,
     ) -> Result<EnhancedAnalysisResult> {
-        info!("Starting comprehensive analysis for {} level position in {}", target_role_level, target_industry);
+        info!(
+            "Starting comprehensive analysis for {} level position in {}",
+            target_role_level, target_industry
+        );
 
         // 1. Run semantic analysis
-        let semantic_result = self.semantic_analyzer
+        let semantic_result = self
+            .semantic_analyzer
             .analyze_semantic_keywords(resume_content, job_description, target_industry)
             .await
             .context("Failed to perform semantic analysis")?;
 
         // 2. Industry-specific analysis
-        let industry_result = self.analyze_for_industry(
-            resume_content,
-            job_description,
-            target_industry,
-        ).await?;
+        let industry_result = self
+            .analyze_for_industry(resume_content, job_description, target_industry)
+            .await?;
 
         // 3. ATS compatibility analysis
         let ats_result = self.analyze_ats_compatibility(resume_content).await?;
@@ -189,14 +191,16 @@ impl EnhancedScoringEngine {
         let scoring_weights = self.calculate_dynamic_weights(target_industry, target_role_level);
 
         // 5. Calculate enhanced scores
-        let scoring_breakdown = self.calculate_enhanced_scores(
-            resume_content,
-            job_description,
-            &semantic_result,
-            &industry_result,
-            &ats_result,
-            &scoring_weights,
-        ).await?;
+        let scoring_breakdown = self
+            .calculate_enhanced_scores(
+                resume_content,
+                job_description,
+                &semantic_result,
+                &industry_result,
+                &ats_result,
+                &scoring_weights,
+            )
+            .await?;
 
         // 6. Generate optimization suggestions
         let optimization_suggestions = self.generate_optimization_suggestions(
@@ -207,11 +211,9 @@ impl EnhancedScoringEngine {
         );
 
         // 7. Benchmark comparison
-        let benchmarks_comparison = self.compare_with_benchmarks(
-            target_industry,
-            target_role_level,
-            &scoring_breakdown,
-        ).await?;
+        let benchmarks_comparison = self
+            .compare_with_benchmarks(target_industry, target_role_level, &scoring_breakdown)
+            .await?;
 
         // 8. Create base analysis result for compatibility
         let base_analysis = self.create_base_analysis_result(&scoring_breakdown);
@@ -242,13 +244,16 @@ impl EnhancedScoringEngine {
 
         // Check industry keywords
         let industry_keywords = self.database.get_industry_keywords(industry).await?;
-        let industry_keywords_score = self.calculate_industry_keywords_score(resume_content, &industry_keywords);
+        let industry_keywords_score =
+            self.calculate_industry_keywords_score(resume_content, &industry_keywords);
 
         // Check certifications
         let required_certifications = self.check_industry_certifications(resume_content, industry);
 
         // Calculate trends alignment
-        let industry_trends_alignment = self.calculate_trends_alignment(resume_content, industry).await?;
+        let industry_trends_alignment = self
+            .calculate_trends_alignment(resume_content, industry)
+            .await?;
 
         Ok(IndustryAnalysisResult {
             detected_industry,
@@ -260,7 +265,10 @@ impl EnhancedScoringEngine {
         })
     }
 
-    async fn analyze_ats_compatibility(&self, resume_content: &str) -> Result<ATSCompatibilityResult> {
+    async fn analyze_ats_compatibility(
+        &self,
+        resume_content: &str,
+    ) -> Result<ATSCompatibilityResult> {
         let mut system_specific_scores = HashMap::new();
         let mut format_issues = Vec::new();
         let mut parsing_warnings = Vec::new();
@@ -271,15 +279,15 @@ impl EnhancedScoringEngine {
 
         // Analyze for each ATS system
         let ats_systems = vec!["greenhouse", "lever", "workday", "taleo", "icims"];
-        
+
         for system in &ats_systems {
             let system_rules = ats_rules.iter().filter(|rule| rule.ats_system == *system);
             let mut system_score = 100.0;
-            
+
             for rule in system_rules {
                 if self.check_ats_rule_violation(resume_content, rule) {
                     system_score -= rule.penalty_weight * 10.0; // Convert to percentage points
-                    
+
                     format_issues.push(FormatIssue {
                         issue_type: rule.rule_type.clone(),
                         description: rule.rule_description.clone(),
@@ -289,7 +297,7 @@ impl EnhancedScoringEngine {
                     });
                 }
             }
-            
+
             system_specific_scores.insert(system.to_string(), system_score.max(0.0));
         }
 
@@ -304,7 +312,8 @@ impl EnhancedScoringEngine {
         parsing_warnings.extend(self.detect_parsing_issues(resume_content));
 
         // Generate optimization suggestions
-        ats_optimization_suggestions.extend(self.generate_ats_optimization_suggestions(&format_issues));
+        ats_optimization_suggestions
+            .extend(self.generate_ats_optimization_suggestions(&format_issues));
 
         Ok(ATSCompatibilityResult {
             overall_compatibility_score,
@@ -385,10 +394,15 @@ impl EnhancedScoringEngine {
         }
 
         // Ensure weights sum to approximately 1.0
-        let total_weight: f64 = weights.technical_skills + weights.experience + weights.education +
-                               weights.keywords + weights.format + weights.leadership +
-                               weights.certifications + weights.industry_specific;
-        
+        let total_weight: f64 = weights.technical_skills
+            + weights.experience
+            + weights.education
+            + weights.keywords
+            + weights.format
+            + weights.leadership
+            + weights.certifications
+            + weights.industry_specific;
+
         if total_weight > 0.0 {
             let normalization_factor = 1.0 / total_weight;
             weights.technical_skills *= normalization_factor;
@@ -416,86 +430,118 @@ impl EnhancedScoringEngine {
         let mut weighted_scores = HashMap::new();
 
         // Calculate individual scores
-        let technical_score = self.calculate_technical_skills_score(resume_content, semantic_result);
-        let experience_score = self.calculate_experience_score(resume_content, &industry_result.role_level_assessment);
+        let technical_score =
+            self.calculate_technical_skills_score(resume_content, semantic_result);
+        let experience_score =
+            self.calculate_experience_score(resume_content, &industry_result.role_level_assessment);
         let education_score = self.calculate_education_score(resume_content);
         let keywords_score = semantic_result.industry_relevance_score * 100.0;
         let format_score = ats_result.overall_compatibility_score;
-        let leadership_score = self.calculate_leadership_score(resume_content, &industry_result.role_level_assessment);
-        let certifications_score = self.calculate_certifications_score(&industry_result.required_certifications);
+        let leadership_score =
+            self.calculate_leadership_score(resume_content, &industry_result.role_level_assessment);
+        let certifications_score =
+            self.calculate_certifications_score(&industry_result.required_certifications);
         let industry_specific_score = industry_result.industry_keywords_score * 100.0;
 
         // Create weighted scores
-        weighted_scores.insert("technical_skills".to_string(), WeightedScore {
-            raw_score: technical_score,
-            weight: weights.technical_skills,
-            adjusted_score: technical_score * weights.technical_skills,
-            explanation: "Technical skills relevance based on semantic analysis".to_string(),
-        });
+        weighted_scores.insert(
+            "technical_skills".to_string(),
+            WeightedScore {
+                raw_score: technical_score,
+                weight: weights.technical_skills,
+                adjusted_score: technical_score * weights.technical_skills,
+                explanation: "Technical skills relevance based on semantic analysis".to_string(),
+            },
+        );
 
-        weighted_scores.insert("experience".to_string(), WeightedScore {
-            raw_score: experience_score,
-            weight: weights.experience,
-            adjusted_score: experience_score * weights.experience,
-            explanation: "Experience level and relevance assessment".to_string(),
-        });
+        weighted_scores.insert(
+            "experience".to_string(),
+            WeightedScore {
+                raw_score: experience_score,
+                weight: weights.experience,
+                adjusted_score: experience_score * weights.experience,
+                explanation: "Experience level and relevance assessment".to_string(),
+            },
+        );
 
-        weighted_scores.insert("education".to_string(), WeightedScore {
-            raw_score: education_score,
-            weight: weights.education,
-            adjusted_score: education_score * weights.education,
-            explanation: "Educational background relevance".to_string(),
-        });
+        weighted_scores.insert(
+            "education".to_string(),
+            WeightedScore {
+                raw_score: education_score,
+                weight: weights.education,
+                adjusted_score: education_score * weights.education,
+                explanation: "Educational background relevance".to_string(),
+            },
+        );
 
-        weighted_scores.insert("keywords".to_string(), WeightedScore {
-            raw_score: keywords_score,
-            weight: weights.keywords,
-            adjusted_score: keywords_score * weights.keywords,
-            explanation: "Industry keyword matching and semantic relevance".to_string(),
-        });
+        weighted_scores.insert(
+            "keywords".to_string(),
+            WeightedScore {
+                raw_score: keywords_score,
+                weight: weights.keywords,
+                adjusted_score: keywords_score * weights.keywords,
+                explanation: "Industry keyword matching and semantic relevance".to_string(),
+            },
+        );
 
-        weighted_scores.insert("format".to_string(), WeightedScore {
-            raw_score: format_score,
-            weight: weights.format,
-            adjusted_score: format_score * weights.format,
-            explanation: "ATS compatibility and format optimization".to_string(),
-        });
+        weighted_scores.insert(
+            "format".to_string(),
+            WeightedScore {
+                raw_score: format_score,
+                weight: weights.format,
+                adjusted_score: format_score * weights.format,
+                explanation: "ATS compatibility and format optimization".to_string(),
+            },
+        );
 
-        weighted_scores.insert("leadership".to_string(), WeightedScore {
-            raw_score: leadership_score,
-            weight: weights.leadership,
-            adjusted_score: leadership_score * weights.leadership,
-            explanation: "Leadership experience and potential".to_string(),
-        });
+        weighted_scores.insert(
+            "leadership".to_string(),
+            WeightedScore {
+                raw_score: leadership_score,
+                weight: weights.leadership,
+                adjusted_score: leadership_score * weights.leadership,
+                explanation: "Leadership experience and potential".to_string(),
+            },
+        );
 
-        weighted_scores.insert("certifications".to_string(), WeightedScore {
-            raw_score: certifications_score,
-            weight: weights.certifications,
-            adjusted_score: certifications_score * weights.certifications,
-            explanation: "Industry-relevant certifications and credentials".to_string(),
-        });
+        weighted_scores.insert(
+            "certifications".to_string(),
+            WeightedScore {
+                raw_score: certifications_score,
+                weight: weights.certifications,
+                adjusted_score: certifications_score * weights.certifications,
+                explanation: "Industry-relevant certifications and credentials".to_string(),
+            },
+        );
 
-        weighted_scores.insert("industry_specific".to_string(), WeightedScore {
-            raw_score: industry_specific_score,
-            weight: weights.industry_specific,
-            adjusted_score: industry_specific_score * weights.industry_specific,
-            explanation: "Industry-specific knowledge and terminology".to_string(),
-        });
+        weighted_scores.insert(
+            "industry_specific".to_string(),
+            WeightedScore {
+                raw_score: industry_specific_score,
+                weight: weights.industry_specific,
+                adjusted_score: industry_specific_score * weights.industry_specific,
+                explanation: "Industry-specific knowledge and terminology".to_string(),
+            },
+        );
 
         // Calculate adjustments and bonuses
         let industry_adjustments = self.calculate_industry_adjustments(industry_result);
-        let role_level_multipliers = self.calculate_role_level_multipliers(&industry_result.role_level_assessment);
+        let role_level_multipliers =
+            self.calculate_role_level_multipliers(&industry_result.role_level_assessment);
 
         // Calculate final score
-        let base_score = weighted_scores.values().map(|ws| ws.adjusted_score).sum::<f64>();
+        let base_score = weighted_scores
+            .values()
+            .map(|ws| ws.adjusted_score)
+            .sum::<f64>();
         let industry_bonus = industry_adjustments.values().sum::<f64>();
         let role_level_bonus = role_level_multipliers.values().sum::<f64>();
         let semantic_bonus = (semantic_result.confidence_score - 0.5).max(0.0) * 10.0; // Up to 5 point bonus
         let ats_penalty = (85.0 - ats_result.overall_compatibility_score).max(0.0) * 0.1; // Penalty for poor ATS compatibility
 
-        let final_score = (base_score + industry_bonus + role_level_bonus + semantic_bonus - ats_penalty)
-            .min(100.0)
-            .max(0.0);
+        let final_score = (base_score + industry_bonus + role_level_bonus + semantic_bonus
+            - ats_penalty)
+            .clamp(0.0, 100.0);
 
         let final_calculations = FinalCalculations {
             base_score,
@@ -515,16 +561,28 @@ impl EnhancedScoringEngine {
     }
 
     // Helper methods for scoring calculations
-    fn calculate_technical_skills_score(&self, _resume_content: &str, semantic_result: &SemanticAnalysisResult) -> f64 {
-        let technical_keywords = semantic_result.keyword_matches.iter()
-            .filter(|km| matches!(km.category.as_str(), "programming_language" | "framework" | "technology" | "tool"))
+    fn calculate_technical_skills_score(
+        &self,
+        _resume_content: &str,
+        semantic_result: &SemanticAnalysisResult,
+    ) -> f64 {
+        let technical_keywords = semantic_result
+            .keyword_matches
+            .iter()
+            .filter(|km| {
+                matches!(
+                    km.category.as_str(),
+                    "programming_language" | "framework" | "technology" | "tool"
+                )
+            })
             .collect::<Vec<_>>();
 
         if technical_keywords.is_empty() {
             return 50.0; // Default score if no technical keywords found
         }
 
-        let total_relevance: f64 = technical_keywords.iter()
+        let total_relevance: f64 = technical_keywords
+            .iter()
             .map(|km| km.relevance_score * km.weight)
             .sum();
 
@@ -532,7 +590,11 @@ impl EnhancedScoringEngine {
         (average_relevance * 100.0).min(100.0)
     }
 
-    fn calculate_experience_score(&self, _resume_content: &str, role_assessment: &RoleLevelAssessment) -> f64 {
+    fn calculate_experience_score(
+        &self,
+        _resume_content: &str,
+        role_assessment: &RoleLevelAssessment,
+    ) -> f64 {
         let mut score = 50.0; // Base score
 
         // Years of experience component
@@ -579,14 +641,20 @@ impl EnhancedScoringEngine {
         }
 
         // Ongoing education
-        if content_lower.contains("continuing education") || content_lower.contains("professional development") {
+        if content_lower.contains("continuing education")
+            || content_lower.contains("professional development")
+        {
             score += 10.0;
         }
 
         score.min(100.0)
     }
 
-    fn calculate_leadership_score(&self, resume_content: &str, role_assessment: &RoleLevelAssessment) -> f64 {
+    fn calculate_leadership_score(
+        &self,
+        resume_content: &str,
+        role_assessment: &RoleLevelAssessment,
+    ) -> f64 {
         let mut score = 0.0;
 
         // Leadership indicators from role assessment
@@ -594,8 +662,17 @@ impl EnhancedScoringEngine {
 
         // Leadership keywords in content
         let leadership_keywords = [
-            "led", "managed", "supervised", "directed", "coordinated", "mentored",
-            "team lead", "project manager", "scrum master", "architect", "principal"
+            "led",
+            "managed",
+            "supervised",
+            "directed",
+            "coordinated",
+            "mentored",
+            "team lead",
+            "project manager",
+            "scrum master",
+            "architect",
+            "principal",
         ];
 
         let content_lower = resume_content.to_lowercase();
@@ -624,7 +701,8 @@ impl EnhancedScoringEngine {
 
         let found_count = certifications.iter().filter(|cert| cert.found).count();
         let total_importance: f64 = certifications.iter().map(|cert| cert.importance).sum();
-        let found_importance: f64 = certifications.iter()
+        let found_importance: f64 = certifications
+            .iter()
             .filter(|cert| cert.found)
             .map(|cert| cert.importance)
             .sum();
@@ -641,23 +719,40 @@ impl EnhancedScoringEngine {
 
     fn create_base_analysis_result(&self, scoring_breakdown: &ScoringBreakdown) -> AnalysisResult {
         let final_score = scoring_breakdown.final_calculations.final_score;
-        
+
         AnalysisResult {
             overall_score: final_score,
             category_scores: CategoryScores {
-                skills: scoring_breakdown.weighted_scores.get("technical_skills")
-                    .map(|ws| ws.raw_score).unwrap_or(0.0),
-                experience: scoring_breakdown.weighted_scores.get("experience")
-                    .map(|ws| ws.raw_score).unwrap_or(0.0),
-                education: scoring_breakdown.weighted_scores.get("education")
-                    .map(|ws| ws.raw_score).unwrap_or(0.0),
-                keywords: scoring_breakdown.weighted_scores.get("keywords")
-                    .map(|ws| ws.raw_score).unwrap_or(0.0),
-                format: scoring_breakdown.weighted_scores.get("format")
-                    .map(|ws| ws.raw_score).unwrap_or(0.0),
+                skills: scoring_breakdown
+                    .weighted_scores
+                    .get("technical_skills")
+                    .map(|ws| ws.raw_score)
+                    .unwrap_or(0.0),
+                experience: scoring_breakdown
+                    .weighted_scores
+                    .get("experience")
+                    .map(|ws| ws.raw_score)
+                    .unwrap_or(0.0),
+                education: scoring_breakdown
+                    .weighted_scores
+                    .get("education")
+                    .map(|ws| ws.raw_score)
+                    .unwrap_or(0.0),
+                keywords: scoring_breakdown
+                    .weighted_scores
+                    .get("keywords")
+                    .map(|ws| ws.raw_score)
+                    .unwrap_or(0.0),
+                format: scoring_breakdown
+                    .weighted_scores
+                    .get("format")
+                    .map(|ws| ws.raw_score)
+                    .unwrap_or(0.0),
             },
-            detailed_feedback: format!("Enhanced analysis completed with {} confidence", 
-                scoring_breakdown.final_calculations.final_score),
+            detailed_feedback: format!(
+                "Enhanced analysis completed with {} confidence",
+                scoring_breakdown.final_calculations.final_score
+            ),
             missing_keywords: Vec::new(),
             recommendations: Vec::new(),
             processing_time_ms: 0, // Will be set by caller
@@ -667,7 +762,7 @@ impl EnhancedScoringEngine {
     // ML-powered industry detection and confidence scoring
     async fn detect_industry_from_content(&self, resume_content: &str) -> Result<String> {
         use crate::ollama::OllamaClient;
-        
+
         let industry_classification_prompt = format!(
             "Classify this resume content into the most appropriate industry category.
 
@@ -705,11 +800,17 @@ Return ONLY the single most appropriate industry category from the list above.",
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("qwen2.5:14b", &industry_classification_prompt, "industry_detection").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis(
+                "qwen2.5:14b",
+                &industry_classification_prompt,
+                "industry_detection",
+            )
+            .await?;
+
         // Clean and validate response
         let detected_industry = self.validate_and_normalize_industry(&response);
-        
+
         if detected_industry != "unknown" {
             info!("ML detected industry: {}", detected_industry);
             Ok(detected_industry)
@@ -718,29 +819,92 @@ Return ONLY the single most appropriate industry category from the list above.",
             self.fallback_industry_detection(resume_content)
         }
     }
-    
+
     fn validate_and_normalize_industry(&self, ml_response: &str) -> String {
         let response_lower = ml_response.trim().to_lowercase();
-        
+
         // Map of valid industries with their variations
         let industry_mappings = vec![
-            ("technology/software", vec!["technology", "software", "tech", "it", "information technology"]),
-            ("healthcare/medical", vec!["healthcare", "medical", "health", "medicine", "clinical"]),
-            ("finance/banking", vec!["finance", "banking", "financial", "fintech", "investment"]),
-            ("education/academic", vec!["education", "academic", "university", "school", "teaching"]),
-            ("manufacturing/engineering", vec!["manufacturing", "engineering", "industrial", "mechanical", "production"]),
-            ("retail/consumer", vec!["retail", "consumer", "sales", "ecommerce", "commerce"]),
-            ("government/public", vec!["government", "public", "federal", "state", "municipal"]),
-            ("non-profit/ngo", vec!["non-profit", "ngo", "nonprofit", "charity", "foundation"]),
-            ("media/entertainment", vec!["media", "entertainment", "broadcasting", "journalism", "creative"]),
-            ("consulting/professional", vec!["consulting", "professional", "advisory", "services"]),
-            ("real estate", vec!["real estate", "property", "realty", "real-estate"]),
-            ("transportation/logistics", vec!["transportation", "logistics", "shipping", "supply chain"]),
-            ("energy/utilities", vec!["energy", "utilities", "power", "renewable", "oil", "gas"]),
-            ("legal/law", vec!["legal", "law", "attorney", "lawyer", "juridical"]),
-            ("construction", vec!["construction", "building", "architecture", "contractor"]),
+            (
+                "technology/software",
+                vec![
+                    "technology",
+                    "software",
+                    "tech",
+                    "it",
+                    "information technology",
+                ],
+            ),
+            (
+                "healthcare/medical",
+                vec!["healthcare", "medical", "health", "medicine", "clinical"],
+            ),
+            (
+                "finance/banking",
+                vec!["finance", "banking", "financial", "fintech", "investment"],
+            ),
+            (
+                "education/academic",
+                vec!["education", "academic", "university", "school", "teaching"],
+            ),
+            (
+                "manufacturing/engineering",
+                vec![
+                    "manufacturing",
+                    "engineering",
+                    "industrial",
+                    "mechanical",
+                    "production",
+                ],
+            ),
+            (
+                "retail/consumer",
+                vec!["retail", "consumer", "sales", "ecommerce", "commerce"],
+            ),
+            (
+                "government/public",
+                vec!["government", "public", "federal", "state", "municipal"],
+            ),
+            (
+                "non-profit/ngo",
+                vec!["non-profit", "ngo", "nonprofit", "charity", "foundation"],
+            ),
+            (
+                "media/entertainment",
+                vec![
+                    "media",
+                    "entertainment",
+                    "broadcasting",
+                    "journalism",
+                    "creative",
+                ],
+            ),
+            (
+                "consulting/professional",
+                vec!["consulting", "professional", "advisory", "services"],
+            ),
+            (
+                "real estate",
+                vec!["real estate", "property", "realty", "real-estate"],
+            ),
+            (
+                "transportation/logistics",
+                vec!["transportation", "logistics", "shipping", "supply chain"],
+            ),
+            (
+                "energy/utilities",
+                vec!["energy", "utilities", "power", "renewable", "oil", "gas"],
+            ),
+            (
+                "legal/law",
+                vec!["legal", "law", "attorney", "lawyer", "juridical"],
+            ),
+            (
+                "construction",
+                vec!["construction", "building", "architecture", "contractor"],
+            ),
         ];
-        
+
         // Find best match
         for (canonical_industry, variations) in &industry_mappings {
             for variation in variations {
@@ -749,59 +913,162 @@ Return ONLY the single most appropriate industry category from the list above.",
                 }
             }
         }
-        
+
         "unknown".to_string()
     }
-    
+
     fn fallback_industry_detection(&self, resume_content: &str) -> Result<String> {
         let content_lower = resume_content.to_lowercase();
-        
+
         // Comprehensive keyword-based industry detection
         let industry_keyword_weights = vec![
-            ("technology/software", vec![
-                ("software", 3.0), ("programming", 3.0), ("developer", 3.0), ("engineer", 2.0),
-                ("code", 2.0), ("api", 2.0), ("database", 2.0), ("web", 2.0), ("mobile", 2.0),
-                ("application", 1.5), ("javascript", 3.0), ("python", 3.0), ("java", 2.5),
-                ("react", 2.5), ("node", 2.0), ("aws", 2.5), ("cloud", 2.0), ("devops", 3.0),
-                ("agile", 1.5), ("scrum", 1.5), ("git", 2.0), ("docker", 2.5), ("kubernetes", 2.5)
-            ]),
-            ("healthcare/medical", vec![
-                ("medical", 3.0), ("healthcare", 3.0), ("patient", 3.0), ("clinical", 3.0),
-                ("hospital", 2.5), ("doctor", 2.5), ("nurse", 2.5), ("physician", 2.5),
-                ("treatment", 2.0), ("diagnosis", 2.0), ("pharmaceutical", 2.5), ("biomedical", 2.5),
-                ("surgery", 2.0), ("therapy", 2.0), ("medical device", 2.5), ("hipaa", 2.0),
-                ("epic", 1.5), ("emr", 2.0), ("ehr", 2.0), ("fda", 2.0)
-            ]),
-            ("finance/banking", vec![
-                ("financial", 3.0), ("banking", 3.0), ("investment", 3.0), ("trading", 2.5),
-                ("accounting", 2.5), ("finance", 3.0), ("portfolio", 2.0), ("risk", 2.0),
-                ("compliance", 2.0), ("audit", 2.0), ("credit", 2.0), ("loan", 2.0),
-                ("mortgage", 2.0), ("derivatives", 2.5), ("securities", 2.5), ("fintech", 3.0),
-                ("blockchain", 2.0), ("cryptocurrency", 2.0), ("cfa", 2.5), ("cpa", 2.5)
-            ]),
-            ("education/academic", vec![
-                ("education", 3.0), ("teaching", 3.0), ("professor", 2.5), ("university", 2.5),
-                ("school", 2.0), ("curriculum", 2.0), ("student", 2.0), ("research", 2.5),
-                ("academic", 3.0), ("learning", 2.0), ("instruction", 2.0), ("pedagogy", 2.5),
-                ("classroom", 2.0), ("course", 1.5), ("degree", 1.5), ("scholarship", 2.0)
-            ]),
-            ("manufacturing/engineering", vec![
-                ("manufacturing", 3.0), ("production", 2.5), ("assembly", 2.0), ("quality", 2.0),
-                ("engineering", 2.5), ("mechanical", 2.5), ("electrical", 2.5), ("industrial", 2.5),
-                ("process", 2.0), ("automation", 2.5), ("machinery", 2.0), ("factory", 2.0),
-                ("plant", 2.0), ("operations", 2.0), ("supply chain", 2.0), ("lean", 2.0),
-                ("six sigma", 2.5), ("cad", 2.0), ("plc", 2.0)
-            ]),
-            ("consulting/professional", vec![
-                ("consulting", 3.0), ("advisory", 2.5), ("strategy", 2.5), ("management", 2.0),
-                ("business", 2.0), ("project", 1.5), ("client", 2.0), ("stakeholder", 2.0),
-                ("analysis", 2.0), ("recommendations", 2.0), ("implementation", 2.0),
-                ("change management", 2.5), ("transformation", 2.5), ("optimization", 2.0)
-            ])
+            (
+                "technology/software",
+                vec![
+                    ("software", 3.0),
+                    ("programming", 3.0),
+                    ("developer", 3.0),
+                    ("engineer", 2.0),
+                    ("code", 2.0),
+                    ("api", 2.0),
+                    ("database", 2.0),
+                    ("web", 2.0),
+                    ("mobile", 2.0),
+                    ("application", 1.5),
+                    ("javascript", 3.0),
+                    ("python", 3.0),
+                    ("java", 2.5),
+                    ("react", 2.5),
+                    ("node", 2.0),
+                    ("aws", 2.5),
+                    ("cloud", 2.0),
+                    ("devops", 3.0),
+                    ("agile", 1.5),
+                    ("scrum", 1.5),
+                    ("git", 2.0),
+                    ("docker", 2.5),
+                    ("kubernetes", 2.5),
+                ],
+            ),
+            (
+                "healthcare/medical",
+                vec![
+                    ("medical", 3.0),
+                    ("healthcare", 3.0),
+                    ("patient", 3.0),
+                    ("clinical", 3.0),
+                    ("hospital", 2.5),
+                    ("doctor", 2.5),
+                    ("nurse", 2.5),
+                    ("physician", 2.5),
+                    ("treatment", 2.0),
+                    ("diagnosis", 2.0),
+                    ("pharmaceutical", 2.5),
+                    ("biomedical", 2.5),
+                    ("surgery", 2.0),
+                    ("therapy", 2.0),
+                    ("medical device", 2.5),
+                    ("hipaa", 2.0),
+                    ("epic", 1.5),
+                    ("emr", 2.0),
+                    ("ehr", 2.0),
+                    ("fda", 2.0),
+                ],
+            ),
+            (
+                "finance/banking",
+                vec![
+                    ("financial", 3.0),
+                    ("banking", 3.0),
+                    ("investment", 3.0),
+                    ("trading", 2.5),
+                    ("accounting", 2.5),
+                    ("finance", 3.0),
+                    ("portfolio", 2.0),
+                    ("risk", 2.0),
+                    ("compliance", 2.0),
+                    ("audit", 2.0),
+                    ("credit", 2.0),
+                    ("loan", 2.0),
+                    ("mortgage", 2.0),
+                    ("derivatives", 2.5),
+                    ("securities", 2.5),
+                    ("fintech", 3.0),
+                    ("blockchain", 2.0),
+                    ("cryptocurrency", 2.0),
+                    ("cfa", 2.5),
+                    ("cpa", 2.5),
+                ],
+            ),
+            (
+                "education/academic",
+                vec![
+                    ("education", 3.0),
+                    ("teaching", 3.0),
+                    ("professor", 2.5),
+                    ("university", 2.5),
+                    ("school", 2.0),
+                    ("curriculum", 2.0),
+                    ("student", 2.0),
+                    ("research", 2.5),
+                    ("academic", 3.0),
+                    ("learning", 2.0),
+                    ("instruction", 2.0),
+                    ("pedagogy", 2.5),
+                    ("classroom", 2.0),
+                    ("course", 1.5),
+                    ("degree", 1.5),
+                    ("scholarship", 2.0),
+                ],
+            ),
+            (
+                "manufacturing/engineering",
+                vec![
+                    ("manufacturing", 3.0),
+                    ("production", 2.5),
+                    ("assembly", 2.0),
+                    ("quality", 2.0),
+                    ("engineering", 2.5),
+                    ("mechanical", 2.5),
+                    ("electrical", 2.5),
+                    ("industrial", 2.5),
+                    ("process", 2.0),
+                    ("automation", 2.5),
+                    ("machinery", 2.0),
+                    ("factory", 2.0),
+                    ("plant", 2.0),
+                    ("operations", 2.0),
+                    ("supply chain", 2.0),
+                    ("lean", 2.0),
+                    ("six sigma", 2.5),
+                    ("cad", 2.0),
+                    ("plc", 2.0),
+                ],
+            ),
+            (
+                "consulting/professional",
+                vec![
+                    ("consulting", 3.0),
+                    ("advisory", 2.5),
+                    ("strategy", 2.5),
+                    ("management", 2.0),
+                    ("business", 2.0),
+                    ("project", 1.5),
+                    ("client", 2.0),
+                    ("stakeholder", 2.0),
+                    ("analysis", 2.0),
+                    ("recommendations", 2.0),
+                    ("implementation", 2.0),
+                    ("change management", 2.5),
+                    ("transformation", 2.5),
+                    ("optimization", 2.0),
+                ],
+            ),
         ];
-        
-        let mut industry_scores: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-        
+
+        let mut industry_scores: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+
         for (industry, keywords) in industry_keyword_weights {
             let mut score = 0.0;
             for (keyword, weight) in keywords {
@@ -809,74 +1076,95 @@ Return ONLY the single most appropriate industry category from the list above.",
                     score += weight;
                 }
             }
-            
+
             if score > 0.0 {
                 industry_scores.insert(industry.to_string(), score);
             }
         }
-        
+
         let detected_industry = industry_scores
             .iter()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(industry, score)| {
-                info!("Fallback industry detection: {} with score: {:.1}", industry, score);
+                info!(
+                    "Fallback industry detection: {} with score: {:.1}",
+                    industry, score
+                );
                 industry.clone()
             })
             .unwrap_or_else(|| "general".to_string());
-        
+
         Ok(detected_industry)
     }
 
     fn calculate_industry_confidence(&self, detected: &str, target: &str) -> f64 {
         let detected_lower = detected.to_lowercase();
         let target_lower = target.to_lowercase();
-        
+
         // Exact match gets highest confidence
         if detected_lower == target_lower {
             return 0.95;
         }
-        
+
         // Check for semantic similarity and related industries
         let confidence = if self.industries_are_related(&detected_lower, &target_lower) {
             0.75 // High confidence for related industries
         } else if detected != "unknown" && detected != "general" {
             // We detected something specific, but it doesn't match target
-            let similarity_score = self.calculate_industry_similarity(&detected_lower, &target_lower);
+            let similarity_score =
+                self.calculate_industry_similarity(&detected_lower, &target_lower);
             0.40 + (similarity_score * 0.30) // Base confidence + similarity bonus
         } else {
             0.30 // Low confidence for unknown/general classification
         };
-        
-        info!("Industry confidence: detected='{}', target='{}', confidence={:.2}", detected, target, confidence);
+
+        info!(
+            "Industry confidence: detected='{}', target='{}', confidence={:.2}",
+            detected, target, confidence
+        );
         confidence
     }
-    
+
     fn industries_are_related(&self, industry1: &str, industry2: &str) -> bool {
         let related_groups = vec![
-            vec!["technology/software", "manufacturing/engineering", "consulting/professional"],
+            vec![
+                "technology/software",
+                "manufacturing/engineering",
+                "consulting/professional",
+            ],
             vec!["healthcare/medical", "education/academic"],
             vec!["finance/banking", "consulting/professional", "real estate"],
             vec!["government/public", "non-profit/ngo", "education/academic"],
-            vec!["media/entertainment", "consulting/professional", "technology/software"],
+            vec![
+                "media/entertainment",
+                "consulting/professional",
+                "technology/software",
+            ],
             vec!["transportation/logistics", "manufacturing/engineering"],
-            vec!["energy/utilities", "manufacturing/engineering", "consulting/professional"],
+            vec![
+                "energy/utilities",
+                "manufacturing/engineering",
+                "consulting/professional",
+            ],
             vec!["legal/law", "consulting/professional", "government/public"],
             vec!["construction", "manufacturing/engineering", "real estate"],
         ];
-        
-        related_groups.iter().any(|group| {
-            group.contains(&industry1) && group.contains(&industry2)
-        })
+
+        related_groups
+            .iter()
+            .any(|group| group.contains(&industry1) && group.contains(&industry2))
     }
-    
+
     fn calculate_industry_similarity(&self, industry1: &str, industry2: &str) -> f64 {
         // Simple keyword overlap-based similarity
-        let words1: std::collections::HashSet<&str> = industry1.split(&['/', '-', ' '][..]).collect();
-        let words2: std::collections::HashSet<&str> = industry2.split(&['/', '-', ' '][..]).collect();
-        
+        let words1: std::collections::HashSet<&str> =
+            industry1.split(&['/', '-', ' '][..]).collect();
+        let words2: std::collections::HashSet<&str> =
+            industry2.split(&['/', '-', ' '][..]).collect();
+
         let intersection: std::collections::HashSet<_> = words1.intersection(&words2).collect();
         let union: std::collections::HashSet<_> = words1.union(&words2).collect();
-        
+
         if union.is_empty() {
             0.0
         } else {
@@ -884,7 +1172,11 @@ Return ONLY the single most appropriate industry category from the list above.",
         }
     }
 
-    fn assess_role_level(&self, _resume_content: &str, _job_description: &str) -> RoleLevelAssessment {
+    fn assess_role_level(
+        &self,
+        _resume_content: &str,
+        _job_description: &str,
+    ) -> RoleLevelAssessment {
         RoleLevelAssessment {
             detected_level: "mid".to_string(),
             confidence: 0.8,
@@ -894,19 +1186,35 @@ Return ONLY the single most appropriate industry category from the list above.",
         }
     }
 
-    fn calculate_industry_keywords_score(&self, _resume_content: &str, _keywords: &[crate::models::IndustryKeyword]) -> f64 {
+    fn calculate_industry_keywords_score(
+        &self,
+        _resume_content: &str,
+        _keywords: &[crate::models::IndustryKeyword],
+    ) -> f64 {
         0.75 // Simplified implementation
     }
 
-    fn check_industry_certifications(&self, _resume_content: &str, _industry: &str) -> Vec<CertificationCheck> {
+    fn check_industry_certifications(
+        &self,
+        _resume_content: &str,
+        _industry: &str,
+    ) -> Vec<CertificationCheck> {
         vec![] // Simplified implementation
     }
 
-    async fn calculate_trends_alignment(&self, _resume_content: &str, _industry: &str) -> Result<f64> {
+    async fn calculate_trends_alignment(
+        &self,
+        _resume_content: &str,
+        _industry: &str,
+    ) -> Result<f64> {
         Ok(0.8) // Simplified implementation
     }
 
-    fn check_ats_rule_violation(&self, _resume_content: &str, _rule: &crate::models::ATSCompatibilityRule) -> bool {
+    fn check_ats_rule_violation(
+        &self,
+        _resume_content: &str,
+        _rule: &crate::models::ATSCompatibilityRule,
+    ) -> bool {
         false // Simplified implementation
     }
 
@@ -918,11 +1226,17 @@ Return ONLY the single most appropriate industry category from the list above.",
         vec![] // Simplified implementation
     }
 
-    fn calculate_industry_adjustments(&self, _industry_result: &IndustryAnalysisResult) -> HashMap<String, f64> {
+    fn calculate_industry_adjustments(
+        &self,
+        _industry_result: &IndustryAnalysisResult,
+    ) -> HashMap<String, f64> {
         HashMap::new() // Simplified implementation
     }
 
-    fn calculate_role_level_multipliers(&self, _role_assessment: &RoleLevelAssessment) -> HashMap<String, f64> {
+    fn calculate_role_level_multipliers(
+        &self,
+        _role_assessment: &RoleLevelAssessment,
+    ) -> HashMap<String, f64> {
         HashMap::new() // Simplified implementation
     }
 

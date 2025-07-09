@@ -37,7 +37,10 @@ impl AnalysisEngine {
         // Enhance with our own scoring algorithms
         self.enhance_analysis(&mut analysis_result, resume_content, job_description)?;
 
-        info!("Resume analysis completed with score: {:.1}", analysis_result.overall_score);
+        info!(
+            "Resume analysis completed with score: {:.1}",
+            analysis_result.overall_score
+        );
         Ok(analysis_result)
     }
 
@@ -48,7 +51,10 @@ impl AnalysisEngine {
         model_name: &str,
         optimization_level: &str,
     ) -> Result<OptimizationResult> {
-        info!("Starting resume optimization with level: {}", optimization_level);
+        info!(
+            "Starting resume optimization with level: {}",
+            optimization_level
+        );
 
         // Get original score
         let original_analysis = self
@@ -58,7 +64,12 @@ impl AnalysisEngine {
         // Get AI optimization
         let (ai_response, _) = self
             .ollama_client
-            .optimize_resume(model_name, resume_content, job_description, optimization_level)
+            .optimize_resume(
+                model_name,
+                resume_content,
+                job_description,
+                optimization_level,
+            )
             .await?;
 
         // Parse optimization response
@@ -66,7 +77,11 @@ impl AnalysisEngine {
 
         // Analyze optimized content
         let optimized_analysis = self
-            .analyze_resume(&optimization_data.optimized_content, job_description, model_name)
+            .analyze_resume(
+                &optimization_data.optimized_content,
+                job_description,
+                model_name,
+            )
             .await?;
 
         let improvement_percentage = if original_analysis.overall_score > 0.0 {
@@ -96,9 +111,7 @@ impl AnalysisEngine {
             .ok_or_else(|| anyhow!("Missing overall_score in AI response"))?;
 
         let category_scores = CategoryScores {
-            skills: parsed["category_scores"]["skills"]
-                .as_f64()
-                .unwrap_or(50.0),
+            skills: parsed["category_scores"]["skills"].as_f64().unwrap_or(50.0),
             experience: parsed["category_scores"]["experience"]
                 .as_f64()
                 .unwrap_or(50.0),
@@ -108,9 +121,7 @@ impl AnalysisEngine {
             keywords: parsed["category_scores"]["keywords"]
                 .as_f64()
                 .unwrap_or(50.0),
-            format: parsed["category_scores"]["format"]
-                .as_f64()
-                .unwrap_or(50.0),
+            format: parsed["category_scores"]["format"].as_f64().unwrap_or(50.0),
         };
 
         let detailed_feedback = parsed["detailed_feedback"]
@@ -183,7 +194,7 @@ impl AnalysisEngine {
     fn extract_json_from_response(&self, response: &str) -> Result<String> {
         // Look for JSON content between curly braces
         let json_regex = Regex::new(r"\{.*\}").unwrap();
-        
+
         if let Some(json_match) = json_regex.find(response) {
             return Ok(json_match.as_str().to_string());
         }
@@ -199,7 +210,10 @@ impl AnalysisEngine {
             return Ok(response.trim().to_string());
         }
 
-        Err(anyhow!("Could not extract JSON from AI response: {}", response))
+        Err(anyhow!(
+            "Could not extract JSON from AI response: {}",
+            response
+        ))
     }
 
     fn enhance_analysis(
@@ -210,7 +224,7 @@ impl AnalysisEngine {
     ) -> Result<()> {
         // Perform additional keyword analysis
         let keyword_analysis = self.analyze_keywords(resume_content, job_description)?;
-        
+
         // Adjust keyword score based on our analysis
         if keyword_analysis.missing_count > 10 {
             analysis.category_scores.keywords = (analysis.category_scores.keywords * 0.8).max(20.0);
@@ -229,7 +243,11 @@ impl AnalysisEngine {
         Ok(())
     }
 
-    pub fn analyze_keywords(&self, resume_content: &str, job_description: &str) -> Result<KeywordAnalysis> {
+    pub fn analyze_keywords(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+    ) -> Result<KeywordAnalysis> {
         let resume_lower = resume_content.to_lowercase();
         let job_lower = job_description.to_lowercase();
 
@@ -265,7 +283,7 @@ impl AnalysisEngine {
     fn extract_keywords(&self, text: &str) -> Vec<String> {
         let mut keywords = Vec::new();
         let text_lower = text.to_lowercase();
-        
+
         // Technical skills patterns (case-insensitive)
         let tech_patterns = [
             r"\b(?:python|java|javascript|c\+\+|rust|go|kotlin|swift)\b",
@@ -284,13 +302,15 @@ impl AnalysisEngine {
         }
 
         // Experience-related keywords
-        let exp_regex = Regex::new(r"\b\d+\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)\b").unwrap();
+        let exp_regex =
+            Regex::new(r"\b\d+\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)\b").unwrap();
         for mat in exp_regex.find_iter(&text_lower) {
             keywords.push(mat.as_str().to_string());
         }
 
         // Education keywords
-        let edu_regex = Regex::new(r"\b(?:bachelor|master|phd|degree|certification|certified)\b").unwrap();
+        let edu_regex =
+            Regex::new(r"\b(?:bachelor|master|phd|degree|certification|certified)\b").unwrap();
         for mat in edu_regex.find_iter(&text_lower) {
             keywords.push(mat.as_str().to_string());
         }
@@ -306,10 +326,18 @@ impl AnalysisEngine {
         let lines: Vec<&str> = resume_content.lines().collect();
 
         // Check for contact information at the top
-        let first_lines = lines.iter().take(5).map(|s| *s).collect::<Vec<&str>>().join("\n");
-        let email_regex = Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap();
-        let phone_regex = Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})").unwrap();
-        
+        let first_lines = lines
+            .iter()
+            .take(5)
+            .copied()
+            .collect::<Vec<&str>>()
+            .join("\n");
+        let email_regex =
+            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap();
+        let phone_regex =
+            Regex::new(r"(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})")
+                .unwrap();
+
         if !email_regex.is_match(&first_lines) {
             score -= 10.0;
         }
@@ -319,10 +347,16 @@ impl AnalysisEngine {
 
         // Check for proper section headers
         let section_headers = [
-            "experience", "education", "skills", "summary", "objective",
-            "work experience", "professional experience", "technical skills"
+            "experience",
+            "education",
+            "skills",
+            "summary",
+            "objective",
+            "work experience",
+            "professional experience",
+            "technical skills",
         ];
-        
+
         let mut found_sections = 0;
         for line in &lines {
             let line_lower = line.to_lowercase();
@@ -340,8 +374,11 @@ impl AnalysisEngine {
 
         // Check for bullet points or structured formatting
         let bullet_regex = Regex::new(r"^\s*[•\-\*\+]").unwrap();
-        let bullet_count = lines.iter().filter(|line| bullet_regex.is_match(line)).count();
-        
+        let bullet_count = lines
+            .iter()
+            .filter(|line| bullet_regex.is_match(line))
+            .count();
+
         if bullet_count < 5 {
             score -= 10.0;
         }
@@ -381,17 +418,17 @@ impl AnalysisEngine {
         // Add keyword-specific recommendations
         if keyword_analysis.missing_count > 5 {
             let display_count = keyword_analysis.missing_count.min(5);
-            let keywords_to_show = keyword_analysis.missing_keywords
+            let keywords_to_show = keyword_analysis
+                .missing_keywords
                 .iter()
                 .take(display_count)
                 .cloned()
                 .collect::<Vec<_>>()
                 .join(", ");
-            
+
             analysis.recommendations.push(format!(
                 "Add {} missing keywords naturally throughout your resume: {}",
-                display_count,
-                keywords_to_show
+                display_count, keywords_to_show
             ));
         }
 
@@ -405,7 +442,8 @@ impl AnalysisEngine {
         // Add score-specific recommendations
         if analysis.category_scores.skills < 70.0 {
             analysis.recommendations.push(
-                "Strengthen your skills section with more relevant technical and soft skills".to_string()
+                "Strengthen your skills section with more relevant technical and soft skills"
+                    .to_string(),
             );
         }
 
@@ -480,14 +518,15 @@ Requirements:
 "#;
 
     fn create_mock_ollama_client() -> OllamaClient {
-        OllamaClient::new(Some("http://localhost:11434".to_string())).expect("Failed to create test Ollama client")
+        OllamaClient::new(Some("http://localhost:11434".to_string()))
+            .expect("Failed to create test Ollama client")
     }
 
     #[test]
     fn test_extract_keywords() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
         let keywords = engine.extract_keywords(SAMPLE_JOB_DESCRIPTION);
-        
+
         assert!(!keywords.is_empty());
         assert!(keywords.iter().any(|k| k.contains("python")));
         assert!(keywords.iter().any(|k| k.contains("javascript")));
@@ -499,26 +538,29 @@ Requirements:
     fn test_analyze_keywords() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
         let result = engine.analyze_keywords(SAMPLE_RESUME, SAMPLE_JOB_DESCRIPTION);
-        
+
         assert!(result.is_ok());
         let analysis = result.unwrap();
-        
+
         assert!(analysis.total_keywords > 0);
         assert!(analysis.found_count > 0);
         assert!(analysis.match_rate >= 0.0 && analysis.match_rate <= 100.0);
-        assert_eq!(analysis.found_count + analysis.missing_count, analysis.total_keywords);
+        assert_eq!(
+            analysis.found_count + analysis.missing_count,
+            analysis.total_keywords
+        );
     }
 
     #[test]
     fn test_analyze_format() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Test well-formatted resume
         let good_format_score = engine.analyze_format(SAMPLE_RESUME);
         assert!(good_format_score.is_ok());
         let good_score = good_format_score.unwrap();
         assert!(good_score > 50.0);
-        
+
         // Test poorly formatted resume
         let poor_resume = "John Doe some text without proper formatting or structure";
         let poor_format_score = engine.analyze_format(poor_resume);
@@ -537,9 +579,9 @@ Requirements:
             keywords: 90.0,
             format: 95.0,
         };
-        
+
         let weighted_score = engine.calculate_weighted_score(&scores);
-        
+
         // Should be a weighted average
         assert!(weighted_score > 0.0 && weighted_score <= 100.0);
         // Keywords and skills have highest weight (0.25 each), so should be closer to their average
@@ -550,19 +592,19 @@ Requirements:
     #[test]
     fn test_extract_json_from_response() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Test clean JSON
         let clean_json = r#"{"overall_score": 85.5, "detailed_feedback": "Good resume"}"#;
         let result = engine.extract_json_from_response(clean_json);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), clean_json);
-        
+
         // Test JSON with surrounding text
         let surrounded_json = r#"Here is the analysis: {"overall_score": 85.5, "detailed_feedback": "Good resume"} End of analysis."#;
         let result = engine.extract_json_from_response(surrounded_json);
         assert!(result.is_ok());
         assert!(result.unwrap().contains("overall_score"));
-        
+
         // Test invalid response
         let invalid_response = "This is not JSON at all";
         let result = engine.extract_json_from_response(invalid_response);
@@ -572,14 +614,14 @@ Requirements:
     #[test]
     fn test_keyword_analysis_edge_cases() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Test empty resume
         let empty_analysis = engine.analyze_keywords("", SAMPLE_JOB_DESCRIPTION);
         assert!(empty_analysis.is_ok());
         let analysis = empty_analysis.unwrap();
         assert_eq!(analysis.found_count, 0);
         assert_eq!(analysis.match_rate, 0.0);
-        
+
         // Test empty job description
         let empty_job_analysis = engine.analyze_keywords(SAMPLE_RESUME, "");
         assert!(empty_job_analysis.is_ok());
@@ -591,7 +633,7 @@ Requirements:
     #[test]
     fn test_format_analysis_components() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Test resume with good contact info
         let good_contact_resume = r#"
 John Doe
@@ -602,14 +644,14 @@ EXPERIENCE
 Software Engineer
 "#;
         let score = engine.analyze_format(good_contact_resume).unwrap();
-        
+
         // Test resume without contact info
         let no_contact_resume = r#"
 EXPERIENCE
 Software Engineer
 "#;
         let no_contact_score = engine.analyze_format(no_contact_resume).unwrap();
-        
+
         assert!(score > no_contact_score);
     }
 
@@ -630,7 +672,7 @@ Software Engineer
             recommendations: vec![],
             processing_time_ms: 1000,
         };
-        
+
         let keyword_analysis = KeywordAnalysis {
             total_keywords: 10,
             found_count: 4,
@@ -639,24 +681,30 @@ Software Engineer
             found_keywords: vec!["python".to_string(), "react".to_string()],
             missing_keywords: vec!["kubernetes".to_string(), "microservices".to_string()],
         };
-        
+
         let result = engine.enhance_recommendations(&mut analysis, &keyword_analysis, 75.0);
         assert!(result.is_ok());
-        
+
         // Should have added recommendations
         assert!(!analysis.recommendations.is_empty());
-        
+
         // Should have keyword recommendations due to missing keywords
-        assert!(analysis.recommendations.iter().any(|r| r.contains("keywords")));
-        
+        assert!(analysis
+            .recommendations
+            .iter()
+            .any(|r| r.contains("keywords")));
+
         // Should have skills recommendations due to low skills score
-        assert!(analysis.recommendations.iter().any(|r| r.contains("skills")));
+        assert!(analysis
+            .recommendations
+            .iter()
+            .any(|r| r.contains("skills")));
     }
 
     #[test]
     fn test_extract_keywords_patterns() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Test technical skills
         let tech_text = "Experience with Python, JavaScript, React, Node.js, AWS, Docker";
         let keywords = engine.extract_keywords(tech_text);
@@ -665,12 +713,14 @@ Software Engineer
         assert!(keywords.contains(&"react".to_string()));
         assert!(keywords.contains(&"aws".to_string()));
         assert!(keywords.contains(&"docker".to_string()));
-        
+
         // Test experience patterns
         let exp_text = "5+ years of experience in software development";
         let keywords = engine.extract_keywords(exp_text);
-        assert!(keywords.iter().any(|k| k.contains("years") && k.contains("experience")));
-        
+        assert!(keywords
+            .iter()
+            .any(|k| k.contains("years") && k.contains("experience")));
+
         // Test education patterns
         let edu_text = "Bachelor's degree in Computer Science, AWS certified";
         let keywords = engine.extract_keywords(edu_text);
@@ -681,11 +731,11 @@ Software Engineer
     #[test]
     fn test_keyword_deduplication() {
         let engine = AnalysisEngine::new(create_mock_ollama_client());
-        
+
         // Text with duplicate keywords
         let duplicate_text = "Python developer with Python experience. Python Python Python.";
         let keywords = engine.extract_keywords(duplicate_text);
-        
+
         // Should only have one instance of "python"
         let python_count = keywords.iter().filter(|&k| k == "python").count();
         assert_eq!(python_count, 1);

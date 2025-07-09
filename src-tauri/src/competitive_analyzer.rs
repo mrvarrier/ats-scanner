@@ -1,8 +1,8 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use log::info;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::database::Database;
 
@@ -55,7 +55,7 @@ pub struct ImprovementArea {
 pub struct CompetitiveAdvantage {
     pub advantage: String,
     pub strength_level: String, // "strong", "moderate", "weak"
-    pub market_rarity: f64, // percentage of candidates who have this
+    pub market_rarity: f64,     // percentage of candidates who have this
     pub value_to_employers: f64,
     pub sustainability: String, // how long this advantage will last
     pub amplification_strategies: Vec<String>,
@@ -113,7 +113,7 @@ pub struct BenchmarkComparison {
     pub benchmark_type: String, // "industry", "role_level", "geographic", "company_size"
     pub benchmark_value: f64,
     pub user_value: f64,
-    pub variance: f64, // positive = above benchmark, negative = below
+    pub variance: f64,        // positive = above benchmark, negative = below
     pub significance: String, // "highly significant", "significant", "not significant"
     pub context: String,
 }
@@ -200,7 +200,7 @@ pub struct SkillMarketPosition {
     pub skill: String,
     pub user_proficiency: f64,
     pub market_demand: f64,
-    pub supply_scarcity: f64, // how rare this skill is
+    pub supply_scarcity: f64,         // how rare this skill is
     pub competitive_position: String, // "leader", "strong", "average", "weak"
     pub market_trends: String,
     pub monetization_potential: f64,
@@ -257,9 +257,9 @@ pub struct CompetitiveSalaryAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SalaryPotential {
     pub current_estimated: f64,
-    pub short_term_potential: f64, // 6-12 months
+    pub short_term_potential: f64,  // 6-12 months
     pub medium_term_potential: f64, // 1-3 years
-    pub long_term_potential: f64, // 3-5 years
+    pub long_term_potential: f64,   // 3-5 years
     pub ceiling_estimate: f64,
     pub growth_trajectory: String,
 }
@@ -424,7 +424,7 @@ pub struct MarketTrends {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HiringTrendAnalysis {
     pub overall_market_direction: String, // "expanding", "contracting", "stable"
-    pub hiring_velocity_trend: f64, // change in hiring speed
+    pub hiring_velocity_trend: f64,       // change in hiring speed
     pub demand_supply_ratio: f64,
     pub seasonal_patterns: Vec<SeasonalPattern>,
     pub future_outlook: String,
@@ -560,7 +560,7 @@ pub struct GeographicTrendAnalysis {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteWorkImpact {
-    pub market_expansion: f64, // how much remote work expanded the market
+    pub market_expansion: f64,     // how much remote work expanded the market
     pub salary_normalization: f64, // convergence of geographic salaries
     pub competition_increase: f64,
     pub opportunity_democratization: f64,
@@ -820,6 +820,7 @@ pub struct SuccessMetric {
 }
 
 pub struct CompetitiveAnalyzer {
+    #[allow(dead_code)]
     database: Database,
 }
 
@@ -834,66 +835,85 @@ impl CompetitiveAnalyzer {
         job_description: &str,
         target_companies: Vec<String>,
     ) -> Result<CompetitiveAnalysis> {
-        info!("Generating competitive analysis for {} target companies", target_companies.len());
+        info!(
+            "Generating competitive analysis for {} target companies",
+            target_companies.len()
+        );
 
         Ok(CompetitiveAnalysis {
-            market_position: self.calculate_market_position(resume_content, job_description).await?,
-            competitor_comparison: self.compare_with_competitors(resume_content, &target_companies).await?,
+            market_position: self
+                .calculate_market_position(resume_content, job_description)
+                .await?,
+            competitor_comparison: self
+                .compare_with_competitors(resume_content, &target_companies)
+                .await?,
             skill_competitiveness: self.analyze_skill_competitiveness(resume_content).await?,
-            salary_insights: self.generate_salary_insights(resume_content, job_description).await?,
-            hiring_probability: self.calculate_hiring_probability(resume_content, job_description).await?,
+            salary_insights: self
+                .generate_salary_insights(resume_content, job_description)
+                .await?,
+            hiring_probability: self
+                .calculate_hiring_probability(resume_content, job_description)
+                .await?,
             market_trends: self.analyze_market_trends(resume_content).await?,
-            competitive_intelligence: self.gather_competitive_intelligence(&target_companies).await?,
-            strategic_recommendations: self.generate_strategic_recommendations(resume_content, job_description).await?,
+            competitive_intelligence: self
+                .gather_competitive_intelligence(&target_companies)
+                .await?,
+            strategic_recommendations: self
+                .generate_strategic_recommendations(resume_content, job_description)
+                .await?,
             generated_at: Utc::now(),
         })
     }
 
     pub async fn calculate_market_position(
         &self,
-        resume_content: &str,
-        job_description: &str,
+        _resume_content: &str,
+        _job_description: &str,
     ) -> Result<MarketPosition> {
         // Placeholder implementation
         Ok(MarketPosition {
             percentile_ranking: 75.0,
-            strength_areas: vec![
-                StrengthArea {
-                    area: "Technical Skills".to_string(),
-                    score: 85.0,
-                    market_percentile: 80.0,
-                    relative_to_competition: "above".to_string(),
-                    supporting_evidence: vec!["Strong programming background".to_string()],
-                    leverage_opportunities: vec!["Highlight technical projects".to_string()],
-                }
-            ],
-            improvement_areas: vec![
-                ImprovementArea {
-                    area: "Leadership Experience".to_string(),
-                    current_score: 60.0,
-                    target_score: 80.0,
-                    market_impact: 15.0,
-                    improvement_timeline: "6-12 months".to_string(),
-                    required_actions: vec!["Take on team lead roles".to_string()],
-                    success_metrics: vec!["Lead 2+ projects".to_string()],
-                }
-            ],
+            strength_areas: vec![StrengthArea {
+                area: "Technical Skills".to_string(),
+                score: 85.0,
+                market_percentile: 80.0,
+                relative_to_competition: "above".to_string(),
+                supporting_evidence: vec!["Strong programming background".to_string()],
+                leverage_opportunities: vec!["Highlight technical projects".to_string()],
+            }],
+            improvement_areas: vec![ImprovementArea {
+                area: "Leadership Experience".to_string(),
+                current_score: 60.0,
+                target_score: 80.0,
+                market_impact: 15.0,
+                improvement_timeline: "6-12 months".to_string(),
+                required_actions: vec!["Take on team lead roles".to_string()],
+                success_metrics: vec!["Lead 2+ projects".to_string()],
+            }],
             market_demand_score: 82.0,
-            competitive_advantages: vec![
-                CompetitiveAdvantage {
-                    advantage: "Full-stack expertise".to_string(),
-                    strength_level: "strong".to_string(),
-                    market_rarity: 25.0, // Only 25% have this
-                    value_to_employers: 90.0,
-                    sustainability: "2-3 years".to_string(),
-                    amplification_strategies: vec!["Create portfolio showcasing end-to-end projects".to_string()],
-                }
-            ],
-            positioning_statement: "Mid-level developer with strong technical foundation and growth potential".to_string(),
+            competitive_advantages: vec![CompetitiveAdvantage {
+                advantage: "Full-stack expertise".to_string(),
+                strength_level: "strong".to_string(),
+                market_rarity: 25.0, // Only 25% have this
+                value_to_employers: 90.0,
+                sustainability: "2-3 years".to_string(),
+                amplification_strategies: vec![
+                    "Create portfolio showcasing end-to-end projects".to_string()
+                ],
+            }],
+            positioning_statement:
+                "Mid-level developer with strong technical foundation and growth potential"
+                    .to_string(),
             market_segment: MarketSegment {
                 segment_name: "Technology - Software Development".to_string(),
-                target_companies: vec!["Tech startups".to_string(), "Mid-size tech companies".to_string()],
-                typical_requirements: vec!["3-5 years experience".to_string(), "Full-stack skills".to_string()],
+                target_companies: vec![
+                    "Tech startups".to_string(),
+                    "Mid-size tech companies".to_string(),
+                ],
+                typical_requirements: vec![
+                    "3-5 years experience".to_string(),
+                    "Full-stack skills".to_string(),
+                ],
                 competitive_landscape: "Moderate competition".to_string(),
                 growth_potential: 85.0,
                 entry_barriers: vec!["Technical interview process".to_string()],
@@ -908,7 +928,8 @@ impl CompetitiveAnalyzer {
     ) -> Result<CompetitorComparison> {
         Ok(CompetitorComparison {
             peer_analysis: PeerAnalysis {
-                peer_group_definition: "Mid-level software developers with 3-5 years experience".to_string(),
+                peer_group_definition: "Mid-level software developers with 3-5 years experience"
+                    .to_string(),
                 sample_size: 500,
                 user_ranking: 125, // Top 25%
                 peer_group_stats: PeerGroupStats {
@@ -918,16 +939,14 @@ impl CompetitiveAnalyzer {
                     bottom_quartile_threshold: 62.0,
                     standard_deviation: 12.5,
                 },
-                performance_vs_peers: vec![
-                    PerformanceMetric {
-                        metric_name: "Technical Skills".to_string(),
-                        user_score: 85.0,
-                        peer_average: 75.0,
-                        peer_top_10_percent: 90.0,
-                        relative_performance: "outperforming".to_string(),
-                        improvement_potential: 5.0,
-                    }
-                ],
+                performance_vs_peers: vec![PerformanceMetric {
+                    metric_name: "Technical Skills".to_string(),
+                    user_score: 85.0,
+                    peer_average: 75.0,
+                    peer_top_10_percent: 90.0,
+                    relative_performance: "outperforming".to_string(),
+                    improvement_potential: 5.0,
+                }],
             },
             benchmark_comparisons: vec![],
             competitive_gaps: vec![],
@@ -943,7 +962,10 @@ impl CompetitiveAnalyzer {
         })
     }
 
-    async fn analyze_skill_competitiveness(&self, _resume_content: &str) -> Result<SkillCompetitiveness> {
+    async fn analyze_skill_competitiveness(
+        &self,
+        _resume_content: &str,
+    ) -> Result<SkillCompetitiveness> {
         Ok(SkillCompetitiveness {
             skill_portfolio_analysis: SkillPortfolioAnalysis {
                 portfolio_strength: 80.0,
@@ -951,16 +973,14 @@ impl CompetitiveAnalyzer {
                 portfolio_uniqueness: 70.0,
                 market_alignment: 85.0,
                 future_readiness: 78.0,
-                skill_categories: vec![
-                    SkillCategory {
-                        category: "Programming Languages".to_string(),
-                        skill_count: 4,
-                        average_proficiency: 82.0,
-                        market_demand: 90.0,
-                        competitive_strength: "Strong".to_string(),
-                        development_priority: "Medium".to_string(),
-                    }
-                ],
+                skill_categories: vec![SkillCategory {
+                    category: "Programming Languages".to_string(),
+                    skill_count: 4,
+                    average_proficiency: 82.0,
+                    market_demand: 90.0,
+                    competitive_strength: "Strong".to_string(),
+                    development_priority: "Medium".to_string(),
+                }],
             },
             skill_market_positioning: vec![],
             skill_gap_competitiveness: vec![],
@@ -1027,15 +1047,13 @@ impl CompetitiveAnalyzer {
     ) -> Result<HiringProbability> {
         Ok(HiringProbability {
             overall_probability: 72.0,
-            probability_by_company_type: vec![
-                CompanyTypeProbability {
-                    company_type: "startup".to_string(),
-                    probability: 78.0,
-                    match_strength: 85.0,
-                    key_factors: vec!["Adaptability".to_string(), "Full-stack skills".to_string()],
-                    improvement_suggestions: vec!["Highlight startup experience".to_string()],
-                }
-            ],
+            probability_by_company_type: vec![CompanyTypeProbability {
+                company_type: "startup".to_string(),
+                probability: 78.0,
+                match_strength: 85.0,
+                key_factors: vec!["Adaptability".to_string(), "Full-stack skills".to_string()],
+                improvement_suggestions: vec!["Highlight startup experience".to_string()],
+            }],
             probability_by_role_level: vec![],
             probability_factors: vec![],
             success_scenarios: vec![],
@@ -1100,12 +1118,19 @@ impl CompetitiveAnalyzer {
         })
     }
 
-    async fn gather_competitive_intelligence(&self, _target_companies: &[String]) -> Result<CompetitiveIntelligence> {
+    async fn gather_competitive_intelligence(
+        &self,
+        _target_companies: &[String],
+    ) -> Result<CompetitiveIntelligence> {
         Ok(CompetitiveIntelligence {
             market_intelligence: MarketIntelligence {
                 market_size: "Large and growing".to_string(),
                 growth_rate: 12.5,
-                key_players: vec!["Google".to_string(), "Microsoft".to_string(), "Amazon".to_string()],
+                key_players: vec![
+                    "Google".to_string(),
+                    "Microsoft".to_string(),
+                    "Amazon".to_string(),
+                ],
                 market_dynamics: vec!["High demand for cloud skills".to_string()],
                 entry_barriers: vec!["Technical interview complexity".to_string()],
                 success_factors: vec!["Strong problem-solving skills".to_string()],
@@ -1127,16 +1152,14 @@ impl CompetitiveAnalyzer {
         _job_description: &str,
     ) -> Result<StrategicRecommendations> {
         Ok(StrategicRecommendations {
-            immediate_actions: vec![
-                ImmediateAction {
-                    action: "Update LinkedIn profile with recent projects".to_string(),
-                    rationale: "Increase visibility to recruiters".to_string(),
-                    expected_impact: 15.0,
-                    implementation_effort: "Low".to_string(),
-                    timeline: "1 week".to_string(),
-                    success_indicators: vec!["Increased profile views".to_string()],
-                }
-            ],
+            immediate_actions: vec![ImmediateAction {
+                action: "Update LinkedIn profile with recent projects".to_string(),
+                rationale: "Increase visibility to recruiters".to_string(),
+                expected_impact: 15.0,
+                implementation_effort: "Low".to_string(),
+                timeline: "1 week".to_string(),
+                success_indicators: vec!["Increased profile views".to_string()],
+            }],
             medium_term_strategy: MediumTermStrategy {
                 strategic_focus: "Skill development and leadership preparation".to_string(),
                 key_initiatives: vec!["Complete cloud certification".to_string()],
@@ -1166,7 +1189,7 @@ mod tests {
     async fn test_competitive_analyzer_creation() {
         let db = crate::database::Database::new().await.unwrap();
         let analyzer = CompetitiveAnalyzer::new(db);
-        
+
         // Test basic functionality
         assert!(true); // Basic creation test
     }
@@ -1175,17 +1198,15 @@ mod tests {
     async fn test_competitive_analysis_generation() {
         let db = crate::database::Database::new().await.unwrap();
         let analyzer = CompetitiveAnalyzer::new(db);
-        
+
         let resume_content = "Software engineer with 3 years experience in Python and React";
         let job_description = "Looking for mid-level developer with full-stack experience";
         let target_companies = vec!["Google".to_string(), "Microsoft".to_string()];
-        
-        let result = analyzer.generate_competitive_analysis(
-            resume_content,
-            job_description,
-            target_companies,
-        ).await;
-        
+
+        let result = analyzer
+            .generate_competitive_analysis(resume_content, job_description, target_companies)
+            .await;
+
         assert!(result.is_ok());
         let analysis = result.unwrap();
         assert!(analysis.market_position.percentile_ranking > 0.0);
@@ -1196,12 +1217,14 @@ mod tests {
     async fn test_market_position_calculation() {
         let db = crate::database::Database::new().await.unwrap();
         let analyzer = CompetitiveAnalyzer::new(db);
-        
+
         let resume_content = "Experienced developer";
         let job_description = "Software engineer position";
-        
-        let result = analyzer.calculate_market_position(resume_content, job_description).await;
-        
+
+        let result = analyzer
+            .calculate_market_position(resume_content, job_description)
+            .await;
+
         assert!(result.is_ok());
         let position = result.unwrap();
         assert!(!position.strength_areas.is_empty());

@@ -11,19 +11,19 @@ mod plugin_system;
 mod scoring;
 mod utils;
 // Phase 2 Enhanced Analysis Modules
-mod semantic_analyzer;
+mod ats_simulator;
+mod enhanced_prompts;
 mod enhanced_scoring;
 mod industry_analyzer;
-mod enhanced_prompts;
-mod ats_simulator;
+mod semantic_analyzer;
 // Phase 3 ATS Simulation & Format Checking
 mod format_checker;
 mod format_issue_detector;
 mod testing_framework;
 // Phase 4 Advanced Optimization Engine
 mod achievement_analyzer;
-mod smart_optimizer;
 mod realtime_optimizer;
+mod smart_optimizer;
 // Phase 5 Competitive Features
 mod competitive_analyzer;
 // Phase 6 Advanced AI Integration & Machine Learning
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize configuration
     let mut config_manager = ConfigManager::new()?;
     config_manager.apply_env_overrides()?;
-    
+
     // Validate configuration
     let warnings = config_manager.validate_config()?;
     if !warnings.is_empty() {
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Database::new_with_url(database_url).await?
     };
-    
+
     let app_state = AppState {
         db: std::sync::Arc::new(tokio::sync::Mutex::new(database)),
         config: std::sync::Arc::new(tokio::sync::Mutex::new(config_manager)),

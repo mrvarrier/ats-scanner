@@ -1,11 +1,11 @@
 use anyhow::Result;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use log::info;
 
 use crate::achievement_analyzer::{AchievementAnalyzer, BulletAnalysis};
-use crate::semantic_analyzer::SemanticAnalyzer;
 use crate::database::Database;
+use crate::semantic_analyzer::SemanticAnalyzer;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveSuggestions {
@@ -93,7 +93,9 @@ pub enum Section {
 
 pub struct RealtimeOptimizer {
     achievement_analyzer: AchievementAnalyzer,
+    #[allow(dead_code)]
     semantic_analyzer: SemanticAnalyzer,
+    #[allow(dead_code)]
     suggestion_cache: HashMap<String, Vec<ContextualSuggestion>>,
     change_tracker: ChangeTracker,
 }
@@ -106,6 +108,7 @@ struct ChangeTracker {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ContentChange {
     timestamp: chrono::DateTime<chrono::Utc>,
     change_type: String,
@@ -118,8 +121,10 @@ struct ContentChange {
 #[derive(Debug, Clone)]
 struct PerformanceMetrics {
     total_changes: usize,
+    #[allow(dead_code)]
     improvements_applied: usize,
     score_trajectory: Vec<f64>,
+    #[allow(dead_code)]
     session_duration: std::time::Duration,
 }
 
@@ -148,7 +153,10 @@ impl RealtimeOptimizer {
         job_description: &str,
         cursor_position: usize,
     ) -> Result<LiveSuggestions> {
-        info!("Generating live suggestions for content at position {}", cursor_position);
+        info!(
+            "Generating live suggestions for content at position {}",
+            cursor_position
+        );
 
         // 1. Identify current section being edited
         let current_section = self.identify_current_section(current_content, cursor_position);
@@ -157,32 +165,39 @@ impl RealtimeOptimizer {
         self.track_content_changes(current_content);
 
         // 3. Generate context-aware suggestions
-        let context_suggestions = self.generate_context_suggestions(
-            current_content,
-            job_description,
-            &current_section,
-            cursor_position,
-        ).await?;
+        let context_suggestions = self
+            .generate_context_suggestions(
+                current_content,
+                job_description,
+                &current_section,
+                cursor_position,
+            )
+            .await?;
 
         // 4. Identify priority improvements for the current section
-        let priority_improvements = self.identify_priority_improvements_for_section(
-            current_content,
-            &current_section,
-        ).await?;
+        let priority_improvements = self
+            .identify_priority_improvements_for_section(current_content, &current_section)
+            .await?;
 
         // 5. Calculate real-time score and feedback
-        let real_time_score = self.calculate_real_time_score(current_content, job_description).await?;
+        let real_time_score = self
+            .calculate_real_time_score(current_content, job_description)
+            .await?;
         let score_change = self.calculate_score_change(real_time_score);
 
         // 6. Generate typing feedback
-        let typing_feedback = self.generate_typing_feedback(current_content, cursor_position).await?;
+        let typing_feedback = self
+            .generate_typing_feedback(current_content, cursor_position)
+            .await?;
 
         // 7. Calculate section strength and completion
         let section_strength = self.calculate_section_strength(current_content);
-        let completion_percentage = self.calculate_completion_percentage(current_content, &current_section);
+        let completion_percentage =
+            self.calculate_completion_percentage(current_content, &current_section);
 
         // 8. Determine next recommended action
-        let next_recommended_action = self.determine_next_action(&context_suggestions, &priority_improvements);
+        let next_recommended_action =
+            self.determine_next_action(&context_suggestions, &priority_improvements);
 
         Ok(LiveSuggestions {
             current_section,
@@ -208,23 +223,41 @@ impl RealtimeOptimizer {
 
         match section {
             Section::Experience => {
-                suggestions.extend(self.generate_experience_suggestions(content, job_description, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_experience_suggestions(content, job_description, cursor_position)
+                        .await?,
+                );
+            }
             Section::Summary => {
-                suggestions.extend(self.generate_summary_suggestions(content, job_description, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_summary_suggestions(content, job_description, cursor_position)
+                        .await?,
+                );
+            }
             Section::Skills => {
-                suggestions.extend(self.generate_skills_suggestions(content, job_description, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_skills_suggestions(content, job_description, cursor_position)
+                        .await?,
+                );
+            }
             Section::Education => {
-                suggestions.extend(self.generate_education_suggestions(content, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_education_suggestions(content, cursor_position)
+                        .await?,
+                );
+            }
             Section::Projects => {
-                suggestions.extend(self.generate_projects_suggestions(content, job_description, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_projects_suggestions(content, job_description, cursor_position)
+                        .await?,
+                );
+            }
             _ => {
-                suggestions.extend(self.generate_general_suggestions(content, cursor_position).await?);
-            },
+                suggestions.extend(
+                    self.generate_general_suggestions(content, cursor_position)
+                        .await?,
+                );
+            }
         }
 
         // Sort by confidence and impact
@@ -248,11 +281,11 @@ impl RealtimeOptimizer {
 
         // Extract current bullet point being edited
         let current_bullet = self.extract_current_bullet(content, cursor_position);
-        
+
         if let Some(bullet) = current_bullet {
             // Analyze current bullet for weaknesses
             let bullet_analysis = self.achievement_analyzer.analyze_achievements(&bullet)?;
-            
+
             // Generate X-Y-Z improvement suggestions
             if !bullet_analysis.improvement_opportunities.is_empty() {
                 for opportunity in &bullet_analysis.improvement_opportunities {
@@ -278,12 +311,15 @@ impl RealtimeOptimizer {
                     suggestion_id: format!("quant_{}", suggestions.len()),
                     type_: "quantification".to_string(),
                     title: "Add Quantifiable Results".to_string(),
-                    description: "Include specific numbers, percentages, or metrics to demonstrate impact".to_string(),
+                    description:
+                        "Include specific numbers, percentages, or metrics to demonstrate impact"
+                            .to_string(),
                     suggestion: self.suggest_quantification_for_bullet(&bullet),
                     confidence: 0.75,
                     applicable_text: bullet.clone(),
                     replacement_text: None,
-                    explanation: "Quantified achievements are more compelling and memorable".to_string(),
+                    explanation: "Quantified achievements are more compelling and memorable"
+                        .to_string(),
                     impact_score: 20.0,
                     urgency: "soon".to_string(),
                 });
@@ -291,18 +327,28 @@ impl RealtimeOptimizer {
         }
 
         // Check for missing keywords from job description
-        let missing_keywords = self.identify_missing_keywords_in_section(content, job_description, "experience").await?;
+        let missing_keywords = self
+            .identify_missing_keywords_in_section(content, job_description, "experience")
+            .await?;
         for keyword in missing_keywords.iter().take(2) {
             suggestions.push(ContextualSuggestion {
                 suggestion_id: format!("keyword_{}", suggestions.len()),
                 type_: "keyword_integration".to_string(),
                 title: format!("Add Missing Keyword: {}", keyword),
-                description: format!("Consider integrating '{}' into a relevant bullet point", keyword),
-                suggestion: self.suggest_keyword_integration_for_experience(content, keyword).await,
+                description: format!(
+                    "Consider integrating '{}' into a relevant bullet point",
+                    keyword
+                ),
+                suggestion: self
+                    .suggest_keyword_integration_for_experience(content, keyword)
+                    .await,
                 confidence: 0.70,
                 applicable_text: self.find_best_integration_spot(content, keyword),
                 replacement_text: None,
-                explanation: format!("'{}' appears in the job description but not in your experience", keyword),
+                explanation: format!(
+                    "'{}' appears in the job description but not in your experience",
+                    keyword
+                ),
                 impact_score: 15.0,
                 urgency: "soon".to_string(),
             });
@@ -321,7 +367,7 @@ impl RealtimeOptimizer {
 
         // Analyze summary for key elements
         let summary_section = self.extract_summary_section(content);
-        
+
         if let Some(summary) = summary_section {
             // Check if summary includes years of experience
             if !self.contains_years_of_experience(&summary) {
@@ -329,19 +375,24 @@ impl RealtimeOptimizer {
                     suggestion_id: "summary_experience".to_string(),
                     type_: "summary_enhancement".to_string(),
                     title: "Add Years of Experience".to_string(),
-                    description: "Include your years of relevant experience in the summary".to_string(),
-                    suggestion: "Consider starting with '[X] years of experience in...'".to_string(),
+                    description: "Include your years of relevant experience in the summary"
+                        .to_string(),
+                    suggestion: "Consider starting with '[X] years of experience in...'"
+                        .to_string(),
                     confidence: 0.80,
                     applicable_text: summary.clone(),
                     replacement_text: None,
-                    explanation: "Years of experience help recruiters quickly assess your level".to_string(),
+                    explanation: "Years of experience help recruiters quickly assess your level"
+                        .to_string(),
                     impact_score: 18.0,
                     urgency: "soon".to_string(),
                 });
             }
 
             // Check for missing key skills from job description
-            let missing_skills = self.identify_missing_summary_keywords(&summary, job_description).await?;
+            let missing_skills = self
+                .identify_missing_summary_keywords(&summary, job_description)
+                .await?;
             if !missing_skills.is_empty() {
                 suggestions.push(ContextualSuggestion {
                     suggestion_id: "summary_keywords".to_string(),
@@ -373,17 +424,22 @@ impl RealtimeOptimizer {
         // Extract skills from content
         let skills_list = self.extract_skills_section(content).await?;
         let skills_text = skills_list.join(", ");
-        
+
         if !skills_list.is_empty() {
             // Find missing technical skills
-            let missing_technical_skills = self.identify_missing_technical_skills(&skills_text, job_description).await?;
-            
+            let missing_technical_skills = self
+                .identify_missing_technical_skills(&skills_text, job_description)
+                .await?;
+
             for skill in missing_technical_skills.iter().take(3) {
                 suggestions.push(ContextualSuggestion {
                     suggestion_id: format!("skill_{}", skill),
                     type_: "skill_addition".to_string(),
                     title: format!("Add Skill: {}", skill),
-                    description: format!("Consider adding '{}' if you have experience with it", skill),
+                    description: format!(
+                        "Consider adding '{}' if you have experience with it",
+                        skill
+                    ),
                     suggestion: format!("Add '{}' to your skills list", skill),
                     confidence: 0.65,
                     applicable_text: skills_text.clone(),
@@ -423,7 +479,7 @@ impl RealtimeOptimizer {
         let mut suggestions = Vec::new();
 
         let education_section = self.extract_education_section(content);
-        
+
         if let Some(education) = education_section {
             // Check for missing GPA (if recent graduate)
             if self.appears_to_be_recent_graduate(&education) && !self.contains_gpa(&education) {
@@ -449,11 +505,13 @@ impl RealtimeOptimizer {
                     type_: "education_enhancement".to_string(),
                     title: "Add Relevant Coursework".to_string(),
                     description: "Include 3-4 most relevant courses to the target role".to_string(),
-                    suggestion: "Add 'Relevant Coursework: [Course1], [Course2], [Course3]'".to_string(),
+                    suggestion: "Add 'Relevant Coursework: [Course1], [Course2], [Course3]'"
+                        .to_string(),
                     confidence: 0.65,
                     applicable_text: education.clone(),
                     replacement_text: None,
-                    explanation: "Relevant coursework shows specific preparation for the role".to_string(),
+                    explanation: "Relevant coursework shows specific preparation for the role"
+                        .to_string(),
                     impact_score: 10.0,
                     urgency: "later".to_string(),
                 });
@@ -472,7 +530,7 @@ impl RealtimeOptimizer {
         let mut suggestions = Vec::new();
 
         let projects_section = self.extract_projects_section(content);
-        
+
         if let Some(projects) = projects_section {
             // Check for missing project links
             if !self.contains_project_links(&projects) {
@@ -481,29 +539,41 @@ impl RealtimeOptimizer {
                     type_: "project_enhancement".to_string(),
                     title: "Add Project Links".to_string(),
                     description: "Include GitHub repository or live demo links".to_string(),
-                    suggestion: "Add 'GitHub: github.com/username/project' or 'Live Demo: project-url.com'".to_string(),
+                    suggestion:
+                        "Add 'GitHub: github.com/username/project' or 'Live Demo: project-url.com'"
+                            .to_string(),
                     confidence: 0.75,
                     applicable_text: projects.clone(),
                     replacement_text: None,
-                    explanation: "Project links allow recruiters to see your actual work".to_string(),
+                    explanation: "Project links allow recruiters to see your actual work"
+                        .to_string(),
                     impact_score: 20.0,
                     urgency: "soon".to_string(),
                 });
             }
 
             // Check for missing technologies used
-            let project_tech_gaps = self.identify_missing_project_technologies(&projects, job_description).await?;
+            let project_tech_gaps = self
+                .identify_missing_project_technologies(&projects, job_description)
+                .await?;
             if !project_tech_gaps.is_empty() {
                 suggestions.push(ContextualSuggestion {
                     suggestion_id: "project_tech".to_string(),
                     type_: "technology_highlighting".to_string(),
                     title: "Highlight Relevant Technologies".to_string(),
-                    description: format!("Emphasize these technologies: {}", project_tech_gaps.join(", ")),
-                    suggestion: format!("Include these in project descriptions: {}", project_tech_gaps.join(", ")),
+                    description: format!(
+                        "Emphasize these technologies: {}",
+                        project_tech_gaps.join(", ")
+                    ),
+                    suggestion: format!(
+                        "Include these in project descriptions: {}",
+                        project_tech_gaps.join(", ")
+                    ),
                     confidence: 0.70,
                     applicable_text: projects.clone(),
                     replacement_text: None,
-                    explanation: "Highlighting relevant technologies improves keyword matching".to_string(),
+                    explanation: "Highlighting relevant technologies improves keyword matching"
+                        .to_string(),
                     impact_score: 16.0,
                     urgency: "soon".to_string(),
                 });
@@ -531,7 +601,8 @@ impl RealtimeOptimizer {
                 confidence: 0.60,
                 applicable_text: content.to_string(),
                 replacement_text: None,
-                explanation: "Consistent formatting improves readability and ATS parsing".to_string(),
+                explanation: "Consistent formatting improves readability and ATS parsing"
+                    .to_string(),
                 impact_score: 10.0,
                 urgency: "later".to_string(),
             });
@@ -552,8 +623,10 @@ impl RealtimeOptimizer {
                 // Analyze achievement strength in experience section
                 let experience_content = self.extract_section_content(content, "experience");
                 if let Some(exp_content) = experience_content {
-                    let achievement_analysis = self.achievement_analyzer.analyze_achievements(&exp_content)?;
-                    
+                    let achievement_analysis = self
+                        .achievement_analyzer
+                        .analyze_achievements(&exp_content)?;
+
                     if achievement_analysis.xyz_formula_compliance < 50.0 {
                         improvements.push(PriorityImprovement {
                             improvement_id: "experience_xyz".to_string(),
@@ -577,7 +650,7 @@ impl RealtimeOptimizer {
                         });
                     }
                 }
-            },
+            }
             Section::Summary => {
                 let summary_content = self.extract_section_content(content, "summary");
                 if summary_content.is_none() || summary_content.as_ref().unwrap().len() < 50 {
@@ -598,8 +671,8 @@ impl RealtimeOptimizer {
                         example_after: Some("Experienced software engineer with 5+ years developing scalable web applications using React, Node.js, and AWS. Proven track record of improving system performance and leading cross-functional teams.".to_string()),
                     });
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         Ok(improvements)
@@ -611,12 +684,13 @@ impl RealtimeOptimizer {
         cursor_position: usize,
     ) -> Result<TypingFeedback> {
         // Analyze current bullet being typed
-        let current_bullet_analysis = if let Some(bullet) = self.extract_current_bullet(content, cursor_position) {
-            let analysis = self.achievement_analyzer.analyze_achievements(&bullet)?;
-            analysis.strong_achievements.get(0).cloned()
-        } else {
-            None
-        };
+        let current_bullet_analysis =
+            if let Some(bullet) = self.extract_current_bullet(content, cursor_position) {
+                let analysis = self.achievement_analyzer.analyze_achievements(&bullet)?;
+                analysis.strong_achievements.first().cloned()
+            } else {
+                None
+            };
 
         // Generate live suggestions for current typing
         let live_suggestions = self.generate_live_typing_suggestions(content, cursor_position);
@@ -686,7 +760,7 @@ impl RealtimeOptimizer {
                 old_text: self.change_tracker.previous_content.clone(),
                 new_text: current_content.to_string(),
                 section: "unknown".to_string(), // Could be enhanced to detect section
-                impact_score: 0.0, // Could be calculated
+                impact_score: 0.0,              // Could be calculated
             };
 
             self.change_tracker.change_history.push(change);
@@ -716,12 +790,30 @@ impl RealtimeOptimizer {
     }
 
     fn calculate_score_change(&mut self, current_score: f64) -> f64 {
-        let previous_score = self.change_tracker.performance_metrics.score_trajectory.last().copied().unwrap_or(0.0);
-        self.change_tracker.performance_metrics.score_trajectory.push(current_score);
-        
+        let previous_score = self
+            .change_tracker
+            .performance_metrics
+            .score_trajectory
+            .last()
+            .copied()
+            .unwrap_or(0.0);
+        self.change_tracker
+            .performance_metrics
+            .score_trajectory
+            .push(current_score);
+
         // Keep only last 10 scores for memory efficiency
-        if self.change_tracker.performance_metrics.score_trajectory.len() > 10 {
-            self.change_tracker.performance_metrics.score_trajectory.remove(0);
+        if self
+            .change_tracker
+            .performance_metrics
+            .score_trajectory
+            .len()
+            > 10
+        {
+            self.change_tracker
+                .performance_metrics
+                .score_trajectory
+                .remove(0);
         }
 
         current_score - previous_score
@@ -734,10 +826,11 @@ impl RealtimeOptimizer {
         let mut char_count = 0;
 
         for line in lines {
-            if char_count <= cursor_position && cursor_position <= char_count + line.len() {
-                if line.trim_start().starts_with('•') || line.trim_start().starts_with('-') {
-                    return Some(line.trim().to_string());
-                }
+            if char_count <= cursor_position
+                && cursor_position <= char_count + line.len()
+                && (line.trim_start().starts_with('•') || line.trim_start().starts_with('-'))
+            {
+                return Some(line.trim().to_string());
             }
             char_count += line.len() + 1;
         }
@@ -745,12 +838,18 @@ impl RealtimeOptimizer {
     }
 
     fn suggest_quantification_for_bullet(&self, _bullet: &str) -> String {
-        "Consider adding specific numbers: 'by X%', 'reduced by Y minutes', 'increased by Z units'".to_string()
+        "Consider adding specific numbers: 'by X%', 'reduced by Y minutes', 'increased by Z units'"
+            .to_string()
     }
 
-    async fn identify_missing_keywords_in_section(&self, content: &str, job_description: &str, section: &str) -> Result<Vec<String>> {
+    async fn identify_missing_keywords_in_section(
+        &self,
+        content: &str,
+        job_description: &str,
+        section: &str,
+    ) -> Result<Vec<String>> {
         use crate::ollama::OllamaClient;
-        
+
         let section_keyword_prompt = format!(
             "Analyze the {} section of this resume against the job description to identify missing important keywords.
 
@@ -781,55 +880,110 @@ Example: [\"Project Management\", \"Stakeholder Communication\", \"Process Impro
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("qwen2.5:14b", &section_keyword_prompt, "keyword_analysis").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis("qwen2.5:14b", &section_keyword_prompt, "keyword_analysis")
+            .await?;
+
         match serde_json::from_str::<Vec<String>>(&response) {
             Ok(keywords) => {
-                info!("ML identified {} missing keywords for {} section", keywords.len(), section);
+                info!(
+                    "ML identified {} missing keywords for {} section",
+                    keywords.len(),
+                    section
+                );
                 Ok(keywords.into_iter().take(5).collect()) // Limit to top 5 per section
             }
             Err(e) => {
-                log::warn!("ML section keyword analysis failed for {}: {}, using fallback", section, e);
+                log::warn!(
+                    "ML section keyword analysis failed for {}: {}, using fallback",
+                    section,
+                    e
+                );
                 self.fallback_section_keyword_analysis(content, job_description, section)
             }
         }
     }
-    
-    fn fallback_section_keyword_analysis(&self, content: &str, job_description: &str, section: &str) -> Result<Vec<String>> {
+
+    fn fallback_section_keyword_analysis(
+        &self,
+        content: &str,
+        job_description: &str,
+        section: &str,
+    ) -> Result<Vec<String>> {
         let content_lower = content.to_lowercase();
         let job_lower = job_description.to_lowercase();
-        
+
         let section_keywords = match section {
             "experience" => vec![
-                "project management", "team leadership", "agile", "scrum", "ci/cd",
-                "architecture", "scalability", "performance", "optimization", "automation",
-                "collaboration", "stakeholder", "requirements", "implementation", "deployment"
+                "project management",
+                "team leadership",
+                "agile",
+                "scrum",
+                "ci/cd",
+                "architecture",
+                "scalability",
+                "performance",
+                "optimization",
+                "automation",
+                "collaboration",
+                "stakeholder",
+                "requirements",
+                "implementation",
+                "deployment",
             ],
             "summary" => vec![
-                "senior", "lead", "principal", "architect", "manager", "director",
-                "expertise", "specialization", "proficiency", "leadership", "strategic",
-                "innovative", "results-driven", "cross-functional", "technical leadership"
+                "senior",
+                "lead",
+                "principal",
+                "architect",
+                "manager",
+                "director",
+                "expertise",
+                "specialization",
+                "proficiency",
+                "leadership",
+                "strategic",
+                "innovative",
+                "results-driven",
+                "cross-functional",
+                "technical leadership",
             ],
             "skills" => vec![
-                "programming", "development", "frameworks", "databases", "cloud",
-                "devops", "testing", "monitoring", "security", "apis", "microservices"
+                "programming",
+                "development",
+                "frameworks",
+                "databases",
+                "cloud",
+                "devops",
+                "testing",
+                "monitoring",
+                "security",
+                "apis",
+                "microservices",
             ],
             _ => vec![
-                "professional", "technical", "analytical", "problem-solving", "communication"
-            ]
+                "professional",
+                "technical",
+                "analytical",
+                "problem-solving",
+                "communication",
+            ],
         };
-        
+
         let mut missing_keywords = Vec::new();
-        
+
         for keyword in section_keywords {
             if job_lower.contains(keyword) && !content_lower.contains(keyword) {
                 // Convert to title case
-                let title_case = keyword.split_whitespace()
+                let title_case = keyword
+                    .split_whitespace()
                     .map(|word| {
                         let mut chars = word.chars();
                         match chars.next() {
                             None => String::new(),
-                            Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                            Some(first) => {
+                                first.to_uppercase().collect::<String>() + chars.as_str()
+                            }
                         }
                     })
                     .collect::<Vec<String>>()
@@ -837,14 +991,22 @@ Example: [\"Project Management\", \"Stakeholder Communication\", \"Process Impro
                 missing_keywords.push(title_case);
             }
         }
-        
-        info!("Fallback found {} missing keywords for {} section", missing_keywords.len(), section);
+
+        info!(
+            "Fallback found {} missing keywords for {} section",
+            missing_keywords.len(),
+            section
+        );
         Ok(missing_keywords.into_iter().take(4).collect())
     }
 
-    async fn suggest_keyword_integration_for_experience(&self, content: &str, keyword: &str) -> String {
+    async fn suggest_keyword_integration_for_experience(
+        &self,
+        content: &str,
+        keyword: &str,
+    ) -> String {
         use crate::ollama::OllamaClient;
-        
+
         let integration_prompt = format!(
             "Suggest how to naturally integrate the keyword '{}' into this experience section without keyword stuffing.
 
@@ -863,32 +1025,41 @@ Provide a concise integration suggestion.",
 
         let ollama_client = match OllamaClient::new(None) {
             Ok(client) => client,
-            Err(_) => return self.fallback_keyword_integration_suggestion(content, keyword)
+            Err(_) => return self.fallback_keyword_integration_suggestion(content, keyword),
         };
-        
-        match ollama_client.generate_ml_analysis("mistral:latest", &integration_prompt, "keyword_integration").await {
+
+        match ollama_client
+            .generate_ml_analysis("mistral:latest", &integration_prompt, "keyword_integration")
+            .await
+        {
             Ok(response) => {
-                info!("Generated ML keyword integration suggestion for: {}", keyword);
+                info!(
+                    "Generated ML keyword integration suggestion for: {}",
+                    keyword
+                );
                 response
             }
-            Err(_) => self.fallback_keyword_integration_suggestion(content, keyword)
+            Err(_) => self.fallback_keyword_integration_suggestion(content, keyword),
         }
     }
-    
+
     fn fallback_keyword_integration_suggestion(&self, content: &str, keyword: &str) -> String {
         // Analyze content to find best integration point
         let lines: Vec<&str> = content.lines().collect();
-        
+
         for line in &lines {
             let line_lower = line.to_lowercase();
-            let keyword_lower = keyword.to_lowercase();
-            
+            let _keyword_lower = keyword.to_lowercase();
+
             // Look for related contexts
-            if line_lower.contains("project") || line_lower.contains("develop") || line_lower.contains("implement") {
+            if line_lower.contains("project")
+                || line_lower.contains("develop")
+                || line_lower.contains("implement")
+            {
                 return format!("Consider adding '{}' to this accomplishment: '{}'. For example, you could specify that you used {} in this project or how {} contributed to the outcome.", keyword, line.trim(), keyword, keyword);
             }
         }
-        
+
         // Generic suggestion if no specific context found
         format!("Consider mentioning '{}' in a relevant project description or accomplishment where you actually used this skill/technology. Be specific about how {} contributed to your results.", keyword, keyword)
     }
@@ -913,7 +1084,10 @@ Provide a concise integration suggestion.",
                 if line.trim().is_empty() {
                     continue;
                 }
-                if line_lower.contains("experience") || line_lower.contains("education") || line_lower.contains("skills") {
+                if line_lower.contains("experience")
+                    || line_lower.contains("education")
+                    || line_lower.contains("skills")
+                {
                     break;
                 }
                 summary_lines.push(line);
@@ -928,16 +1102,23 @@ Provide a concise integration suggestion.",
     }
 
     fn contains_years_of_experience(&self, summary: &str) -> bool {
-        summary.contains("year") && (summary.contains("experience") || summary.contains("developer") || summary.contains("engineer"))
+        summary.contains("year")
+            && (summary.contains("experience")
+                || summary.contains("developer")
+                || summary.contains("engineer"))
     }
 
-    async fn identify_missing_summary_keywords(&self, _summary: &str, _job_description: &str) -> Result<Vec<String>> {
+    async fn identify_missing_summary_keywords(
+        &self,
+        _summary: &str,
+        _job_description: &str,
+    ) -> Result<Vec<String>> {
         Ok(vec!["leadership".to_string(), "agile".to_string()]) // Placeholder
     }
 
     async fn extract_skills_section(&self, content: &str) -> Result<Vec<String>> {
         use crate::ollama::OllamaClient;
-        
+
         let skill_extraction_prompt = format!(
             "Extract technical skills, programming languages, frameworks, tools, and technologies from this resume text.
 
@@ -959,8 +1140,14 @@ Example: [\"Python\", \"React\", \"AWS\", \"Docker\", \"PostgreSQL\"]",
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("mistral:latest", &skill_extraction_prompt, "skill_extraction").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis(
+                "mistral:latest",
+                &skill_extraction_prompt,
+                "skill_extraction",
+            )
+            .await?;
+
         // Parse JSON response or fallback to regex extraction
         match serde_json::from_str::<Vec<String>>(&response) {
             Ok(skills) => {
@@ -973,48 +1160,81 @@ Example: [\"Python\", \"React\", \"AWS\", \"Docker\", \"PostgreSQL\"]",
             }
         }
     }
-    
+
     fn fallback_skill_extraction(&self, content: &str) -> Result<Vec<String>> {
         let mut skills = std::collections::HashSet::new();
         let content_lower = content.to_lowercase();
-        
+
         // Comprehensive skill patterns optimized for common resume formats
         let skill_patterns = vec![
             // Programming languages
-            (r"(?i)\b(python|java|javascript|typescript|rust|go|golang|c\+\+|c#|php|ruby|swift|kotlin|scala|r\b|matlab)\b", "Programming Languages"),
+            (
+                r"(?i)\b(python|java|javascript|typescript|rust|go|golang|c\+\+|c#|php|ruby|swift|kotlin|scala|r\b|matlab)\b",
+                "Programming Languages",
+            ),
             // Web frameworks
-            (r"(?i)\b(react|angular|vue|svelte|django|flask|spring|express|laravel|rails|nextjs|nuxt)\b", "Web Frameworks"),
+            (
+                r"(?i)\b(react|angular|vue|svelte|django|flask|spring|express|laravel|rails|nextjs|nuxt)\b",
+                "Web Frameworks",
+            ),
             // Databases
-            (r"(?i)\b(mysql|postgresql|postgres|mongodb|redis|elasticsearch|cassandra|dynamodb|sqlite|oracle)\b", "Databases"),
+            (
+                r"(?i)\b(mysql|postgresql|postgres|mongodb|redis|elasticsearch|cassandra|dynamodb|sqlite|oracle)\b",
+                "Databases",
+            ),
             // Cloud and DevOps
-            (r"(?i)\b(aws|azure|gcp|google cloud|docker|kubernetes|k8s|jenkins|terraform|ansible|vagrant|helm)\b", "Cloud/DevOps"),
+            (
+                r"(?i)\b(aws|azure|gcp|google cloud|docker|kubernetes|k8s|jenkins|terraform|ansible|vagrant|helm)\b",
+                "Cloud/DevOps",
+            ),
             // Data and ML
-            (r"(?i)\b(pandas|numpy|tensorflow|pytorch|scikit-learn|spark|hadoop|tableau|powerbi|jupyter)\b", "Data/ML"),
+            (
+                r"(?i)\b(pandas|numpy|tensorflow|pytorch|scikit-learn|spark|hadoop|tableau|powerbi|jupyter)\b",
+                "Data/ML",
+            ),
             // Tools
-            (r"(?i)\b(git|github|gitlab|jira|confluence|slack|figma|sketch|photoshop|illustrator)\b", "Tools"),
+            (
+                r"(?i)\b(git|github|gitlab|jira|confluence|slack|figma|sketch|photoshop|illustrator)\b",
+                "Tools",
+            ),
         ];
-        
+
         for (pattern, _category) in skill_patterns {
             if let Ok(regex) = regex::Regex::new(pattern) {
                 for mat in regex.find_iter(&content_lower) {
                     let skill = mat.as_str().to_string();
                     // Capitalize first letter for consistent formatting
-                    let formatted_skill = skill.chars().enumerate()
-                        .map(|(i, c)| if i == 0 { c.to_uppercase().collect::<String>() } else { c.to_string() })
+                    let formatted_skill = skill
+                        .chars()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            if i == 0 {
+                                c.to_uppercase().collect::<String>()
+                            } else {
+                                c.to_string()
+                            }
+                        })
                         .collect::<String>();
                     skills.insert(formatted_skill);
                 }
             }
         }
-        
+
         let skills_vec: Vec<String> = skills.into_iter().collect();
-        info!("Fallback skill extraction found {} skills", skills_vec.len());
+        info!(
+            "Fallback skill extraction found {} skills",
+            skills_vec.len()
+        );
         Ok(skills_vec)
     }
 
-    async fn identify_missing_technical_skills(&self, resume_skills: &str, job_description: &str) -> Result<Vec<String>> {
+    async fn identify_missing_technical_skills(
+        &self,
+        resume_skills: &str,
+        job_description: &str,
+    ) -> Result<Vec<String>> {
         use crate::ollama::OllamaClient;
-        
+
         let keyword_analysis_prompt = format!(
             "Compare the technical skills in this resume with the job requirements and identify missing technical skills.
 
@@ -1040,11 +1260,16 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         );
 
         let ollama_client = OllamaClient::new(None)?;
-        let response = ollama_client.generate_ml_analysis("qwen2.5:14b", &keyword_analysis_prompt, "keyword_analysis").await?;
-        
+        let response = ollama_client
+            .generate_ml_analysis("qwen2.5:14b", &keyword_analysis_prompt, "keyword_analysis")
+            .await?;
+
         match serde_json::from_str::<Vec<String>>(&response) {
             Ok(missing_skills) => {
-                info!("ML identified {} missing technical skills", missing_skills.len());
+                info!(
+                    "ML identified {} missing technical skills",
+                    missing_skills.len()
+                );
                 Ok(missing_skills.into_iter().take(8).collect()) // Limit to top 8 most important
             }
             Err(e) => {
@@ -1053,33 +1278,79 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
             }
         }
     }
-    
-    fn fallback_missing_skills_analysis(&self, resume_skills: &str, job_description: &str) -> Result<Vec<String>> {
+
+    fn fallback_missing_skills_analysis(
+        &self,
+        resume_skills: &str,
+        job_description: &str,
+    ) -> Result<Vec<String>> {
         let resume_lower = resume_skills.to_lowercase();
         let job_lower = job_description.to_lowercase();
-        
+
         // Common technical skills to check for
         let common_tech_skills = vec![
-            "docker", "kubernetes", "terraform", "ansible", "jenkins", "git", "ci/cd",
-            "aws", "azure", "gcp", "python", "java", "javascript", "typescript", "go", "rust",
-            "react", "angular", "vue", "nodejs", "express", "django", "flask", "spring",
-            "mysql", "postgresql", "mongodb", "redis", "elasticsearch",
-            "agile", "scrum", "tdd", "microservices", "api", "rest", "graphql"
+            "docker",
+            "kubernetes",
+            "terraform",
+            "ansible",
+            "jenkins",
+            "git",
+            "ci/cd",
+            "aws",
+            "azure",
+            "gcp",
+            "python",
+            "java",
+            "javascript",
+            "typescript",
+            "go",
+            "rust",
+            "react",
+            "angular",
+            "vue",
+            "nodejs",
+            "express",
+            "django",
+            "flask",
+            "spring",
+            "mysql",
+            "postgresql",
+            "mongodb",
+            "redis",
+            "elasticsearch",
+            "agile",
+            "scrum",
+            "tdd",
+            "microservices",
+            "api",
+            "rest",
+            "graphql",
         ];
-        
+
         let mut missing_skills = Vec::new();
-        
+
         for skill in common_tech_skills {
             if job_lower.contains(skill) && !resume_lower.contains(skill) {
                 // Capitalize first letter
-                let formatted_skill = skill.chars().enumerate()
-                    .map(|(i, c)| if i == 0 { c.to_uppercase().collect::<String>() } else { c.to_string() })
+                let formatted_skill = skill
+                    .chars()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        if i == 0 {
+                            c.to_uppercase().collect::<String>()
+                        } else {
+                            c.to_string()
+                        }
+                    })
                     .collect::<String>();
                 missing_skills.push(formatted_skill);
             }
         }
-        
-        info!("Fallback analysis found {} missing skills", missing_skills.len());
+
+        info!(
+            "Fallback analysis found {} missing skills",
+            missing_skills.len()
+        );
         Ok(missing_skills.into_iter().take(6).collect())
     }
 
@@ -1100,7 +1371,8 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
     }
 
     fn contains_relevant_coursework(&self, education: &str) -> bool {
-        education.to_lowercase().contains("coursework") || education.to_lowercase().contains("courses")
+        education.to_lowercase().contains("coursework")
+            || education.to_lowercase().contains("courses")
     }
 
     fn extract_projects_section(&self, _content: &str) -> Option<String> {
@@ -1111,7 +1383,11 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         projects.contains("github") || projects.contains("http") || projects.contains("demo")
     }
 
-    async fn identify_missing_project_technologies(&self, _projects: &str, _job_description: &str) -> Result<Vec<String>> {
+    async fn identify_missing_project_technologies(
+        &self,
+        _projects: &str,
+        _job_description: &str,
+    ) -> Result<Vec<String>> {
         Ok(vec!["AWS".to_string(), "MongoDB".to_string()]) // Placeholder
     }
 
@@ -1123,11 +1399,15 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         Some("Section content".to_string()) // Placeholder
     }
 
-    fn generate_live_typing_suggestions(&self, _content: &str, _position: usize) -> Vec<LiveSuggestion> {
+    fn generate_live_typing_suggestions(
+        &self,
+        _content: &str,
+        _position: usize,
+    ) -> Vec<LiveSuggestion> {
         vec![] // Placeholder
     }
 
-    fn analyze_tone(&self, content: &str) -> ToneAnalysis {
+    fn analyze_tone(&self, _content: &str) -> ToneAnalysis {
         ToneAnalysis {
             professionalism_score: 85.0,
             confidence_level: 78.0,
@@ -1144,12 +1424,14 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
 
     fn quick_keyword_match(&self, content: &str, job_description: &str) -> f64 {
         // Simple keyword matching for real-time feedback
-        let content_words: std::collections::HashSet<String> = content.to_lowercase()
+        let content_words: std::collections::HashSet<String> = content
+            .to_lowercase()
             .split_whitespace()
             .map(|s| s.to_string())
             .collect();
-        
-        let job_words: std::collections::HashSet<String> = job_description.to_lowercase()
+
+        let job_words: std::collections::HashSet<String> = job_description
+            .to_lowercase()
             .split_whitespace()
             .map(|s| s.to_string())
             .collect();
@@ -1166,12 +1448,18 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
 
     fn quick_format_score(&self, content: &str) -> f64 {
         let mut score: f64 = 100.0;
-        
+
         // Quick format checks
-        if content.contains("<table") { score -= 25.0; }
-        if content.contains("•") || content.contains("-") { score += 10.0; }
-        if content.len() > 1000 { score += 5.0; }
-        
+        if content.contains("<table") {
+            score -= 25.0;
+        }
+        if content.contains("•") || content.contains("-") {
+            score += 10.0;
+        }
+        if content.len() > 1000 {
+            score += 5.0;
+        }
+
         score.max(0.0)
     }
 
@@ -1183,7 +1471,11 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         80.0 // Placeholder
     }
 
-    fn determine_next_action(&self, suggestions: &[ContextualSuggestion], improvements: &[PriorityImprovement]) -> String {
+    fn determine_next_action(
+        &self,
+        suggestions: &[ContextualSuggestion],
+        improvements: &[PriorityImprovement],
+    ) -> String {
         if let Some(urgent_suggestion) = suggestions.iter().find(|s| s.urgency == "immediate") {
             format!("Immediate: {}", urgent_suggestion.title)
         } else if let Some(high_priority) = improvements.iter().find(|i| i.impact_score > 20.0) {
@@ -1212,13 +1504,16 @@ mod tests {
     async fn test_live_suggestions_generation() {
         let db = Database::new().await.unwrap();
         let mut optimizer = RealtimeOptimizer::new(db);
-        
-        let content = "Experience\n• Worked on various projects\n• Helped improve system performance";
+
+        let content =
+            "Experience\n• Worked on various projects\n• Helped improve system performance";
         let job_description = "Looking for software engineer with Python experience";
-        
-        let suggestions = optimizer.get_live_suggestions(content, job_description, 50).await;
+
+        let suggestions = optimizer
+            .get_live_suggestions(content, job_description, 50)
+            .await;
         assert!(suggestions.is_ok());
-        
+
         let live_suggestions = suggestions.unwrap();
         assert!(live_suggestions.real_time_score >= 0.0);
         assert!(live_suggestions.real_time_score <= 100.0);
@@ -1228,12 +1523,12 @@ mod tests {
     fn test_section_identification() {
         let db = futures::executor::block_on(Database::new()).unwrap();
         let optimizer = RealtimeOptimizer::new(db);
-        
+
         let content = "Summary\nExperienced developer\n\nExperience\n• Led development team";
-        
+
         let section = optimizer.identify_current_section(content, 10); // In summary section
         assert!(matches!(section, Section::Summary));
-        
+
         let section = optimizer.identify_current_section(content, 50); // In experience section
         assert!(matches!(section, Section::Experience));
     }
@@ -1242,10 +1537,10 @@ mod tests {
     fn test_current_bullet_extraction() {
         let db = futures::executor::block_on(Database::new()).unwrap();
         let optimizer = RealtimeOptimizer::new(db);
-        
+
         let content = "Experience\n• Led development team\n• Improved system performance";
         let bullet = optimizer.extract_current_bullet(content, 25);
-        
+
         assert!(bullet.is_some());
         assert!(bullet.unwrap().contains("Led development team"));
     }
@@ -1254,11 +1549,14 @@ mod tests {
     async fn test_real_time_scoring() {
         let db = Database::new().await.unwrap();
         let optimizer = RealtimeOptimizer::new(db);
-        
+
         let content = "Experience\n• Led team of 5 developers, resulting in 25% faster delivery\n• Implemented automated testing, reducing bugs by 40%";
         let job_description = "Software engineer with leadership and testing experience";
-        
-        let score = optimizer.calculate_real_time_score(content, job_description).await.unwrap();
+
+        let score = optimizer
+            .calculate_real_time_score(content, job_description)
+            .await
+            .unwrap();
         assert!(score > 0.0);
         assert!(score <= 100.0);
     }

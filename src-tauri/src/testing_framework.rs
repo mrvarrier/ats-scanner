@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use log::{info, warn};
 
-use crate::ats_simulator::{ATSSimulator, ATSSimulationResult};
-use crate::format_checker::{FormatCompatibilityChecker, FormatCompatibilityReport};
-use crate::format_issue_detector::{FormatIssueDetector, FormatIssueReport};
+use crate::ats_simulator::ATSSimulator;
 use crate::database::Database;
+use crate::format_checker::FormatCompatibilityChecker;
+use crate::format_issue_detector::FormatIssueDetector;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationReport {
@@ -94,6 +94,7 @@ pub struct ValidationRule {
 
 pub struct ATSTestingFramework {
     test_resumes: Vec<TestResume>,
+    #[allow(dead_code)]
     validation_rules: Vec<ValidationRule>,
     ats_simulator: ATSSimulator,
     format_checker: FormatCompatibilityChecker,
@@ -104,7 +105,9 @@ pub struct ATSTestingFramework {
 #[derive(Debug, Clone)]
 pub struct BenchmarkData {
     pub baseline_metrics: HashMap<String, f64>,
+    #[allow(dead_code)]
     pub historical_performance: Vec<PerformanceDataPoint>,
+    #[allow(dead_code)]
     pub target_thresholds: HashMap<String, f64>,
 }
 
@@ -130,25 +133,31 @@ impl ATSTestingFramework {
 
     pub async fn run_comprehensive_validation(&self) -> Result<ValidationReport> {
         info!("Starting comprehensive ATS validation suite");
-        
+
         let mut test_results = Vec::new();
         let mut accuracy_scores = Vec::new();
         let mut per_ats_scores: HashMap<String, Vec<f64>> = HashMap::new();
-        
+
         let start_time = std::time::Instant::now();
 
         // Run tests on each test resume
         for test_resume in &self.test_resumes {
-            info!("Testing resume: {} ({})", test_resume.id, test_resume.resume_type);
-            
+            info!(
+                "Testing resume: {} ({})",
+                test_resume.id, test_resume.resume_type
+            );
+
             let test_result = self.validate_single_resume(test_resume).await?;
             accuracy_scores.push(test_result.accuracy_score);
-            
+
             // Collect per-ATS scores
             for (ats_name, score) in &test_result.actual_result.ats_compatibility_scores {
-                per_ats_scores.entry(ats_name.clone()).or_insert_with(Vec::new).push(*score);
+                per_ats_scores
+                    .entry(ats_name.clone())
+                    .or_default()
+                    .push(*score);
             }
-            
+
             test_results.push(test_result);
         }
 
@@ -157,9 +166,15 @@ impl ATSTestingFramework {
 
         // Calculate overall metrics
         let overall_accuracy = accuracy_scores.iter().sum::<f64>() / accuracy_scores.len() as f64;
-        
-        let per_ats_accuracy = per_ats_scores.iter()
-            .map(|(ats, scores)| (ats.clone(), scores.iter().sum::<f64>() / scores.len() as f64))
+
+        let per_ats_accuracy = per_ats_scores
+            .iter()
+            .map(|(ats, scores)| {
+                (
+                    ats.clone(),
+                    scores.iter().sum::<f64>() / scores.len() as f64,
+                )
+            })
             .collect();
 
         let format_detection_accuracy = self.calculate_format_detection_accuracy(&test_results);
@@ -192,16 +207,19 @@ impl ATSTestingFramework {
         let test_start = std::time::Instant::now();
 
         // Run ATS simulation
-        let simulation_result = self.ats_simulator
+        let simulation_result = self
+            .ats_simulator
             .simulate_multiple_ats_systems(&test_resume.content, &test_resume.target_keywords)
             .await?;
 
         // Run format compatibility check
-        let format_report = self.format_checker
+        let format_report = self
+            .format_checker
             .check_comprehensive_compatibility(&test_resume.content)?;
 
         // Run format issue detection
-        let issue_report = self.format_issue_detector
+        let issue_report = self
+            .format_issue_detector
             .analyze_format_issues(&test_resume.content, &format_report)?;
 
         let execution_time = test_start.elapsed().as_millis() as u64;
@@ -250,7 +268,10 @@ impl ATSTestingFramework {
                     ("greenhouse".to_string(), 85.0),
                     ("lever".to_string(), 90.0),
                     ("workday".to_string(), 88.0),
-                ].iter().cloned().collect(),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
             },
             "problematic" => TestExpectation {
                 format_score_range: (40.0, 70.0),
@@ -261,7 +282,10 @@ impl ATSTestingFramework {
                     ("greenhouse".to_string(), 60.0),
                     ("lever".to_string(), 55.0),
                     ("workday".to_string(), 50.0),
-                ].iter().cloned().collect(),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
             },
             "edge_case" => TestExpectation {
                 format_score_range: (20.0, 60.0),
@@ -272,7 +296,10 @@ impl ATSTestingFramework {
                     ("greenhouse".to_string(), 40.0),
                     ("lever".to_string(), 35.0),
                     ("workday".to_string(), 30.0),
-                ].iter().cloned().collect(),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
             },
             _ => TestExpectation {
                 format_score_range: (50.0, 80.0),
@@ -288,12 +315,13 @@ impl ATSTestingFramework {
         let mut accuracy_components = Vec::new();
 
         // Format score accuracy
-        let format_in_range = actual.format_score >= expected.format_score_range.0 
+        let format_in_range = actual.format_score >= expected.format_score_range.0
             && actual.format_score <= expected.format_score_range.1;
         accuracy_components.push(if format_in_range { 1.0 } else { 0.5 });
 
         // Critical issues count accuracy
-        let issues_diff = (expected.critical_issues_count as i32 - actual.critical_issues_count as i32).abs();
+        let issues_diff =
+            (expected.critical_issues_count as i32 - actual.critical_issues_count as i32).abs();
         let issues_accuracy = match issues_diff {
             0 => 1.0,
             1 => 0.8,
@@ -320,7 +348,7 @@ impl ATSTestingFramework {
                 ats_accuracies.push((1.0 - diff).max(0.0));
             }
         }
-        
+
         if !ats_accuracies.is_empty() {
             let avg_ats_accuracy = ats_accuracies.iter().sum::<f64>() / ats_accuracies.len() as f64;
             accuracy_components.push(avg_ats_accuracy);
@@ -330,38 +358,55 @@ impl ATSTestingFramework {
         accuracy_components.iter().sum::<f64>() / accuracy_components.len() as f64
     }
 
-    fn identify_test_issues(&self, expected: &TestExpectation, actual: &TestOutcome) -> Vec<String> {
+    fn identify_test_issues(
+        &self,
+        expected: &TestExpectation,
+        actual: &TestOutcome,
+    ) -> Vec<String> {
         let mut issues = Vec::new();
 
         if actual.format_score < expected.format_score_range.0 {
-            issues.push(format!("Format score {} below expected minimum {}", 
-                actual.format_score, expected.format_score_range.0));
+            issues.push(format!(
+                "Format score {} below expected minimum {}",
+                actual.format_score, expected.format_score_range.0
+            ));
         }
 
         if actual.critical_issues_count > expected.critical_issues_count {
-            issues.push(format!("More critical issues found ({}) than expected ({})", 
-                actual.critical_issues_count, expected.critical_issues_count));
+            issues.push(format!(
+                "More critical issues found ({}) than expected ({})",
+                actual.critical_issues_count, expected.critical_issues_count
+            ));
         }
 
         if actual.parsing_success_rate < expected.parsing_success_rate {
-            issues.push(format!("Parsing success rate {} below expected {}", 
-                actual.parsing_success_rate, expected.parsing_success_rate));
+            issues.push(format!(
+                "Parsing success rate {} below expected {}",
+                actual.parsing_success_rate, expected.parsing_success_rate
+            ));
         }
 
         if actual.keyword_detection_rate < expected.keyword_detection_rate {
-            issues.push(format!("Keyword detection rate {} below expected {}", 
-                actual.keyword_detection_rate, expected.keyword_detection_rate));
+            issues.push(format!(
+                "Keyword detection rate {} below expected {}",
+                actual.keyword_detection_rate, expected.keyword_detection_rate
+            ));
         }
 
         issues
     }
 
-    fn generate_test_recommendations(&self, issues: &[String], _test_resume: &TestResume) -> Vec<String> {
+    fn generate_test_recommendations(
+        &self,
+        issues: &[String],
+        _test_resume: &TestResume,
+    ) -> Vec<String> {
         let mut recommendations = Vec::new();
 
         for issue in issues {
             if issue.contains("format score") {
-                recommendations.push("Improve format compatibility detection algorithms".to_string());
+                recommendations
+                    .push("Improve format compatibility detection algorithms".to_string());
             }
             if issue.contains("critical issues") {
                 recommendations.push("Enhance issue detection sensitivity".to_string());
@@ -382,11 +427,12 @@ impl ATSTestingFramework {
     }
 
     fn calculate_format_detection_accuracy(&self, test_results: &[TestResult]) -> f64 {
-        let format_scores: Vec<f64> = test_results.iter()
+        let format_scores: Vec<f64> = test_results
+            .iter()
             .map(|result| {
                 let expected_range = &result.expected_result.format_score_range;
                 let actual = result.actual_result.format_score;
-                
+
                 if actual >= expected_range.0 && actual <= expected_range.1 {
                     1.0
                 } else {
@@ -399,7 +445,8 @@ impl ATSTestingFramework {
     }
 
     fn calculate_parsing_accuracy(&self, test_results: &[TestResult]) -> f64 {
-        let parsing_accuracies: Vec<f64> = test_results.iter()
+        let parsing_accuracies: Vec<f64> = test_results
+            .iter()
             .map(|result| {
                 let expected = result.expected_result.parsing_success_rate;
                 let actual = result.actual_result.parsing_success_rate;
@@ -411,7 +458,8 @@ impl ATSTestingFramework {
     }
 
     fn calculate_keyword_accuracy(&self, test_results: &[TestResult]) -> f64 {
-        let keyword_accuracies: Vec<f64> = test_results.iter()
+        let keyword_accuracies: Vec<f64> = test_results
+            .iter()
             .map(|result| {
                 let expected = result.expected_result.keyword_detection_rate;
                 let actual = result.actual_result.keyword_detection_rate;
@@ -422,18 +470,25 @@ impl ATSTestingFramework {
         keyword_accuracies.iter().sum::<f64>() / keyword_accuracies.len() as f64
     }
 
-    fn generate_improvement_suggestions(&self, test_results: &[TestResult]) -> Vec<ImprovementSuggestion> {
+    fn generate_improvement_suggestions(
+        &self,
+        test_results: &[TestResult],
+    ) -> Vec<ImprovementSuggestion> {
         let mut suggestions = Vec::new();
 
         // Analyze common failure patterns
-        let low_accuracy_tests: Vec<_> = test_results.iter()
+        let low_accuracy_tests: Vec<_> = test_results
+            .iter()
             .filter(|result| result.accuracy_score < 0.8)
             .collect();
 
         if !low_accuracy_tests.is_empty() {
             suggestions.push(ImprovementSuggestion {
                 category: "accuracy".to_string(),
-                description: format!("{} tests showed accuracy below 80%", low_accuracy_tests.len()),
+                description: format!(
+                    "{} tests showed accuracy below 80%",
+                    low_accuracy_tests.len()
+                ),
                 priority: "high".to_string(),
                 implementation_effort: "medium".to_string(),
                 expected_improvement: 15.0,
@@ -441,14 +496,18 @@ impl ATSTestingFramework {
         }
 
         // Check for performance issues
-        let slow_tests: Vec<_> = test_results.iter()
+        let slow_tests: Vec<_> = test_results
+            .iter()
             .filter(|result| result.execution_time_ms > 5000)
             .collect();
 
         if !slow_tests.is_empty() {
             suggestions.push(ImprovementSuggestion {
                 category: "performance".to_string(),
-                description: format!("{} tests exceeded 5 second execution time", slow_tests.len()),
+                description: format!(
+                    "{} tests exceeded 5 second execution time",
+                    slow_tests.len()
+                ),
                 priority: "medium".to_string(),
                 implementation_effort: "low".to_string(),
                 expected_improvement: 10.0,
@@ -459,9 +518,14 @@ impl ATSTestingFramework {
     }
 
     fn create_benchmark_comparison(&self, current_accuracy: f64) -> BenchmarkComparison {
-        let baseline_accuracy = self.benchmark_data.baseline_metrics.get("overall_accuracy").unwrap_or(&0.8);
-        let improvement_percentage = ((current_accuracy - baseline_accuracy) / baseline_accuracy) * 100.0;
-        
+        let baseline_accuracy = self
+            .benchmark_data
+            .baseline_metrics
+            .get("overall_accuracy")
+            .unwrap_or(&0.8);
+        let improvement_percentage =
+            ((current_accuracy - baseline_accuracy) / baseline_accuracy) * 100.0;
+
         let performance_trend = match improvement_percentage {
             p if p > 5.0 => "improving",
             p if p < -5.0 => "declining",
@@ -477,29 +541,38 @@ impl ATSTestingFramework {
                 ("accuracy_improvement".to_string(), improvement_percentage),
                 ("test_coverage".to_string(), 95.0),
                 ("reliability_score".to_string(), current_accuracy * 100.0),
-            ].iter().cloned().collect(),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
         }
     }
 
-    fn calculate_confidence_score(&self, test_results: &[TestResult], overall_accuracy: f64) -> f64 {
+    fn calculate_confidence_score(
+        &self,
+        test_results: &[TestResult],
+        overall_accuracy: f64,
+    ) -> f64 {
         let test_count = test_results.len() as f64;
         let accuracy_consistency = self.calculate_accuracy_consistency(test_results);
         let test_coverage = test_count / 20.0; // Assuming 20 is full coverage
-        
+
         // Weighted confidence calculation
-        (overall_accuracy * 0.5 + accuracy_consistency * 0.3 + test_coverage.min(1.0) * 0.2)
+        overall_accuracy * 0.5 + accuracy_consistency * 0.3 + test_coverage.min(1.0) * 0.2
     }
 
     fn calculate_accuracy_consistency(&self, test_results: &[TestResult]) -> f64 {
         let accuracies: Vec<f64> = test_results.iter().map(|r| r.accuracy_score).collect();
         let mean = accuracies.iter().sum::<f64>() / accuracies.len() as f64;
-        
-        let variance = accuracies.iter()
+
+        let variance = accuracies
+            .iter()
             .map(|score| (score - mean).powi(2))
-            .sum::<f64>() / accuracies.len() as f64;
-        
+            .sum::<f64>()
+            / accuracies.len() as f64;
+
         let std_dev = variance.sqrt();
-        
+
         // Lower standard deviation = higher consistency
         (1.0 - std_dev).max(0.0)
     }
@@ -516,7 +589,7 @@ impl ATSTestingFramework {
                 expected_ats_scores: HashMap::new(),
                 difficulty_level: "easy".to_string(),
             },
-            
+
             // Problematic resume with tables
             TestResume {
                 id: "problematic_table_resume".to_string(),
@@ -527,7 +600,7 @@ impl ATSTestingFramework {
                 expected_ats_scores: HashMap::new(),
                 difficulty_level: "medium".to_string(),
             },
-            
+
             // Edge case with images and text boxes
             TestResume {
                 id: "edge_case_complex".to_string(),
@@ -569,13 +642,19 @@ impl ATSTestingFramework {
                 ("format_detection_accuracy".to_string(), 0.90),
                 ("parsing_accuracy".to_string(), 0.80),
                 ("keyword_accuracy".to_string(), 0.75),
-            ].iter().cloned().collect(),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             historical_performance: vec![],
             target_thresholds: [
                 ("minimum_accuracy".to_string(), 0.80),
                 ("target_accuracy".to_string(), 0.90),
                 ("excellent_accuracy".to_string(), 0.95),
-            ].iter().cloned().collect(),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
         }
     }
 }
@@ -588,11 +667,11 @@ mod tests {
     async fn test_validation_framework() {
         let db = crate::database::Database::new().await.unwrap();
         let framework = ATSTestingFramework::new(db);
-        
+
         // Test should complete without errors
         let validation_report = framework.run_comprehensive_validation().await;
         assert!(validation_report.is_ok());
-        
+
         let report = validation_report.unwrap();
         assert!(report.overall_accuracy >= 0.0);
         assert!(report.overall_accuracy <= 1.0);
@@ -603,9 +682,12 @@ mod tests {
     fn test_test_suite_creation() {
         let test_resumes = ATSTestingFramework::create_test_suite();
         assert!(!test_resumes.is_empty());
-        
+
         // Check we have different resume types
-        let types: Vec<&str> = test_resumes.iter().map(|r| r.resume_type.as_str()).collect();
+        let types: Vec<&str> = test_resumes
+            .iter()
+            .map(|r| r.resume_type.as_str())
+            .collect();
         assert!(types.contains(&"good"));
         assert!(types.contains(&"problematic"));
         assert!(types.contains(&"edge_case"));
@@ -615,7 +697,7 @@ mod tests {
     fn test_accuracy_calculation() {
         let db = futures::executor::block_on(crate::database::Database::new()).unwrap();
         let framework = ATSTestingFramework::new(db);
-        
+
         let expected = TestExpectation {
             format_score_range: (80.0, 100.0),
             critical_issues_count: 0,
@@ -623,7 +705,7 @@ mod tests {
             keyword_detection_rate: 0.8,
             ats_compatibility_scores: HashMap::new(),
         };
-        
+
         let actual = TestOutcome {
             format_score: 85.0,
             critical_issues_count: 0,
@@ -632,7 +714,7 @@ mod tests {
             ats_compatibility_scores: HashMap::new(),
             processing_time_ms: 1000,
         };
-        
+
         let accuracy = framework.calculate_test_accuracy(&expected, &actual);
         assert!(accuracy > 0.8); // Should be high accuracy
         assert!(accuracy <= 1.0);

@@ -83,8 +83,13 @@ impl OllamaClient {
 
     pub async fn test_connection(&self) -> Result<bool> {
         info!("Testing Ollama connection");
-        
-        match self.client.get(&format!("{}/api/tags", self.base_url)).send().await {
+
+        match self
+            .client
+            .get(format!("{}/api/tags", self.base_url))
+            .send()
+            .await
+        {
             Ok(response) => {
                 if response.status().is_success() {
                     info!("Successfully connected to Ollama");
@@ -103,10 +108,10 @@ impl OllamaClient {
 
     pub async fn list_models(&self) -> Result<Vec<OllamaModel>> {
         info!("Fetching available Ollama models");
-        
+
         let response = self
             .client
-            .get(&format!("{}/api/tags", self.base_url))
+            .get(format!("{}/api/tags", self.base_url))
             .send()
             .await?;
 
@@ -115,14 +120,16 @@ impl OllamaClient {
         }
 
         let list_response: OllamaListResponse = response.json().await?;
-        
+
         let models: Vec<OllamaModel> = list_response
             .models
             .into_iter()
             .map(|model| {
-                let modified_at = model.modified_at.parse::<DateTime<Utc>>()
+                let modified_at = model
+                    .modified_at
+                    .parse::<DateTime<Utc>>()
                     .unwrap_or_else(|_| Utc::now());
-                
+
                 OllamaModel {
                     name: model.name,
                     size: model.size,
@@ -146,8 +153,9 @@ impl OllamaClient {
         let start_time = Instant::now();
 
         // Model-specific optimizations
-        let (optimized_temperature, top_p, max_tokens) = self.get_model_optimizations(model, temperature);
-        
+        let (optimized_temperature, top_p, max_tokens) =
+            self.get_model_optimizations(model, temperature);
+
         let options = Some(OllamaOptions {
             temperature: Some(optimized_temperature),
             top_p: Some(top_p),
@@ -163,7 +171,7 @@ impl OllamaClient {
 
         let response = self
             .client
-            .post(&format!("{}/api/generate", self.base_url))
+            .post(format!("{}/api/generate", self.base_url))
             .json(&request)
             .send()
             .await?;
@@ -177,10 +185,7 @@ impl OllamaClient {
         let generate_response: OllamaGenerateResponse = response.json().await?;
         let processing_time = start_time.elapsed().as_millis() as i64;
 
-        info!(
-            "Response generated successfully in {}ms",
-            processing_time
-        );
+        info!("Response generated successfully in {}ms", processing_time);
 
         Ok((generate_response.response, processing_time))
     }
@@ -193,7 +198,8 @@ impl OllamaClient {
     ) -> Result<(String, i64)> {
         let prompt = self.create_analysis_prompt(model, resume_content, job_description);
         let temperature = self.get_analysis_temperature(model);
-        self.generate_response(model, &prompt, Some(temperature)).await
+        self.generate_response(model, &prompt, Some(temperature))
+            .await
     }
 
     pub async fn optimize_resume(
@@ -203,9 +209,15 @@ impl OllamaClient {
         job_description: &str,
         optimization_level: &str,
     ) -> Result<(String, i64)> {
-        let prompt = self.create_optimization_prompt(model, resume_content, job_description, optimization_level);
+        let prompt = self.create_optimization_prompt(
+            model,
+            resume_content,
+            job_description,
+            optimization_level,
+        );
         let temperature = self.get_optimization_temperature(model);
-        self.generate_response(model, &prompt, Some(temperature)).await
+        self.generate_response(model, &prompt, Some(temperature))
+            .await
     }
 
     #[allow(dead_code)]
@@ -216,12 +228,18 @@ impl OllamaClient {
     ) -> Result<(String, i64)> {
         let prompt = self.create_job_analysis_prompt(model, job_description);
         let temperature = self.get_extraction_temperature(model);
-        self.generate_response(model, &prompt, Some(temperature)).await
+        self.generate_response(model, &prompt, Some(temperature))
+            .await
     }
 
-    fn create_analysis_prompt(&self, model: &str, resume_content: &str, job_description: &str) -> String {
+    fn create_analysis_prompt(
+        &self,
+        model: &str,
+        resume_content: &str,
+        job_description: &str,
+    ) -> String {
         let model_lower = model.to_lowercase();
-        
+
         if model_lower.contains("mistral") {
             // Mistral-optimized prompt with clear structure and step-by-step guidance
             format!(
@@ -358,9 +376,15 @@ Provide only the JSON response without any additional text:"#,
     ) -> String {
         let model_lower = model.to_lowercase();
         let level_instructions = match optimization_level {
-            "conservative" => "Make minimal, safe changes that maintain the original content integrity",
-            "balanced" => "Make moderate improvements balancing ATS optimization with natural language",
-            "aggressive" => "Make significant changes to maximize ATS compatibility and keyword matching",
+            "conservative" => {
+                "Make minimal, safe changes that maintain the original content integrity"
+            }
+            "balanced" => {
+                "Make moderate improvements balancing ATS optimization with natural language"
+            }
+            "aggressive" => {
+                "Make significant changes to maximize ATS compatibility and keyword matching"
+            }
             _ => "Make balanced improvements to optimize for ATS systems",
         };
 
@@ -517,7 +541,7 @@ Provide only the JSON response:"#,
     #[allow(dead_code)]
     fn create_job_analysis_prompt(&self, model: &str, job_description: &str) -> String {
         let model_lower = model.to_lowercase();
-        
+
         if model_lower.contains("mistral") {
             // Mistral-optimized job analysis prompt
             format!(
@@ -642,14 +666,14 @@ Provide only the JSON response:"#,
     #[allow(dead_code)]
     pub async fn get_model_info(&self, model_name: &str) -> Result<String> {
         info!("Getting model info for: {}", model_name);
-        
+
         let request = OllamaShowRequest {
             name: model_name.to_string(),
         };
 
         let response = self
             .client
-            .post(&format!("{}/api/show", self.base_url))
+            .post(format!("{}/api/show", self.base_url))
             .json(&request)
             .send()
             .await?;
@@ -659,7 +683,7 @@ Provide only the JSON response:"#,
         }
 
         let show_response: OllamaShowResponse = response.json().await?;
-        
+
         Ok(serde_json::to_string_pretty(&show_response)?)
     }
 
@@ -670,21 +694,25 @@ Provide only the JSON response:"#,
     }
 
     /// Get model-specific optimizations for generation parameters
-    fn get_model_optimizations(&self, model: &str, base_temperature: Option<f64>) -> (f64, f64, i32) {
+    fn get_model_optimizations(
+        &self,
+        model: &str,
+        base_temperature: Option<f64>,
+    ) -> (f64, f64, i32) {
         let model_lower = model.to_lowercase();
-        
+
         match () {
             _ if model_lower.contains("mistral") => {
                 // Mistral models work best with higher temperature and top_p for creativity
                 // but lower for analytical tasks
                 let temp = base_temperature.unwrap_or(0.4);
                 (temp, 0.95, 6000) // Higher token limit for detailed responses
-            },
+            }
             _ if model_lower.contains("qwen") => {
                 // Qwen models are excellent at following instructions with moderate settings
                 let temp = base_temperature.unwrap_or(0.3);
                 (temp, 0.85, 5000) // Good balance for structured outputs
-            },
+            }
             _ => {
                 // Default settings for other models
                 let temp = base_temperature.unwrap_or(0.3);
@@ -692,17 +720,17 @@ Provide only the JSON response:"#,
             }
         }
     }
-    
+
     /// Get model-specific temperature for analysis tasks
     fn get_analysis_temperature(&self, model: &str) -> f64 {
         let model_lower = model.to_lowercase();
         match () {
             _ if model_lower.contains("mistral") => 0.2, // Lower for precise analysis
             _ if model_lower.contains("qwen") => 0.25,   // Slightly higher for nuanced insights
-            _ => 0.3
+            _ => 0.3,
         }
     }
-    
+
     /// Generate ML analysis with optimized prompts for structured data extraction
     pub async fn generate_ml_analysis(
         &self,
@@ -710,19 +738,24 @@ Provide only the JSON response:"#,
         prompt: &str,
         analysis_type: &str,
     ) -> Result<String> {
-        info!("Generating ML analysis of type: {} with model: {}", analysis_type, model);
-        
+        info!(
+            "Generating ML analysis of type: {} with model: {}",
+            analysis_type, model
+        );
+
         let optimized_prompt = self.optimize_prompt_for_model(model, prompt, analysis_type);
         let temperature = self.get_analysis_temperature(model);
-        
-        let (response, _) = self.generate_response(model, &optimized_prompt, Some(temperature)).await?;
+
+        let (response, _) = self
+            .generate_response(model, &optimized_prompt, Some(temperature))
+            .await?;
         Ok(response.trim().to_string())
     }
-    
+
     /// Optimize prompts based on model capabilities
     fn optimize_prompt_for_model(&self, model: &str, prompt: &str, analysis_type: &str) -> String {
         let model_lower = model.to_lowercase();
-        
+
         let prefix = if model_lower.contains("mistral") {
             // Mistral performs better with clear instructions and examples
             match analysis_type {
@@ -747,7 +780,7 @@ Provide only the JSON response:"#,
             // Default prompting for other models
             "You are an expert analyst. Please provide accurate analysis based on the following request:\n\n"
         };
-        
+
         let suffix = if model_lower.contains("mistral") || model_lower.contains("qwen") {
             match analysis_type {
                 "skill_extraction" | "keyword_analysis" => "\n\nIMPORTANT: Return ONLY a valid JSON array. No explanations, no markdown formatting, no additional text.",
@@ -758,20 +791,20 @@ Provide only the JSON response:"#,
         } else {
             "\n\nPlease provide a clear and accurate response."
         };
-        
+
         format!("{}{}{}", prefix, prompt, suffix)
     }
-    
+
     /// Get model-specific temperature for optimization tasks
     fn get_optimization_temperature(&self, model: &str) -> f64 {
         let model_lower = model.to_lowercase();
         match () {
             _ if model_lower.contains("mistral") => 0.4, // Moderate creativity for suggestions
             _ if model_lower.contains("qwen") => 0.35,   // Conservative creativity
-            _ => 0.5
+            _ => 0.5,
         }
     }
-    
+
     /// Get model-specific temperature for extraction tasks
     #[allow(dead_code)]
     fn get_extraction_temperature(&self, model: &str) -> f64 {
@@ -779,7 +812,7 @@ Provide only the JSON response:"#,
         match () {
             _ if model_lower.contains("mistral") => 0.1, // Very precise for extraction
             _ if model_lower.contains("qwen") => 0.15,   // Slightly more flexible
-            _ => 0.2
+            _ => 0.2,
         }
     }
 }
