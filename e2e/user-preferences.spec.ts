@@ -11,13 +11,23 @@ test.describe('User Preferences & Settings', () => {
   test('should load settings page with all sections', async ({ page }) => {
     // Check that all settings sections are present
     await expect(page.locator('[data-testid="ollama-settings"]')).toBeVisible();
-    await expect(page.locator('[data-testid="analysis-settings"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="analysis-settings"]')
+    ).toBeVisible();
     await expect(page.locator('[data-testid="ui-preferences"]')).toBeVisible();
-    await expect(page.locator('[data-testid="performance-settings"]')).toBeVisible();
-    await expect(page.locator('[data-testid="privacy-settings"]')).toBeVisible();
-    await expect(page.locator('[data-testid="notification-settings"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="performance-settings"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="privacy-settings"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="notification-settings"]')
+    ).toBeVisible();
     await expect(page.locator('[data-testid="export-settings"]')).toBeVisible();
-    await expect(page.locator('[data-testid="management-settings"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="management-settings"]')
+    ).toBeVisible();
   });
 
   test('should update Ollama connection settings', async ({ page }) => {
@@ -28,20 +38,23 @@ test.describe('User Preferences & Settings', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: { message: 'Preferences updated successfully' }
-        })
+          data: { message: 'Preferences updated successfully' },
+        }),
       });
     });
 
     // Update Ollama host
-    await page.fill('[data-testid="ollama-host-input"]', 'http://localhost:11435');
-    
+    await page.fill(
+      '[data-testid="ollama-host-input"]',
+      'http://localhost:11435'
+    );
+
     // Update port
     await page.fill('[data-testid="ollama-port-input"]', '11435');
-    
+
     // Update timeout
     await page.fill('[data-testid="connection-timeout-input"]', '60');
-    
+
     // Toggle auto-connect
     await page.click('[data-testid="auto-connect-toggle"]');
 
@@ -63,20 +76,26 @@ test.describe('User Preferences & Settings', () => {
           data: {
             connected: true,
             version: '0.1.17',
-            models_count: 3
-          }
-        })
+            models_count: 3,
+          },
+        }),
       });
     });
 
     await page.click('[data-testid="test-connection-button"]');
 
     // Should show loading state
-    await expect(page.locator('[data-testid="connection-testing"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="connection-testing"]')
+    ).toBeVisible();
 
     // Should show success result
-    await expect(page.locator('[data-testid="connection-success"]')).toBeVisible();
-    await expect(page.locator('[data-testid="connection-result"]')).toContainText('Connected');
+    await expect(
+      page.locator('[data-testid="connection-success"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="connection-result"]')
+    ).toContainText('Connected');
   });
 
   test('should update theme preferences', async ({ page }) => {
@@ -84,7 +103,7 @@ test.describe('User Preferences & Settings', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({ success: true }),
       });
     });
 
@@ -109,7 +128,7 @@ test.describe('User Preferences & Settings', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({ success: true }),
       });
     });
 
@@ -131,7 +150,7 @@ test.describe('User Preferences & Settings', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({ success: true }),
       });
     });
 
@@ -143,7 +162,10 @@ test.describe('User Preferences & Settings', () => {
 
     // Configure email notifications
     await page.click('[data-testid="email-notifications-toggle"]');
-    await page.fill('[data-testid="notification-email-input"]', 'user@example.com');
+    await page.fill(
+      '[data-testid="notification-email-input"]',
+      'user@example.com'
+    );
 
     await page.click('[data-testid="save-notification-settings"]');
     await expect(page.locator('[data-testid="success-toast"]')).toBeVisible();
@@ -160,9 +182,9 @@ test.describe('User Preferences & Settings', () => {
           data: JSON.stringify({
             ollama_host: 'http://localhost:11434',
             theme: 'Dark',
-            auto_connect_on_startup: true
-          })
-        })
+            auto_connect_on_startup: true,
+          }),
+        }),
       });
     });
 
@@ -183,9 +205,9 @@ test.describe('User Preferences & Settings', () => {
           data: {
             id: 'pref1',
             theme: 'Dark',
-            ollama_host: 'http://localhost:11434'
-          }
-        })
+            ollama_host: 'http://localhost:11434',
+          },
+        }),
       });
     });
 
@@ -196,16 +218,18 @@ test.describe('User Preferences & Settings', () => {
     const preferencesData = {
       theme: 'Dark',
       ollama_host: 'http://localhost:11434',
-      auto_connect_on_startup: true
+      auto_connect_on_startup: true,
     };
 
     await fileChooser.setFiles({
       name: 'preferences.json',
       mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify(preferencesData))
+      buffer: Buffer.from(JSON.stringify(preferencesData)),
     });
 
-    await expect(page.locator('[data-testid="import-success-toast"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="import-success-toast"]')
+    ).toBeVisible();
   });
 
   test('should reset preferences to defaults', async ({ page }) => {
@@ -219,42 +243,55 @@ test.describe('User Preferences & Settings', () => {
             id: 'default',
             theme: 'System',
             ollama_host: 'http://localhost:11434',
-            auto_connect_on_startup: true
-          }
-        })
+            auto_connect_on_startup: true,
+          },
+        }),
       });
     });
 
     // Click reset button (should show confirmation)
     await page.click('[data-testid="reset-preferences-button"]');
-    
+
     // Confirm reset in dialog
-    await expect(page.locator('[data-testid="reset-confirmation-dialog"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="reset-confirmation-dialog"]')
+    ).toBeVisible();
     await page.click('[data-testid="confirm-reset-button"]');
 
     // Should show success and reload settings
-    await expect(page.locator('[data-testid="reset-success-toast"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="reset-success-toast"]')
+    ).toBeVisible();
   });
 
   test('should validate form inputs', async ({ page }) => {
     // Test invalid port number
     await page.fill('[data-testid="ollama-port-input"]', 'invalid');
     await page.click('[data-testid="save-ollama-settings"]');
-    
-    await expect(page.locator('[data-testid="port-validation-error"]')).toBeVisible();
+
+    await expect(
+      page.locator('[data-testid="port-validation-error"]')
+    ).toBeVisible();
 
     // Test invalid email format
     await page.click('[data-testid="email-notifications-toggle"]');
-    await page.fill('[data-testid="notification-email-input"]', 'invalid-email');
+    await page.fill(
+      '[data-testid="notification-email-input"]',
+      'invalid-email'
+    );
     await page.click('[data-testid="save-notification-settings"]');
-    
-    await expect(page.locator('[data-testid="email-validation-error"]')).toBeVisible();
+
+    await expect(
+      page.locator('[data-testid="email-validation-error"]')
+    ).toBeVisible();
 
     // Test invalid cache size
     await page.fill('[data-testid="cache-size-input"]', '-100');
     await page.click('[data-testid="save-performance-settings"]');
-    
-    await expect(page.locator('[data-testid="cache-validation-error"]')).toBeVisible();
+
+    await expect(
+      page.locator('[data-testid="cache-validation-error"]')
+    ).toBeVisible();
   });
 
   test('should persist settings across page reloads', async ({ page }) => {
@@ -269,9 +306,9 @@ test.describe('User Preferences & Settings', () => {
             theme: 'Dark',
             ollama_host: 'http://localhost:11435',
             auto_connect_on_startup: false,
-            max_concurrent_analyses: 5
-          }
-        })
+            max_concurrent_analyses: 5,
+          },
+        }),
       });
     });
 
@@ -280,9 +317,17 @@ test.describe('User Preferences & Settings', () => {
     await page.waitForSelector('[data-testid="settings-page"]');
 
     // Verify settings are loaded correctly
-    await expect(page.locator('[data-testid="theme-select"]')).toHaveValue('Dark');
-    await expect(page.locator('[data-testid="ollama-host-input"]')).toHaveValue('http://localhost:11435');
-    await expect(page.locator('[data-testid="auto-connect-toggle"]')).not.toBeChecked();
-    await expect(page.locator('[data-testid="max-concurrent-input"]')).toHaveValue('5');
+    await expect(page.locator('[data-testid="theme-select"]')).toHaveValue(
+      'Dark'
+    );
+    await expect(page.locator('[data-testid="ollama-host-input"]')).toHaveValue(
+      'http://localhost:11435'
+    );
+    await expect(
+      page.locator('[data-testid="auto-connect-toggle"]')
+    ).not.toBeChecked();
+    await expect(
+      page.locator('[data-testid="max-concurrent-input"]')
+    ).toHaveValue('5');
   });
 });

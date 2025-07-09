@@ -1,11 +1,23 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useAppStore } from '@/store/useAppStore';
@@ -14,55 +26,60 @@ import { UpdateChecker } from '@/components/UpdateChecker';
 interface UserPreferences {
   id: string;
   user_id: string;
-  
+
   // Ollama Settings
   ollama_host: string;
   ollama_port: number;
   default_model: string | null;
   connection_timeout_seconds: number;
   auto_connect_on_startup: boolean;
-  
+
   // Analysis Settings
   default_optimization_level: 'Conservative' | 'Balanced' | 'Aggressive';
   auto_save_analyses: boolean;
   analysis_history_retention_days: number;
   enable_batch_notifications: boolean;
-  
+
   // UI Preferences
   theme: 'Light' | 'Dark' | 'System' | 'HighContrast';
   language: string;
   sidebar_collapsed: boolean;
   show_advanced_features: boolean;
   animation_speed: 'None' | 'Reduced' | 'Normal' | 'Fast';
-  
+
   // Data & Privacy
   data_storage_location: string | null;
   auto_backup_enabled: boolean;
   backup_frequency_hours: number;
   telemetry_enabled: boolean;
-  
+
   // Notifications
   desktop_notifications: boolean;
   sound_notifications: boolean;
   email_notifications: boolean;
   notification_email: string | null;
-  
+
   // Performance
   max_concurrent_analyses: number;
   cache_size_mb: number;
   enable_gpu_acceleration: boolean;
-  
+
   // Export Settings
   default_export_format: 'JSON' | 'CSV' | 'PDF' | 'HTML';
   include_metadata_in_exports: boolean;
   compress_exports: boolean;
-  
+
   created_at: string;
   updated_at: string;
 }
 
 export function SettingsPage() {
-  const { userPreferences, isLoadingPreferences, updateUserPreferences, resetUserPreferences } = useUserPreferences();
+  const {
+    userPreferences,
+    isLoadingPreferences,
+    updateUserPreferences,
+    resetUserPreferences,
+  } = useUserPreferences();
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -72,11 +89,11 @@ export function SettingsPage() {
     try {
       setSaving(true);
       const success = await updateUserPreferences(updates);
-      
+
       if (success) {
         toast({
-          title: "Settings Updated",
-          description: "Your preferences have been saved successfully.",
+          title: 'Settings Updated',
+          description: 'Your preferences have been saved successfully.',
         });
       }
     } catch (error) {
@@ -99,8 +116,12 @@ export function SettingsPage() {
 
   const exportPreferences = async () => {
     try {
-      const result = await invoke<{ success: boolean; data: string; error?: string }>('export_user_preferences');
-      
+      const result = await invoke<{
+        success: boolean;
+        data: string;
+        error?: string;
+      }>('export_user_preferences');
+
       if (result.success && result.data) {
         const blob = new Blob([result.data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -111,24 +132,24 @@ export function SettingsPage() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         toast({
-          title: "Export Complete",
-          description: "Your preferences have been exported successfully.",
+          title: 'Export Complete',
+          description: 'Your preferences have been exported successfully.',
         });
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to export preferences",
-          variant: "destructive",
+          title: 'Error',
+          description: result.error || 'Failed to export preferences',
+          variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('Failed to export preferences:', error);
       toast({
-        title: "Error",
-        description: "Failed to export preferences",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to export preferences',
+        variant: 'destructive',
       });
     }
   };
@@ -138,7 +159,9 @@ export function SettingsPage() {
       <div className="space-y-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Loading your userPreferences...</p>
+          <p className="text-muted-foreground">
+            Loading your userPreferences...
+          </p>
         </div>
       </div>
     );
@@ -149,7 +172,9 @@ export function SettingsPage() {
       <div className="space-y-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Failed to load userPreferences.</p>
+          <p className="text-muted-foreground">
+            Failed to load userPreferences.
+          </p>
         </div>
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
@@ -169,7 +194,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Ollama Connection</CardTitle>
-          <CardDescription>Configure your connection to the Ollama service</CardDescription>
+          <CardDescription>
+            Configure your connection to the Ollama service
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -178,7 +205,9 @@ export function SettingsPage() {
               <Input
                 id="ollama-host"
                 value={userPreferences.ollama_host}
-                onChange={(e) => updatePreference({ ollama_host: e.target.value })}
+                onChange={e =>
+                  updatePreference({ ollama_host: e.target.value })
+                }
                 placeholder="http://localhost"
               />
             </div>
@@ -188,25 +217,35 @@ export function SettingsPage() {
                 id="ollama-port"
                 type="number"
                 value={userPreferences.ollama_port}
-                onChange={(e) => updatePreference({ ollama_port: parseInt(e.target.value) })}
+                onChange={e =>
+                  updatePreference({ ollama_port: parseInt(e.target.value) })
+                }
                 placeholder="11434"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="connection-timeout">Connection Timeout (seconds)</Label>
+            <Label htmlFor="connection-timeout">
+              Connection Timeout (seconds)
+            </Label>
             <Input
               id="connection-timeout"
               type="number"
               value={userPreferences.connection_timeout_seconds}
-              onChange={(e) => updatePreference({ connection_timeout_seconds: parseInt(e.target.value) })}
+              onChange={e =>
+                updatePreference({
+                  connection_timeout_seconds: parseInt(e.target.value),
+                })
+              }
               placeholder="30"
             />
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.auto_connect_on_startup}
-              onCheckedChange={(checked) => updatePreference({ auto_connect_on_startup: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ auto_connect_on_startup: checked })
+              }
             />
             <Label>Auto-connect on startup</Label>
           </div>
@@ -221,10 +260,14 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="optimization-level">Default Optimization Level</Label>
+            <Label htmlFor="optimization-level">
+              Default Optimization Level
+            </Label>
             <Select
               value={userPreferences.default_optimization_level}
-              onValueChange={(value) => updatePreference({ default_optimization_level: value as any })}
+              onValueChange={value =>
+                updatePreference({ default_optimization_level: value as any })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select optimization level" />
@@ -237,26 +280,36 @@ export function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="retention-days">Analysis History Retention (days)</Label>
+            <Label htmlFor="retention-days">
+              Analysis History Retention (days)
+            </Label>
             <Input
               id="retention-days"
               type="number"
               value={userPreferences.analysis_history_retention_days}
-              onChange={(e) => updatePreference({ analysis_history_retention_days: parseInt(e.target.value) })}
+              onChange={e =>
+                updatePreference({
+                  analysis_history_retention_days: parseInt(e.target.value),
+                })
+              }
               placeholder="90"
             />
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.auto_save_analyses}
-              onCheckedChange={(checked) => updatePreference({ auto_save_analyses: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ auto_save_analyses: checked })
+              }
             />
             <Label>Auto-save analyses</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.enable_batch_notifications}
-              onCheckedChange={(checked) => updatePreference({ enable_batch_notifications: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ enable_batch_notifications: checked })
+              }
             />
             <Label>Enable batch analysis notifications</Label>
           </div>
@@ -267,14 +320,16 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>User Interface</CardTitle>
-          <CardDescription>Customize the application appearance</CardDescription>
+          <CardDescription>
+            Customize the application appearance
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="theme">Theme</Label>
             <Select
               value={userPreferences.theme}
-              onValueChange={(value) => updatePreference({ theme: value as any })}
+              onValueChange={value => updatePreference({ theme: value as any })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select theme" />
@@ -291,7 +346,9 @@ export function SettingsPage() {
             <Label htmlFor="animation-speed">Animation Speed</Label>
             <Select
               value={userPreferences.animation_speed}
-              onValueChange={(value) => updatePreference({ animation_speed: value as any })}
+              onValueChange={value =>
+                updatePreference({ animation_speed: value as any })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select animation speed" />
@@ -307,14 +364,18 @@ export function SettingsPage() {
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.sidebar_collapsed}
-              onCheckedChange={(checked) => updatePreference({ sidebar_collapsed: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ sidebar_collapsed: checked })
+              }
             />
             <Label>Collapse sidebar by default</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.show_advanced_features}
-              onCheckedChange={(checked) => updatePreference({ show_advanced_features: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ show_advanced_features: checked })
+              }
             />
             <Label>Show advanced features</Label>
           </div>
@@ -325,7 +386,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Performance</CardTitle>
-          <CardDescription>Configure performance and resource usage</CardDescription>
+          <CardDescription>
+            Configure performance and resource usage
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -334,7 +397,11 @@ export function SettingsPage() {
               id="max-concurrent"
               type="number"
               value={userPreferences.max_concurrent_analyses}
-              onChange={(e) => updatePreference({ max_concurrent_analyses: parseInt(e.target.value) })}
+              onChange={e =>
+                updatePreference({
+                  max_concurrent_analyses: parseInt(e.target.value),
+                })
+              }
               placeholder="3"
             />
           </div>
@@ -344,14 +411,18 @@ export function SettingsPage() {
               id="cache-size"
               type="number"
               value={userPreferences.cache_size_mb}
-              onChange={(e) => updatePreference({ cache_size_mb: parseInt(e.target.value) })}
+              onChange={e =>
+                updatePreference({ cache_size_mb: parseInt(e.target.value) })
+              }
               placeholder="256"
             />
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.enable_gpu_acceleration}
-              onCheckedChange={(checked) => updatePreference({ enable_gpu_acceleration: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ enable_gpu_acceleration: checked })
+              }
             />
             <Label>Enable GPU acceleration (experimental)</Label>
           </div>
@@ -362,7 +433,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Privacy & Data</CardTitle>
-          <CardDescription>Manage your data and privacy settings</CardDescription>
+          <CardDescription>
+            Manage your data and privacy settings
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -371,21 +444,29 @@ export function SettingsPage() {
               id="backup-frequency"
               type="number"
               value={userPreferences.backup_frequency_hours}
-              onChange={(e) => updatePreference({ backup_frequency_hours: parseInt(e.target.value) })}
+              onChange={e =>
+                updatePreference({
+                  backup_frequency_hours: parseInt(e.target.value),
+                })
+              }
               placeholder="24"
             />
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.auto_backup_enabled}
-              onCheckedChange={(checked) => updatePreference({ auto_backup_enabled: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ auto_backup_enabled: checked })
+              }
             />
             <Label>Enable automatic backups</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.telemetry_enabled}
-              onCheckedChange={(checked) => updatePreference({ telemetry_enabled: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ telemetry_enabled: checked })
+              }
             />
             <Label>Enable telemetry</Label>
           </div>
@@ -402,21 +483,27 @@ export function SettingsPage() {
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.desktop_notifications}
-              onCheckedChange={(checked) => updatePreference({ desktop_notifications: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ desktop_notifications: checked })
+              }
             />
             <Label>Desktop notifications</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.sound_notifications}
-              onCheckedChange={(checked) => updatePreference({ sound_notifications: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ sound_notifications: checked })
+              }
             />
             <Label>Sound notifications</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.email_notifications}
-              onCheckedChange={(checked) => updatePreference({ email_notifications: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ email_notifications: checked })
+              }
             />
             <Label>Email notifications</Label>
           </div>
@@ -427,7 +514,9 @@ export function SettingsPage() {
                 id="notification-email"
                 type="email"
                 value={userPreferences.notification_email || ''}
-                onChange={(e) => updatePreference({ notification_email: e.target.value })}
+                onChange={e =>
+                  updatePreference({ notification_email: e.target.value })
+                }
                 placeholder="your@email.com"
               />
             </div>
@@ -446,7 +535,9 @@ export function SettingsPage() {
             <Label htmlFor="export-format">Default Export Format</Label>
             <Select
               value={userPreferences.default_export_format}
-              onValueChange={(value) => updatePreference({ default_export_format: value as any })}
+              onValueChange={value =>
+                updatePreference({ default_export_format: value as any })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select export format" />
@@ -462,14 +553,18 @@ export function SettingsPage() {
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.include_metadata_in_exports}
-              onCheckedChange={(checked) => updatePreference({ include_metadata_in_exports: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ include_metadata_in_exports: checked })
+              }
             />
             <Label>Include metadata in exports</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Switch
               checked={userPreferences.compress_exports}
-              onCheckedChange={(checked) => updatePreference({ compress_exports: checked })}
+              onCheckedChange={checked =>
+                updatePreference({ compress_exports: checked })
+              }
             />
             <Label>Compress export files</Label>
           </div>
@@ -480,7 +575,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Application Updates</CardTitle>
-          <CardDescription>Check for and install application updates</CardDescription>
+          <CardDescription>
+            Check for and install application updates
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <UpdateChecker />
@@ -491,15 +588,17 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Settings Management</CardTitle>
-          <CardDescription>Export, import, or reset your settings</CardDescription>
+          <CardDescription>
+            Export, import, or reset your settings
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4">
             <Button onClick={exportPreferences} variant="outline">
               Export Settings
             </Button>
-            <Button 
-              onClick={resetPreferences} 
+            <Button
+              onClick={resetPreferences}
               variant="destructive"
               disabled={saving}
             >

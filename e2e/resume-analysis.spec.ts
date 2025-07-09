@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 test.describe('Resume Analysis Workflow', () => {
   test.beforeEach(async ({ page }) => {
@@ -11,7 +10,7 @@ test.describe('Resume Analysis Workflow', () => {
 
   test('should allow file upload via drag and drop', async ({ page }) => {
     const fileChooserPromise = page.waitForEvent('filechooser');
-    
+
     // Create a test file
     const testResume = `
 John Doe
@@ -39,17 +38,19 @@ University of Technology (2016-2020)
     // Click the upload area
     await page.click('[data-testid="file-upload-area"]');
     const fileChooser = await fileChooserPromise;
-    
+
     // Create a temporary file and upload it
     await fileChooser.setFiles({
       name: 'test-resume.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from(testResume)
+      buffer: Buffer.from(testResume),
     });
 
     // Wait for file to be processed
     await expect(page.locator('[data-testid="uploaded-file"]')).toBeVisible();
-    await expect(page.locator('[data-testid="file-name"]')).toContainText('test-resume.txt');
+    await expect(page.locator('[data-testid="file-name"]')).toContainText(
+      'test-resume.txt'
+    );
   });
 
   test('should allow job description input', async ({ page }) => {
@@ -74,9 +75,9 @@ Responsibilities:
 
     const textarea = page.locator('[data-testid="job-description-input"]');
     await expect(textarea).toBeVisible();
-    
+
     await textarea.fill(jobDescription);
-    
+
     // Check character count if present
     const charCount = page.locator('[data-testid="char-count"]');
     if (await charCount.isVisible()) {
@@ -89,18 +90,22 @@ Responsibilities:
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.click('[data-testid="file-upload-area"]');
     const fileChooser = await fileChooserPromise;
-    
+
     await fileChooser.setFiles({
       name: 'test-resume.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from('John Doe\nSoftware Engineer\nSkills: React, TypeScript, Python')
+      buffer: Buffer.from(
+        'John Doe\nSoftware Engineer\nSkills: React, TypeScript, Python'
+      ),
     });
 
     await expect(page.locator('[data-testid="uploaded-file"]')).toBeVisible();
 
     // Add job description
-    await page.fill('[data-testid="job-description-input"]', 
-      'Looking for a React developer with TypeScript experience.');
+    await page.fill(
+      '[data-testid="job-description-input"]',
+      'Looking for a React developer with TypeScript experience.'
+    );
 
     // Select model (if dropdown is available)
     const modelSelect = page.locator('[data-testid="model-select"]');
@@ -113,8 +118,12 @@ Responsibilities:
     await page.click('[data-testid="analyze-button"]');
 
     // Wait for analysis to complete
-    await expect(page.locator('[data-testid="analysis-loading"]')).toBeVisible();
-    await expect(page.locator('[data-testid="analysis-results"]')).toBeVisible({ timeout: 30000 });
+    await expect(
+      page.locator('[data-testid="analysis-loading"]')
+    ).toBeVisible();
+    await expect(page.locator('[data-testid="analysis-results"]')).toBeVisible({
+      timeout: 30000,
+    });
 
     // Verify results display
     await expect(page.locator('[data-testid="overall-score"]')).toBeVisible();
@@ -138,14 +147,14 @@ Responsibilities:
               experience: 80,
               education: 85,
               keywords: 88,
-              format: 92
+              format: 92,
             },
             detailed_feedback: 'Great resume!',
             missing_keywords: ['Python', 'AWS'],
             recommendations: ['Add more Python experience'],
-            processing_time_ms: 2000
-          }
-        })
+            processing_time_ms: 2000,
+          },
+        }),
       });
     });
 
@@ -153,22 +162,29 @@ Responsibilities:
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.click('[data-testid="file-upload-area"]');
     const fileChooser = await fileChooserPromise;
-    
+
     await fileChooser.setFiles({
       name: 'test.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from('Test resume content')
+      buffer: Buffer.from('Test resume content'),
     });
 
-    await page.fill('[data-testid="job-description-input"]', 'Test job description');
+    await page.fill(
+      '[data-testid="job-description-input"]',
+      'Test job description'
+    );
     await page.click('[data-testid="analyze-button"]');
 
     // Check loading state
-    await expect(page.locator('[data-testid="analysis-loading"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="analysis-loading"]')
+    ).toBeVisible();
     await expect(page.locator('[data-testid="analyze-button"]')).toBeDisabled();
 
     // Wait for completion
-    await expect(page.locator('[data-testid="analysis-results"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="analysis-results"]')
+    ).toBeVisible();
     await expect(page.locator('[data-testid="analyze-button"]')).toBeEnabled();
   });
 
@@ -182,13 +198,19 @@ Responsibilities:
           success: true,
           data: {
             overall_score: 85,
-            category_scores: { skills: 90, experience: 80, education: 85, keywords: 88, format: 92 },
+            category_scores: {
+              skills: 90,
+              experience: 80,
+              education: 85,
+              keywords: 88,
+              format: 92,
+            },
             detailed_feedback: 'Great resume!',
             missing_keywords: [],
             recommendations: ['Add more experience'],
-            processing_time_ms: 1500
-          }
-        })
+            processing_time_ms: 1500,
+          },
+        }),
       });
     });
 
@@ -199,12 +221,14 @@ Responsibilities:
     await fileChooser.setFiles({
       name: 'test.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from('Test content')
+      buffer: Buffer.from('Test content'),
     });
 
     await page.fill('[data-testid="job-description-input"]', 'Test job');
     await page.click('[data-testid="analyze-button"]');
-    await expect(page.locator('[data-testid="analysis-results"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="analysis-results"]')
+    ).toBeVisible();
 
     // Test export functionality
     const downloadPromise = page.waitForEvent('download');

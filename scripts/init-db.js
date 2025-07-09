@@ -14,4 +14,6 @@ if (!fs.existsSync(dataDir)) {
   console.log('✅ Database directory already exists');
 }
 
-console.log('Database will be initialized automatically when the application starts');
+console.log(
+  'Database will be initialized automatically when the application starts'
+);

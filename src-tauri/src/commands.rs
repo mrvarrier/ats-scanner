@@ -37,6 +37,10 @@ use crate::plugin_system::{PluginExecutionResult, PluginInfo, PluginManager};
 use crate::scoring::AnalysisEngine;
 use crate::utils::export_data;
 use crate::AppState;
+// Advanced Scoring Engine
+use crate::advanced_scoring::{
+    AdvancedScoringEngine, EnhancedAnalysisResult as AdvancedAnalysisResult,
+};
 
 // Frontend-compatible achievement analysis structures
 #[derive(Debug, Serialize)]
@@ -105,6 +109,7 @@ impl<T> CommandResult<T> {
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_ollama_models() -> CommandResult<Vec<crate::models::OllamaModel>> {
     info!("Getting Ollama models");
@@ -201,6 +206,7 @@ pub async fn save_resume(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_all_resumes(
     state: State<'_, AppState>,
@@ -224,6 +230,7 @@ pub async fn get_all_resumes(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_resume(
     state: State<'_, AppState>,
@@ -335,6 +342,7 @@ pub async fn analyze_resume(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_analysis_history(
     limit: Option<i64>,
@@ -441,6 +449,7 @@ pub async fn export_results(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_model_performance(
     state: State<'_, AppState>,
@@ -499,6 +508,7 @@ pub async fn get_model_performance(
 
 // Analytics Commands
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_analysis_stats(
     state: State<'_, AppState>,
@@ -521,6 +531,7 @@ pub async fn get_analysis_stats(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_score_distribution(
     state: State<'_, AppState>,
@@ -542,6 +553,7 @@ pub async fn get_score_distribution(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_improvement_trends(
     state: State<'_, AppState>,
@@ -565,6 +577,7 @@ pub async fn get_improvement_trends(
 
 // User Preferences Commands
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_user_preferences(
     state: State<'_, AppState>,
@@ -766,6 +779,7 @@ pub async fn list_plugins(
     Ok(CommandResult::success(plugins))
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_plugin_info(
     _state: State<'_, AppState>,
@@ -847,6 +861,7 @@ pub async fn update_plugin_config(
 
 // === PHASE 1 ENHANCED COMMANDS ===
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_industry_keywords(
     state: State<'_, AppState>,
@@ -867,6 +882,7 @@ pub async fn get_industry_keywords(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_all_industries(
     state: State<'_, AppState>,
@@ -908,6 +924,7 @@ pub async fn save_industry_keyword(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_ats_rules(
     state: State<'_, AppState>,
@@ -950,6 +967,7 @@ pub async fn save_ats_rule(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_scoring_benchmarks(
     state: State<'_, AppState>,
@@ -1021,6 +1039,7 @@ pub async fn save_user_feedback(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_feedback_by_analysis(
     state: State<'_, AppState>,
@@ -1041,6 +1060,7 @@ pub async fn get_feedback_by_analysis(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_feedback_stats(
     state: State<'_, AppState>,
@@ -1086,6 +1106,7 @@ pub async fn save_model_performance(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_model_performance_stats(
     state: State<'_, AppState>,
@@ -1106,6 +1127,7 @@ pub async fn get_model_performance_stats(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_all_model_performance(
     state: State<'_, AppState>,
@@ -1125,6 +1147,7 @@ pub async fn get_all_model_performance(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_app_config(
     state: State<'_, AppState>,
@@ -1543,6 +1566,7 @@ pub async fn generate_comprehensive_optimization(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_realtime_suggestions(
     state: State<'_, AppState>,
@@ -1633,6 +1657,7 @@ pub async fn validate_xyz_formula(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_achievement_suggestions(
     _state: State<'_, AppState>,
@@ -1719,6 +1744,7 @@ pub async fn generate_competitive_analysis(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_market_position_analysis(
     state: State<'_, AppState>,
@@ -1753,6 +1779,7 @@ pub async fn get_market_position_analysis(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_salary_insights(
     state: State<'_, AppState>,
@@ -1787,6 +1814,7 @@ pub async fn get_salary_insights(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_hiring_probability(
     state: State<'_, AppState>,
@@ -1891,6 +1919,7 @@ pub async fn predict_application_success(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_career_path_suggestions(
     state: State<'_, AppState>,
@@ -1926,6 +1955,7 @@ pub async fn get_career_path_suggestions(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_salary_prediction_ml(
     state: State<'_, AppState>,
@@ -1962,6 +1992,7 @@ pub async fn get_salary_prediction_ml(
     }
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn get_ml_recommendations(
     state: State<'_, AppState>,
@@ -1993,6 +2024,236 @@ pub async fn get_ml_recommendations(
             error!("Failed to generate ML recommendations: {}", e);
             Ok(CommandResult::error(format!(
                 "Failed to generate ML recommendations: {}",
+                e
+            )))
+        }
+    }
+}
+
+// ==================== Advanced Scoring Engine Commands ====================
+
+#[allow(dead_code)]
+#[tauri::command]
+pub async fn analyze_resume_advanced(
+    state: State<'_, AppState>,
+    resume_content: String,
+    job_description: String,
+    industry: String,
+    experience_level: String,
+) -> Result<CommandResult<AdvancedAnalysisResult>, ()> {
+    info!(
+        "Starting advanced analysis for {} industry, {} level",
+        industry, experience_level
+    );
+
+    let db = state.db.clone();
+    let advanced_engine = AdvancedScoringEngine::new(db);
+
+    match advanced_engine
+        .analyze_comprehensive(
+            &resume_content,
+            &job_description,
+            &industry,
+            &experience_level,
+        )
+        .await
+    {
+        Ok(result) => {
+            info!(
+                "Advanced analysis completed with enhanced score: {:.1}",
+                result.base_analysis.overall_score
+            );
+            Ok(CommandResult::success(result))
+        }
+        Err(e) => {
+            error!("Advanced analysis failed: {}", e);
+            Ok(CommandResult::error(format!(
+                "Advanced analysis failed: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[tauri::command]
+pub async fn get_keyword_analysis_detailed(
+    state: State<'_, AppState>,
+    resume_content: String,
+    job_description: String,
+    industry: String,
+) -> Result<CommandResult<serde_json::Value>, ()> {
+    info!(
+        "Getting detailed keyword analysis for {} industry",
+        industry
+    );
+
+    let db = state.db.clone();
+    let advanced_engine = AdvancedScoringEngine::new(db);
+
+    match advanced_engine
+        .analyze_comprehensive(&resume_content, &job_description, &industry, "mid-level")
+        .await
+    {
+        Ok(result) => {
+            let keyword_analysis = serde_json::json!({
+                "exact_matches": result.keyword_analysis.exact_matches,
+                "stemmed_matches": result.keyword_analysis.stemmed_matches,
+                "contextual_matches": result.keyword_analysis.contextual_matches,
+                "synonym_matches": result.keyword_analysis.synonym_matches,
+                "overall_score": result.keyword_analysis.overall_score,
+                "match_density": result.keyword_analysis.match_density,
+                "section_distribution": result.keyword_analysis.section_distribution
+            });
+
+            info!("Detailed keyword analysis completed");
+            Ok(CommandResult::success(keyword_analysis))
+        }
+        Err(e) => {
+            error!("Detailed keyword analysis failed: {}", e);
+            Ok(CommandResult::error(format!(
+                "Detailed keyword analysis failed: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[tauri::command]
+pub async fn get_ats_compatibility_scores(
+    state: State<'_, AppState>,
+    resume_content: String,
+    job_description: String,
+    industry: String,
+) -> Result<CommandResult<serde_json::Value>, ()> {
+    info!("Getting ATS compatibility scores for {} industry", industry);
+
+    let db = state.db.clone();
+    let advanced_engine = AdvancedScoringEngine::new(db);
+
+    match advanced_engine
+        .analyze_comprehensive(&resume_content, &job_description, &industry, "mid-level")
+        .await
+    {
+        Ok(result) => {
+            let ats_scores = serde_json::json!({
+                "compatibility_scores": result.ats_compatibility,
+                "format_analysis": result.format_analysis,
+                "parsing_issues": result.format_analysis.parsing_issues,
+                "overall_compatibility": result.format_analysis.ats_compatibility_score
+            });
+
+            info!("ATS compatibility analysis completed");
+            Ok(CommandResult::success(ats_scores))
+        }
+        Err(e) => {
+            error!("ATS compatibility analysis failed: {}", e);
+            Ok(CommandResult::error(format!(
+                "ATS compatibility analysis failed: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[tauri::command]
+pub async fn get_benchmark_comparison(
+    state: State<'_, AppState>,
+    resume_content: String,
+    job_description: String,
+    industry: String,
+    experience_level: String,
+) -> Result<CommandResult<serde_json::Value>, ()> {
+    info!(
+        "Getting benchmark comparison for {} industry, {} level",
+        industry, experience_level
+    );
+
+    let db = state.db.clone();
+    let advanced_engine = AdvancedScoringEngine::new(db);
+
+    match advanced_engine
+        .analyze_comprehensive(
+            &resume_content,
+            &job_description,
+            &industry,
+            &experience_level,
+        )
+        .await
+    {
+        Ok(result) => {
+            let benchmark_data = serde_json::json!({
+                "industry_percentile": result.benchmark_comparison.industry_percentile,
+                "experience_level_percentile": result.benchmark_comparison.experience_level_percentile,
+                "overall_percentile": result.benchmark_comparison.overall_percentile,
+                "top_performers_gap": result.benchmark_comparison.top_performers_gap,
+                "industry_alignment": result.industry_alignment
+            });
+
+            info!("Benchmark comparison completed");
+            Ok(CommandResult::success(benchmark_data))
+        }
+        Err(e) => {
+            error!("Benchmark comparison failed: {}", e);
+            Ok(CommandResult::error(format!(
+                "Benchmark comparison failed: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[tauri::command]
+pub async fn get_optimization_suggestions_prioritized(
+    state: State<'_, AppState>,
+    resume_content: String,
+    job_description: String,
+    industry: String,
+    experience_level: String,
+) -> Result<CommandResult<serde_json::Value>, ()> {
+    info!(
+        "Getting prioritized optimization suggestions for {} industry, {} level",
+        industry, experience_level
+    );
+
+    let db = state.db.clone();
+    let advanced_engine = AdvancedScoringEngine::new(db);
+
+    match advanced_engine
+        .analyze_comprehensive(
+            &resume_content,
+            &job_description,
+            &industry,
+            &experience_level,
+        )
+        .await
+    {
+        Ok(result) => {
+            let mut suggestions = result.improvement_suggestions;
+            // Sort by impact score (highest first)
+            suggestions.sort_by(|a, b| {
+                b.impact_points
+                    .partial_cmp(&a.impact_points)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            let optimization_data = serde_json::json!({
+                "suggestions": suggestions,
+                "total_potential_improvement": suggestions.iter().map(|s| s.impact_points).sum::<f64>(),
+                "high_impact_count": suggestions.iter().filter(|s| s.impact_points > 10.0).count(),
+                "quick_wins": suggestions.iter().filter(|s| matches!(s.difficulty_level, crate::advanced_scoring::DifficultyLevel::Easy)).count()
+            });
+
+            info!("Prioritized optimization suggestions completed");
+            Ok(CommandResult::success(optimization_data))
+        }
+        Err(e) => {
+            error!("Prioritized optimization suggestions failed: {}", e);
+            Ok(CommandResult::error(format!(
+                "Prioritized optimization suggestions failed: {}",
                 e
             )))
         }

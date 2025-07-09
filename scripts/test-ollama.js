@@ -4,10 +4,10 @@ const options = {
   hostname: 'localhost',
   port: 11434,
   path: '/api/tags',
-  method: 'GET'
+  method: 'GET',
 };
 
-const req = http.request(options, (res) => {
+const req = http.request(options, res => {
   if (res.statusCode === 200) {
     console.log('✅ Ollama connection successful');
     process.exit(0);
@@ -17,7 +17,7 @@ const req = http.request(options, (res) => {
   }
 });
 
-req.on('error', (err) => {
+req.on('error', err => {
   console.log('❌ Ollama connection failed:', err.message);
   process.exit(1);
 });

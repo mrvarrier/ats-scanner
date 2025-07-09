@@ -6,9 +6,7 @@ function TestApp() {
       <h1>ATS Scanner - Test Mode</h1>
       <p>If you can see this, React is working properly!</p>
       <div style={{ marginTop: '20px' }}>
-        <button onClick={() => alert('Button clicked!')}>
-          Test Button
-        </button>
+        <button onClick={() => alert('Button clicked!')}>Test Button</button>
       </div>
     </div>
   );

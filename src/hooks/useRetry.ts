@@ -1,21 +1,21 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react';
 
 export interface RetryOptions {
-  maxAttempts?: number
-  baseDelay?: number
-  maxDelay?: number
-  backoffFactor?: number
-  shouldRetry?: (error: any, attemptNumber: number) => boolean
-  onRetry?: (attemptNumber: number, error: any) => void
-  onSuccess?: (result: any, attemptNumber: number) => void
-  onFailure?: (error: any, totalAttempts: number) => void
+  maxAttempts?: number;
+  baseDelay?: number;
+  maxDelay?: number;
+  backoffFactor?: number;
+  shouldRetry?: (error: Error, attemptNumber: number) => boolean;
+  onRetry?: (attemptNumber: number, error: Error) => void;
+  onSuccess?: (result: unknown, attemptNumber: number) => void;
+  onFailure?: (error: Error, totalAttempts: number) => void;
 }
 
 export interface RetryState {
-  isRetrying: boolean
-  attemptNumber: number
-  lastError: any
-  canRetry: boolean
+  isRetrying: boolean;
+  attemptNumber: number;
+  lastError: Error | null;
+  canRetry: boolean;
 }
 
 const defaultOptions: Required<RetryOptions> = {
@@ -23,149 +23,155 @@ const defaultOptions: Required<RetryOptions> = {
   baseDelay: 1000,
   maxDelay: 10000,
   backoffFactor: 2,
-  shouldRetry: (error: any) => {
+  shouldRetry: (error: Error) => {
     // Default: retry on network errors and 5xx status codes
     if (error?.name === 'NetworkError' || error?.message?.includes('network')) {
-      return true
+      return true;
     }
-    if (error?.status >= 500 && error?.status < 600) {
-      return true
+    if (
+      'status' in error &&
+      typeof error.status === 'number' &&
+      error.status >= 500 &&
+      error.status < 600
+    ) {
+      return true;
     }
     if (error?.message?.includes('timeout')) {
-      return true
+      return true;
     }
-    return false
+    return false;
   },
   onRetry: () => {},
   onSuccess: () => {},
-  onFailure: () => {}
-}
+  onFailure: () => {},
+};
 
 export function useRetry<T>(
   asyncFunction: () => Promise<T>,
   options: RetryOptions = {}
 ) {
-  const opts = { ...defaultOptions, ...options }
+  const opts = { ...defaultOptions, ...options };
   const [state, setState] = useState<RetryState>({
     isRetrying: false,
     attemptNumber: 0,
     lastError: null,
-    canRetry: false
-  })
+    canRetry: false,
+  });
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const execute = useCallback(async (): Promise<T> => {
     // Cancel any ongoing retry
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
+      abortControllerRef.current.abort();
     }
 
-    abortControllerRef.current = new AbortController()
-    const { signal } = abortControllerRef.current
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
 
     setState({
       isRetrying: false,
       attemptNumber: 0,
       lastError: null,
-      canRetry: false
-    })
+      canRetry: false,
+    });
 
-    let attempt = 1
-    let lastError: any
+    let attempt = 1;
+    let lastError: Error;
 
     while (attempt <= opts.maxAttempts) {
       try {
         if (signal.aborted) {
-          throw new Error('Operation was cancelled')
+          throw new Error('Operation was cancelled');
         }
 
         setState(prev => ({
           ...prev,
           attemptNumber: attempt,
-          isRetrying: attempt > 1
-        }))
+          isRetrying: attempt > 1,
+        }));
 
-        const result = await asyncFunction()
-        
+        const result = await asyncFunction();
+
         setState(prev => ({
           ...prev,
           isRetrying: false,
-          canRetry: false
-        }))
+          canRetry: false,
+        }));
 
-        opts.onSuccess(result, attempt)
-        return result
-
-      } catch (error) {
-        lastError = error
+        opts.onSuccess(result, attempt);
+        return result;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        lastError = error;
 
         setState(prev => ({
           ...prev,
           lastError: error,
-          canRetry: attempt < opts.maxAttempts && opts.shouldRetry(error, attempt)
-        }))
+          canRetry:
+            attempt < opts.maxAttempts && opts.shouldRetry(error, attempt),
+        }));
 
         // Don't retry if this is the last attempt or if we shouldn't retry
         if (attempt >= opts.maxAttempts || !opts.shouldRetry(error, attempt)) {
-          break
+          break;
         }
 
         // Calculate delay with exponential backoff
         const delay = Math.min(
           opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1),
           opts.maxDelay
-        )
+        );
 
-        opts.onRetry(attempt, error)
+        opts.onRetry(attempt, error);
 
         // Wait before retrying
         await new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(resolve, delay)
-          
-          signal.addEventListener('abort', () => {
-            clearTimeout(timeoutId)
-            reject(new Error('Operation was cancelled'))
-          })
-        })
+          const timeoutId = setTimeout(resolve, delay);
 
-        attempt++
+          signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            reject(new Error('Operation was cancelled'));
+          });
+        });
+
+        attempt++;
       }
     }
 
     setState(prev => ({
       ...prev,
       isRetrying: false,
-      canRetry: false
-    }))
+      canRetry: false,
+    }));
 
-    opts.onFailure(lastError, attempt - 1)
-    throw lastError
-  }, [asyncFunction, opts])
+    opts.onFailure(lastError, attempt - 1);
+    throw lastError;
+  }, [asyncFunction, opts]);
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
+      abortControllerRef.current.abort();
     }
     setState(prev => ({
       ...prev,
       isRetrying: false,
-      canRetry: false
-    }))
-  }, [])
+      canRetry: false,
+    }));
+  }, []);
 
   const retry = useCallback(() => {
     if (state.canRetry) {
-      execute()
+      execute();
     }
-  }, [state.canRetry, execute])
+  }, [state.canRetry, execute]);
 
   return {
     execute,
     retry,
     cancel,
-    ...state
-  }
+    ...state,
+  };
 }
 
 // Hook for retrying with exponential backoff
@@ -179,7 +185,7 @@ export function useRetryWithBackoff<T>(
     baseDelay,
     backoffFactor: 2,
     maxDelay: 30000,
-    shouldRetry: (error) => {
+    shouldRetry: (error: Error) => {
       // Retry on network errors, timeouts, and 5xx errors
       const retryableErrors = [
         'NetworkError',
@@ -187,17 +193,24 @@ export function useRetryWithBackoff<T>(
         'fetch',
         'network',
         'timeout',
-        'connection'
-      ]
-      
-      const errorMessage = error?.message?.toLowerCase() || ''
-      const errorName = error?.name?.toLowerCase() || ''
-      
-      return retryableErrors.some(keyword => 
-        errorMessage.includes(keyword) || errorName.includes(keyword)
-      ) || (error?.status >= 500 && error?.status < 600)
-    }
-  })
+        'connection',
+      ];
+
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const errorName = error?.name?.toLowerCase() || '';
+
+      return (
+        retryableErrors.some(
+          keyword =>
+            errorMessage.includes(keyword) || errorName.includes(keyword)
+        ) ||
+        ('status' in error &&
+          typeof error.status === 'number' &&
+          error.status >= 500 &&
+          error.status < 600)
+      );
+    },
+  });
 }
 
 // Utility function for retry with Promise
@@ -205,35 +218,36 @@ export async function retryAsync<T>(
   asyncFunction: () => Promise<T>,
   options: RetryOptions = {}
 ): Promise<T> {
-  const opts = { ...defaultOptions, ...options }
-  let attempt = 1
-  let lastError: any
+  const opts = { ...defaultOptions, ...options };
+  let attempt = 1;
+  let lastError: Error;
 
   while (attempt <= opts.maxAttempts) {
     try {
-      const result = await asyncFunction()
-      opts.onSuccess(result, attempt)
-      return result
-    } catch (error) {
-      lastError = error
+      const result = await asyncFunction();
+      opts.onSuccess(result, attempt);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      lastError = error;
 
       if (attempt >= opts.maxAttempts || !opts.shouldRetry(error, attempt)) {
-        break
+        break;
       }
 
       const delay = Math.min(
         opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1),
         opts.maxDelay
-      )
+      );
 
-      opts.onRetry(attempt, error)
-      await new Promise(resolve => setTimeout(resolve, delay))
-      attempt++
+      opts.onRetry(attempt, error);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      attempt++;
     }
   }
 
-  opts.onFailure(lastError, attempt - 1)
-  throw lastError
+  opts.onFailure(lastError, attempt - 1);
+  throw lastError;
 }
 
 // Specific retry functions for common scenarios
@@ -248,15 +262,20 @@ export function useApiRetry<T>(
     baseDelay: 1000,
     backoffFactor: 2,
     maxDelay: 10000,
-    shouldRetry: (error) => {
+    shouldRetry: (error: Error) => {
       // Retry on network errors and 5xx status codes, but not 4xx
-      if (error?.status >= 400 && error?.status < 500) {
-        return false // Don't retry client errors
+      if (
+        'status' in error &&
+        typeof error.status === 'number' &&
+        error.status >= 400 &&
+        error.status < 500
+      ) {
+        return false; // Don't retry client errors
       }
-      return true
+      return true;
     },
-    ...customOptions
-  })
+    ...customOptions,
+  });
 }
 
 // Retry for file operations
@@ -268,71 +287,73 @@ export function useFileOperationRetry<T>(
     maxAttempts: 2,
     baseDelay: 500,
     backoffFactor: 2,
-    shouldRetry: (error) => {
+    shouldRetry: (error: Error) => {
       // Retry on file system errors but not permission errors
-      const errorMessage = error?.message?.toLowerCase() || ''
-      return !errorMessage.includes('permission') && 
-             !errorMessage.includes('unauthorized')
+      const errorMessage = error?.message?.toLowerCase() || '';
+      return (
+        !errorMessage.includes('permission') &&
+        !errorMessage.includes('unauthorized')
+      );
     },
-    ...customOptions
-  })
+    ...customOptions,
+  });
 }
 
 // Circuit breaker pattern
 export class CircuitBreaker {
-  private failures: number = 0
-  private lastFailureTime: number = 0
-  private state: 'closed' | 'open' | 'half-open' = 'closed'
+  private failures: number = 0;
+  private lastFailureTime: number = 0;
+  private state: 'closed' | 'open' | 'half-open' = 'closed';
 
   constructor(
     private failureThreshold: number = 5,
     private resetTimeout: number = 60000, // 1 minute
-    private monitoringPeriod: number = 300000 // 5 minutes
+    private _monitoringPeriod: number = 300000 // 5 minutes
   ) {}
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === 'open') {
       if (Date.now() - this.lastFailureTime >= this.resetTimeout) {
-        this.state = 'half-open'
+        this.state = 'half-open';
       } else {
-        throw new Error('Circuit breaker is open')
+        throw new Error('Circuit breaker is open');
       }
     }
 
     try {
-      const result = await operation()
-      
+      const result = await operation();
+
       if (this.state === 'half-open') {
-        this.reset()
+        this.reset();
       }
-      
-      return result
-    } catch (error) {
-      this.recordFailure()
-      throw error
+
+      return result;
+    } catch (err) {
+      this.recordFailure();
+      throw err instanceof Error ? err : new Error(String(err));
     }
   }
 
   private recordFailure() {
-    this.failures++
-    this.lastFailureTime = Date.now()
+    this.failures++;
+    this.lastFailureTime = Date.now();
 
     if (this.failures >= this.failureThreshold) {
-      this.state = 'open'
+      this.state = 'open';
     }
   }
 
   private reset() {
-    this.failures = 0
-    this.state = 'closed'
-    this.lastFailureTime = 0
+    this.failures = 0;
+    this.state = 'closed';
+    this.lastFailureTime = 0;
   }
 
   getState() {
     return {
       state: this.state,
       failures: this.failures,
-      lastFailureTime: this.lastFailureTime
-    }
+      lastFailureTime: this.lastFailureTime,
+    };
   }
 }

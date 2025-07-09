@@ -4,11 +4,11 @@ import { useAppStore, UserPreferences } from '@/store/useAppStore';
 import { useToast } from '@/hooks/use-toast';
 
 export function useUserPreferences() {
-  const { 
-    userPreferences, 
+  const {
+    userPreferences,
     isLoadingPreferences,
-    setUserPreferences, 
-    setIsLoadingPreferences 
+    setUserPreferences,
+    setIsLoadingPreferences,
   } = useAppStore();
   const { toast } = useToast();
 
@@ -19,8 +19,12 @@ export function useUserPreferences() {
   const loadUserPreferences = async () => {
     try {
       setIsLoadingPreferences(true);
-      const result = await invoke<{ success: boolean; data: UserPreferences; error?: string }>('get_user_preferences');
-      
+      const result = await invoke<{
+        success: boolean;
+        data: UserPreferences;
+        error?: string;
+      }>('get_user_preferences');
+
       if (result.success && result.data) {
         setUserPreferences(result.data);
       } else {
@@ -37,27 +41,31 @@ export function useUserPreferences() {
 
   const updateUserPreferences = async (updates: Partial<UserPreferences>) => {
     try {
-      const result = await invoke<{ success: boolean; data: UserPreferences; error?: string }>('update_user_preferences', {
-        updates
+      const result = await invoke<{
+        success: boolean;
+        data: UserPreferences;
+        error?: string;
+      }>('update_user_preferences', {
+        updates,
       });
-      
+
       if (result.success && result.data) {
         setUserPreferences(result.data);
         return true;
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to update preferences",
-          variant: "destructive",
+          title: 'Error',
+          description: result.error || 'Failed to update preferences',
+          variant: 'destructive',
         });
         return false;
       }
     } catch (error) {
       console.error('Failed to update user preferences:', error);
       toast({
-        title: "Error",
-        description: "Failed to update preferences",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update preferences',
+        variant: 'destructive',
       });
       return false;
     }
@@ -65,29 +73,33 @@ export function useUserPreferences() {
 
   const resetUserPreferences = async () => {
     try {
-      const result = await invoke<{ success: boolean; data: UserPreferences; error?: string }>('reset_user_preferences');
-      
+      const result = await invoke<{
+        success: boolean;
+        data: UserPreferences;
+        error?: string;
+      }>('reset_user_preferences');
+
       if (result.success && result.data) {
         setUserPreferences(result.data);
         toast({
-          title: "Settings Reset",
-          description: "All preferences have been reset to defaults.",
+          title: 'Settings Reset',
+          description: 'All preferences have been reset to defaults.',
         });
         return true;
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to reset preferences",
-          variant: "destructive",
+          title: 'Error',
+          description: result.error || 'Failed to reset preferences',
+          variant: 'destructive',
         });
         return false;
       }
     } catch (error) {
       console.error('Failed to reset user preferences:', error);
       toast({
-        title: "Error",
-        description: "Failed to reset preferences",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to reset preferences',
+        variant: 'destructive',
       });
       return false;
     }

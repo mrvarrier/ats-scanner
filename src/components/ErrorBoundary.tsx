@@ -1,50 +1,50 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
-import { Button } from './ui/button'
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface Props {
-  children: ReactNode
-  fallback?: ReactNode
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
+  children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
-  errorInfo: ErrorInfo | null
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
-    errorInfo: null
-  }
+    errorInfo: null,
+  };
 
   public static getDerivedStateFromError(error: Error): State {
     return {
       hasError: true,
       error,
-      errorInfo: null
-    }
+      errorInfo: null,
+    };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
-    
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+
     this.setState({
       error,
-      errorInfo
-    })
+      errorInfo,
+    });
 
     // Call custom error handler if provided
     if (this.props.onError) {
-      this.props.onError(error, errorInfo)
+      this.props.onError(error, errorInfo);
     }
 
     // Report to error tracking service in production
     if (process.env.NODE_ENV === 'production') {
-      this.reportError(error, errorInfo)
+      this.reportError(error, errorInfo);
     }
   }
 
@@ -54,67 +54,72 @@ export class ErrorBoundary extends Component<Props, State> {
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString()
-    })
-  }
+      timestamp: new Date().toISOString(),
+    });
+  };
 
   private handleRetry = () => {
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null
-    })
-  }
+      errorInfo: null,
+    });
+  };
 
   private handleGoHome = () => {
-    window.location.href = '/'
-  }
+    window.location.href = '/';
+  };
 
   public render() {
     if (this.state.hasError) {
       // Custom fallback UI can be provided via props
       if (this.props.fallback) {
-        return this.props.fallback
+        return this.props.fallback;
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 text-center shadow-lg">
             <div className="mb-4">
-              <AlertTriangle className="h-16 w-16 text-red-500 mx-auto" />
+              <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />
             </div>
-            
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">
               Something went wrong
             </h1>
-            
-            <p className="text-gray-600 mb-6">
-              We're sorry, but something unexpected happened. Please try again or return to the home page.
+
+            <p className="mb-6 text-gray-600">
+              We're sorry, but something unexpected happened. Please try again
+              or return to the home page.
             </p>
 
             {/* Show error details in development */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mb-6 text-left">
-                <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
+                <summary className="mb-2 cursor-pointer text-sm font-medium text-gray-700">
                   Error Details (Development Only)
                 </summary>
-                <div className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-40">
-                  <div className="font-semibold mb-2">Error:</div>
-                  <div className="text-red-600 mb-3">{this.state.error.message}</div>
-                  
+                <div className="max-h-40 overflow-auto rounded bg-gray-100 p-3 text-xs">
+                  <div className="mb-2 font-semibold">Error:</div>
+                  <div className="mb-3 text-red-600">
+                    {this.state.error.message}
+                  </div>
+
                   {this.state.error.stack && (
                     <>
-                      <div className="font-semibold mb-2">Stack Trace:</div>
-                      <pre className="text-gray-700 whitespace-pre-wrap">
+                      <div className="mb-2 font-semibold">Stack Trace:</div>
+                      <pre className="whitespace-pre-wrap text-gray-700">
                         {this.state.error.stack}
                       </pre>
                     </>
                   )}
-                  
+
                   {this.state.errorInfo?.componentStack && (
                     <>
-                      <div className="font-semibold mb-2 mt-3">Component Stack:</div>
-                      <pre className="text-gray-700 whitespace-pre-wrap">
+                      <div className="mb-2 mt-3 font-semibold">
+                        Component Stack:
+                      </div>
+                      <pre className="whitespace-pre-wrap text-gray-700">
                         {this.state.errorInfo.componentStack}
                       </pre>
                     </>
@@ -123,8 +128,8 @@ export class ErrorBoundary extends Component<Props, State> {
               </details>
             )}
 
-            <div className="flex gap-3 justify-center">
-              <Button 
+            <div className="flex justify-center gap-3">
+              <Button
                 onClick={this.handleRetry}
                 variant="outline"
                 className="flex items-center gap-2"
@@ -132,8 +137,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="h-4 w-4" />
                 Try Again
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={this.handleGoHome}
                 className="flex items-center gap-2"
               >
@@ -143,10 +148,10 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
@@ -159,32 +164,32 @@ export function withErrorBoundary<P extends object>(
     <ErrorBoundary {...errorBoundaryProps}>
       <Component {...props} />
     </ErrorBoundary>
-  )
+  );
 
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`
-  
-  return WrappedComponent
+  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
+
+  return WrappedComponent;
 }
 
 // Hook for handling async errors (since error boundaries don't catch these)
 export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null)
+  const [error, setError] = React.useState<Error | null>(null);
 
   const handleError = React.useCallback((error: Error) => {
-    console.error('Async error handled:', error)
-    setError(error)
-  }, [])
+    console.error('Async error handled:', error);
+    setError(error);
+  }, []);
 
   const clearError = React.useCallback(() => {
-    setError(null)
-  }, [])
+    setError(null);
+  }, []);
 
   // Throw error to trigger error boundary
   React.useEffect(() => {
     if (error) {
-      throw error
+      throw error;
     }
-  }, [error])
+  }, [error]);
 
-  return { handleError, clearError }
+  return { handleError, clearError };
 }

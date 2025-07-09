@@ -9,7 +9,7 @@ Visit the live site at: https://mrvarrier.github.io/ats-scanner
 ## 📁 Structure
 
 - `index.html` - Main landing page
-- `404.html` - Custom 404 error page  
+- `404.html` - Custom 404 error page
 - `_config.yml` - Jekyll configuration for GitHub Pages
 - `robots.txt` - Search engine indexing rules
 - `README.md` - This file
@@ -34,18 +34,21 @@ Visit the live site at: https://mrvarrier.github.io/ats-scanner
 ## 🎨 Design System
 
 ### Colors
+
 - Primary Blue: `#3B82F6`
-- Primary Blue Dark: `#2563EB` 
+- Primary Blue Dark: `#2563EB`
 - Light Blue: `#EFF6FF`
 - Gray Scale: `#F9FAFB` to `#111827`
 - Success Green: `#10B981`
 
 ### Typography
+
 - System font stack for performance
 - Font weights: 500, 600, 700, 800
 - Responsive sizing using `clamp()`
 
 ### Spacing
+
 - 4px base unit system
 - Consistent padding/margin scale
 - Container max-width: 1200px
@@ -53,7 +56,7 @@ Visit the live site at: https://mrvarrier.github.io/ats-scanner
 ## 📱 Responsive Breakpoints
 
 - Mobile: < 768px
-- Tablet: 768px - 1024px  
+- Tablet: 768px - 1024px
 - Desktop: > 1024px
 
 ## 🔧 Local Development
@@ -63,16 +66,18 @@ To test locally:
 1. Clone the repository
 2. Navigate to the `docs` folder
 3. Serve with any static file server:
+
    ```bash
    # Using Python
    python -m http.server 8000
-   
+
    # Using Node.js
    npx serve .
-   
+
    # Using PHP
    php -S localhost:8000
    ```
+
 4. Open http://localhost:8000
 
 ## 📊 Analytics

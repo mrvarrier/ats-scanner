@@ -9,6 +9,8 @@ pub mod ollama;
 pub mod plugin_system;
 pub mod scoring;
 pub mod utils;
+// Advanced Scoring Engine
+pub mod advanced_scoring;
 // Phase 2 Enhanced Analysis Modules
 pub mod ats_simulator;
 pub mod enhanced_prompts;

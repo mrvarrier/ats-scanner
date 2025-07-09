@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
-  const { 
-    isDarkMode, 
-    toggleDarkMode, 
+  const {
+    isDarkMode,
+    toggleDarkMode,
     selectedModel,
     setModels,
-    setOllamaConnection 
+    setOllamaConnection,
   } = useAppStore();
   const { toast } = useToast();
 
@@ -20,35 +20,35 @@ export function Header() {
       const result = await invoke('test_ollama_connection');
       if (result.success && result.data) {
         setOllamaConnection(true);
-        
+
         const modelsResult = await invoke('get_ollama_models');
         if (modelsResult.success) {
           setModels(modelsResult.data || []);
           toast({
-            title: "Connection Refreshed",
+            title: 'Connection Refreshed',
             description: `Found ${modelsResult.data?.length || 0} models`,
           });
         }
       } else {
         setOllamaConnection(false);
         toast({
-          title: "Connection Failed",
-          description: "Unable to connect to Ollama service",
-          variant: "destructive",
+          title: 'Connection Failed',
+          description: 'Unable to connect to Ollama service',
+          variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to refresh connection",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to refresh connection',
+        variant: 'destructive',
       });
     }
   };
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-      <div className="flex items-center justify-between h-full px-6">
+      <div className="flex h-full items-center justify-between px-6">
         <div className="flex items-center space-x-4">
           <h2 className="text-lg font-semibold text-foreground">
             {selectedModel ? `Using: ${selectedModel}` : 'No Model Selected'}
@@ -64,7 +64,7 @@ export function Header() {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"

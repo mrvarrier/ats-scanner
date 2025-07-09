@@ -10,6 +10,8 @@ mod ollama;
 mod plugin_system;
 mod scoring;
 mod utils;
+// Advanced Scoring Engine
+mod advanced_scoring;
 // Phase 2 Enhanced Analysis Modules
 mod ats_simulator;
 mod enhanced_prompts;

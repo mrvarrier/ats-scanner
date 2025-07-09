@@ -1,0 +1,74 @@
+# Clippy configuration for strict code quality enforcement
+# Following CLAUDE.md guidelines
+
+# Lint groups to deny (treat as errors)
+disallowed-macros = [
+  "std::unimplemented",
+  "std::unreachable",
+  "std::panic",
+  "std::todo",
+]
+
+# Specific lints to enforce
+avoid-breaking-exported-api = false
+msrv = "1.70"
+
+# Performance and safety
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+trivial-copy-pass-by-ref = true
+single-char-lifetime-names = true
+doc-markdown = true
+
+# Pedantic checks
+enum-variant-names = true
+module-name-repetitions = true
+similar-names = true
+single-match-else = true
+string-add-assign = true
+unicode-not-nfc = true
+unseparated-literal-suffix = true
+unused-self = true
+used-underscore-binding = true
+
+# Restriction checks  
+create-dir = true
+dbg-macro = true
+decimal-literal-representation = true
+empty-structs-with-brackets = true
+exit = true
+expect-used = true
+filetype-is-file = true
+float-cmp-const = true
+get-unwrap = true
+if-then-some-else-none = true
+indexing-slicing = true
+let-underscore-must-use = true
+lossy-float-literal = true
+map-err-ignore = true
+mem-forget = true
+missing-docs-in-private-items = true
+multiple-inherent-impl = true
+mutex-atomic = true
+panic = true
+print-stdout = true
+rc-buffer = true
+rc-mutex = true
+rest-pat-in-fully-bound-structs = true
+same-name-method = true
+shadow-reuse = true
+shadow-same = true
+shadow-unrelated = true
+str-to-string = true
+string-add = true
+string-to-string = true
+todo = true
+try-err = true
+undocumented-unsafe-blocks = true
+unimplemented = true
+unnecessary-self-imports = true
+unneeded-field-pattern = true
+unreachable = true
+unwrap-used = true
+verbose-file-reads = true
+wildcard-enum-match-arm = true

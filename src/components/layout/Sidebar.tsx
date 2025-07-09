@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  BarChart3, 
-  FileText, 
-  Wrench, 
+import {
+  BarChart3,
+  FileText,
+  Wrench,
   Settings,
   CheckCircle,
   XCircle,
-  FolderOpen
+  FolderOpen,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
@@ -23,15 +23,17 @@ export function Sidebar() {
   const { activeTab, setActiveTab, isOllamaConnected } = useAppStore();
 
   return (
-    <div className="w-64 bg-card border-r border-border flex flex-col">
+    <div className="flex w-64 flex-col border-r border-border bg-card">
       {/* Logo and Title */}
-      <div className="p-6 border-b border-border">
+      <div className="border-b border-border p-6">
         <h1 className="text-xl font-bold text-foreground">ATS Scanner</h1>
-        <p className="text-sm text-muted-foreground">Local AI Resume Analysis</p>
+        <p className="text-sm text-muted-foreground">
+          Local AI Resume Analysis
+        </p>
       </div>
 
       {/* Connection Status */}
-      <div className="px-6 py-4 border-b border-border">
+      <div className="border-b border-border px-6 py-4">
         <div className="flex items-center space-x-2">
           {isOllamaConnected ? (
             <>
@@ -50,17 +52,17 @@ export function Sidebar() {
       {/* Navigation Menu */}
       <nav className="flex-1 px-4 py-6">
         <ul className="space-y-2">
-          {menuItems.map((item) => {
+          {menuItems.map(item => {
             const Icon = item.icon;
             return (
               <li key={item.id}>
                 <button
                   onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors",
+                    'flex w-full items-center space-x-3 rounded-lg px-3 py-2 text-left transition-colors',
                     activeTab === item.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -73,8 +75,8 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
-        <p className="text-xs text-muted-foreground text-center">
+      <div className="border-t border-border p-4">
+        <p className="text-center text-xs text-muted-foreground">
           v1.0.0 - Privacy First
         </p>
       </div>

@@ -1,23 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface CacheEntry<T> {
-  data: T
-  timestamp: number
-  expiresAt: number
-  accessCount: number
-  lastAccessed: number
+  data: T;
+  timestamp: number;
+  expiresAt: number;
+  accessCount: number;
+  lastAccessed: number;
 }
 
 export interface CacheOptions {
-  ttl?: number // Time to live in milliseconds
-  maxSize?: number // Maximum number of entries
-  staleWhileRevalidate?: boolean // Return stale data while fetching fresh
-  onEvict?: (key: string, entry: CacheEntry<any>) => void
+  ttl?: number; // Time to live in milliseconds
+  maxSize?: number; // Maximum number of entries
+  staleWhileRevalidate?: boolean; // Return stale data while fetching fresh
+  onEvict?: (key: string, entry: CacheEntry<unknown>) => void;
 }
 
 export class MemoryCache {
-  private cache = new Map<string, CacheEntry<any>>()
-  private options: Required<CacheOptions>
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private options: Required<CacheOptions>;
 
   constructor(options: CacheOptions = {}) {
     this.options = {
@@ -25,143 +25,145 @@ export class MemoryCache {
       maxSize: 100,
       staleWhileRevalidate: false,
       onEvict: () => {},
-      ...options
-    }
+      ...options,
+    };
   }
 
   set<T>(key: string, data: T, customTtl?: number): void {
-    const now = Date.now()
-    const ttl = customTtl ?? this.options.ttl
-    
+    const now = Date.now();
+    const ttl = customTtl ?? this.options.ttl;
+
     const entry: CacheEntry<T> = {
       data,
       timestamp: now,
       expiresAt: now + ttl,
       accessCount: 0,
-      lastAccessed: now
-    }
+      lastAccessed: now,
+    };
 
     // Evict if cache is full
     if (this.cache.size >= this.options.maxSize && !this.cache.has(key)) {
-      this.evictLRU()
+      this.evictLRU();
     }
 
-    this.cache.set(key, entry)
+    this.cache.set(key, entry);
   }
 
   get<T>(key: string): T | null {
-    const entry = this.cache.get(key) as CacheEntry<T> | undefined
-    
+    const entry = this.cache.get(key) as CacheEntry<T> | undefined;
+
     if (!entry) {
-      return null
+      return null;
     }
 
-    const now = Date.now()
-    
+    const now = Date.now();
+
     // Update access info
-    entry.accessCount++
-    entry.lastAccessed = now
+    entry.accessCount++;
+    entry.lastAccessed = now;
 
     // Check if expired
     if (now > entry.expiresAt) {
-      this.cache.delete(key)
-      this.options.onEvict(key, entry)
-      return null
+      this.cache.delete(key);
+      this.options.onEvict(key, entry);
+      return null;
     }
 
-    return entry.data
+    return entry.data;
   }
 
   has(key: string): boolean {
-    const entry = this.cache.get(key)
-    if (!entry) return false
-    
-    const now = Date.now()
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+
+    const now = Date.now();
     if (now > entry.expiresAt) {
-      this.cache.delete(key)
-      this.options.onEvict(key, entry)
-      return false
+      this.cache.delete(key);
+      this.options.onEvict(key, entry);
+      return false;
     }
-    
-    return true
+
+    return true;
   }
 
   delete(key: string): boolean {
-    const entry = this.cache.get(key)
-    const deleted = this.cache.delete(key)
-    
+    const entry = this.cache.get(key);
+    const deleted = this.cache.delete(key);
+
     if (deleted && entry) {
-      this.options.onEvict(key, entry)
+      this.options.onEvict(key, entry);
     }
-    
-    return deleted
+
+    return deleted;
   }
 
   clear(): void {
-    const entries = Array.from(this.cache.entries())
-    this.cache.clear()
-    
+    const entries = Array.from(this.cache.entries());
+    this.cache.clear();
+
     entries.forEach(([key, entry]) => {
-      this.options.onEvict(key, entry)
-    })
+      this.options.onEvict(key, entry);
+    });
   }
 
   size(): number {
-    return this.cache.size
+    return this.cache.size;
   }
 
   keys(): string[] {
-    return Array.from(this.cache.keys())
+    return Array.from(this.cache.keys());
   }
 
   // Get cache statistics
   getStats() {
-    const entries = Array.from(this.cache.values())
-    const now = Date.now()
-    
+    const entries = Array.from(this.cache.values());
+    const now = Date.now();
+
     return {
       size: this.cache.size,
       maxSize: this.options.maxSize,
       expired: entries.filter(entry => now > entry.expiresAt).length,
       totalAccesses: entries.reduce((sum, entry) => sum + entry.accessCount, 0),
-      averageAge: entries.length > 0 
-        ? entries.reduce((sum, entry) => sum + (now - entry.timestamp), 0) / entries.length 
-        : 0
-    }
+      averageAge:
+        entries.length > 0
+          ? entries.reduce((sum, entry) => sum + (now - entry.timestamp), 0) /
+            entries.length
+          : 0,
+    };
   }
 
   private evictLRU(): void {
-    let oldestKey: string | null = null
-    let oldestTime = Date.now()
+    let oldestKey: string | null = null;
+    let oldestTime = Date.now();
 
     for (const [key, entry] of this.cache.entries()) {
       if (entry.lastAccessed < oldestTime) {
-        oldestTime = entry.lastAccessed
-        oldestKey = key
+        oldestTime = entry.lastAccessed;
+        oldestKey = key;
       }
     }
 
     if (oldestKey) {
-      const entry = this.cache.get(oldestKey)!
-      this.cache.delete(oldestKey)
-      this.options.onEvict(oldestKey, entry)
+      const entry = this.cache.get(oldestKey)!;
+      this.cache.delete(oldestKey);
+      this.options.onEvict(oldestKey, entry);
     }
   }
 
   // Clean up expired entries
   cleanup(): number {
-    const now = Date.now()
-    let cleanedUp = 0
+    const now = Date.now();
+    let cleanedUp = 0;
 
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expiresAt) {
-        this.cache.delete(key)
-        this.options.onEvict(key, entry)
-        cleanedUp++
+        this.cache.delete(key);
+        this.options.onEvict(key, entry);
+        cleanedUp++;
       }
     }
 
-    return cleanedUp
+    return cleanedUp;
   }
 }
 
@@ -169,93 +171,100 @@ export class MemoryCache {
 const globalCache = new MemoryCache({
   ttl: 5 * 60 * 1000, // 5 minutes
   maxSize: 200,
-  staleWhileRevalidate: true
-})
+  staleWhileRevalidate: true,
+});
 
 // React hook for using cache
 export function useCache<T>(
   key: string,
   fetcher: () => Promise<T>,
   options: {
-    ttl?: number
-    enabled?: boolean
-    staleWhileRevalidate?: boolean
-    onSuccess?: (data: T) => void
-    onError?: (error: any) => void
+    ttl?: number;
+    enabled?: boolean;
+    staleWhileRevalidate?: boolean;
+    onSuccess?: (data: T) => void;
+    onError?: (error: Error) => void;
   } = {}
 ) {
-  const [data, setData] = useState<T | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<any>(null)
-  const [stale, setStale] = useState(false)
-  
-  const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [stale, setStale] = useState(false);
 
-  const fetchData = useCallback(async (force = false) => {
-    if (!options.enabled && options.enabled !== undefined) {
-      return
-    }
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
 
-    // Check cache first
-    const cached = globalCache.get<T>(key)
-    if (cached && !force) {
-      setData(cached)
-      setError(null)
-      setStale(false)
-      options.onSuccess?.(cached)
-      return cached
-    }
+  const fetchData = useCallback(
+    async (force = false) => {
+      if (!options.enabled && options.enabled !== undefined) {
+        return;
+      }
 
-    // If stale-while-revalidate and we have cached data, return it but fetch fresh
-    if (options.staleWhileRevalidate && cached && !force) {
-      setData(cached)
-      setStale(true)
-    } else {
-      setLoading(true)
-    }
+      // Check cache first
+      const cached = globalCache.get<T>(key);
+      if (cached && !force) {
+        setData(cached);
+        setError(null);
+        setStale(false);
+        options.onSuccess?.(cached);
+        return cached;
+      }
 
-    try {
-      const fresh = await fetcherRef.current()
-      globalCache.set(key, fresh, options.ttl)
-      setData(fresh)
-      setError(null)
-      setStale(false)
-      setLoading(false)
-      options.onSuccess?.(fresh)
-      return fresh
-    } catch (err) {
-      setError(err)
-      setLoading(false)
-      setStale(false)
-      options.onError?.(err)
-      throw err
-    }
-  }, [key, options])
+      // If stale-while-revalidate and we have cached data, return it but fetch fresh
+      if (options.staleWhileRevalidate && cached && !force) {
+        setData(cached);
+        setStale(true);
+      } else {
+        setLoading(true);
+      }
 
-  const mutate = useCallback((newData?: T) => {
-    if (newData !== undefined) {
-      globalCache.set(key, newData, options.ttl)
-      setData(newData)
-      setError(null)
-      setStale(false)
-    } else {
-      // Revalidate
-      fetchData(true)
-    }
-  }, [key, options.ttl, fetchData])
+      try {
+        const fresh = await fetcherRef.current();
+        globalCache.set(key, fresh, options.ttl);
+        setData(fresh);
+        setError(null);
+        setStale(false);
+        setLoading(false);
+        options.onSuccess?.(fresh);
+        return fresh;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        setLoading(false);
+        setStale(false);
+        options.onError?.(error);
+        throw error;
+      }
+    },
+    [key, options]
+  );
+
+  const mutate = useCallback(
+    (newData?: T) => {
+      if (newData !== undefined) {
+        globalCache.set(key, newData, options.ttl);
+        setData(newData);
+        setError(null);
+        setStale(false);
+      } else {
+        // Revalidate
+        fetchData(true);
+      }
+    },
+    [key, options.ttl, fetchData]
+  );
 
   const invalidate = useCallback(() => {
-    globalCache.delete(key)
-    setData(null)
-    setError(null)
-    setStale(false)
-  }, [key])
+    globalCache.delete(key);
+    setData(null);
+    setError(null);
+    setStale(false);
+  }, [key]);
 
   // Fetch on mount and when key changes
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData();
+  }, [fetchData]);
 
   return {
     data,
@@ -264,158 +273,161 @@ export function useCache<T>(
     stale,
     mutate,
     invalidate,
-    refetch: () => fetchData(true)
-  }
+    refetch: () => fetchData(true),
+  };
 }
 
 // Hook for analysis result caching
-export function useAnalysisCache(
+export function useAnalysisCache<T>(
   resumeContent: string,
   jobDescriptionId: string,
   modelName: string,
-  fetcher: () => Promise<any>
+  fetcher: () => Promise<T>
 ) {
   // Create a stable cache key from inputs
-  const cacheKey = `analysis:${hashString(resumeContent)}:${jobDescriptionId}:${modelName}`
-  
+  const cacheKey = `analysis:${hashString(resumeContent)}:${jobDescriptionId}:${modelName}`;
+
   return useCache(cacheKey, fetcher, {
     ttl: 30 * 60 * 1000, // 30 minutes for analysis results
     enabled: !!(resumeContent && jobDescriptionId && modelName),
-    staleWhileRevalidate: true
-  })
+    staleWhileRevalidate: true,
+  });
 }
 
 // Hook for model list caching
-export function useModelCache(fetcher: () => Promise<any>) {
+export function useModelCache<T>(fetcher: () => Promise<T>) {
   return useCache('ollama-models', fetcher, {
     ttl: 10 * 60 * 1000, // 10 minutes for model list
-    staleWhileRevalidate: true
-  })
+    staleWhileRevalidate: true,
+  });
 }
 
 // Hook for job descriptions caching
-export function useJobDescriptionsCache(fetcher: () => Promise<any>) {
+export function useJobDescriptionsCache<T>(fetcher: () => Promise<T>) {
   return useCache('job-descriptions', fetcher, {
     ttl: 5 * 60 * 1000, // 5 minutes for job descriptions
-    staleWhileRevalidate: true
-  })
+    staleWhileRevalidate: true,
+  });
 }
 
 // Persistent cache using localStorage
 export class PersistentCache extends MemoryCache {
-  private storageKey: string
-  private saveInterval: NodeJS.Timeout
-  private beforeUnloadHandler: () => void
+  private storageKey: string;
+  private saveInterval: NodeJS.Timeout;
+  private beforeUnloadHandler: () => void;
 
   constructor(storageKey: string, options: CacheOptions = {}) {
-    super(options)
-    this.storageKey = storageKey
-    this.loadFromStorage()
+    super(options);
+    this.storageKey = storageKey;
+    this.loadFromStorage();
 
     // Save to storage periodically
     this.saveInterval = setInterval(() => {
-      this.saveToStorage()
-    }, 60000) // Every minute
+      this.saveToStorage();
+    }, 60000); // Every minute
 
     // Save on page unload
     this.beforeUnloadHandler = () => {
-      this.saveToStorage()
-    }
-    window.addEventListener('beforeunload', this.beforeUnloadHandler)
+      this.saveToStorage();
+    };
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
   }
 
   destroy(): void {
     if (this.saveInterval) {
-      clearInterval(this.saveInterval)
+      clearInterval(this.saveInterval);
     }
-    window.removeEventListener('beforeunload', this.beforeUnloadHandler)
-    this.saveToStorage() // Final save
-    this.clear()
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+    this.saveToStorage(); // Final save
+    this.clear();
   }
 
   set<T>(key: string, data: T, customTtl?: number): void {
-    super.set(key, data, customTtl)
-    this.saveToStorage()
+    super.set(key, data, customTtl);
+    this.saveToStorage();
   }
 
   delete(key: string): boolean {
-    const result = super.delete(key)
-    this.saveToStorage()
-    return result
+    const result = super.delete(key);
+    this.saveToStorage();
+    return result;
   }
 
   clear(): void {
-    super.clear()
-    this.saveToStorage()
+    super.clear();
+    this.saveToStorage();
   }
 
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem(this.storageKey)
+      const stored = localStorage.getItem(this.storageKey);
       if (stored) {
-        const data = JSON.parse(stored)
-        const now = Date.now()
+        const data = JSON.parse(stored);
+        const now = Date.now();
 
         // Restore non-expired entries
-        Object.entries(data).forEach(([key, entry]: [string, any]) => {
-          if (entry.expiresAt > now) {
-            this.cache.set(key, entry)
+        Object.entries(data).forEach(([key, entry]: [string, unknown]) => {
+          if (entry && typeof entry === 'object' && 'expiresAt' in entry) {
+            const cacheEntry = entry as CacheEntry<unknown>;
+            if (cacheEntry.expiresAt > now) {
+              this.cache.set(key, cacheEntry);
+            }
           }
-        })
+        });
       }
     } catch (error) {
-      console.warn('Failed to load cache from storage:', error)
+      console.warn('Failed to load cache from storage:', error);
     }
   }
 
   private saveToStorage(): void {
     try {
-      const data = Object.fromEntries(this.cache.entries())
-      localStorage.setItem(this.storageKey, JSON.stringify(data))
+      const data = Object.fromEntries(this.cache.entries());
+      localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (error) {
-      console.warn('Failed to save cache to storage:', error)
+      console.warn('Failed to save cache to storage:', error);
     }
   }
 }
 
 // Utility functions
 function hashString(str: string): string {
-  let hash = 0
+  let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32-bit integer
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
   }
-  return hash.toString(36)
+  return hash.toString(36);
 }
 
 // Cache invalidation patterns
 export const cacheInvalidation = {
   // Invalidate analysis cache when job description changes
   onJobDescriptionUpdate: (jobDescriptionId: string) => {
-    const keys = globalCache.keys()
+    const keys = globalCache.keys();
     keys.forEach(key => {
       if (key.includes(`analysis:`) && key.includes(`:${jobDescriptionId}:`)) {
-        globalCache.delete(key)
+        globalCache.delete(key);
       }
-    })
+    });
   },
 
   // Invalidate all analysis cache
   onModelUpdate: () => {
-    const keys = globalCache.keys()
+    const keys = globalCache.keys();
     keys.forEach(key => {
       if (key.startsWith('analysis:')) {
-        globalCache.delete(key)
+        globalCache.delete(key);
       }
-    })
+    });
   },
 
   // Clear expired entries
   cleanup: () => {
-    return globalCache.cleanup()
-  }
-}
+    return globalCache.cleanup();
+  },
+};
 
 // Export global cache for direct access
-export { globalCache }
+export { globalCache };

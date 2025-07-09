@@ -2,25 +2,31 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { save } from '@tauri-apps/api/dialog';
 import { writeTextFile } from '@tauri-apps/api/fs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppStore } from '@/store/useAppStore';
-import { 
-  Edit3, 
-  Zap, 
-  Download, 
-  RefreshCw, 
-  BarChart3, 
-  TrendingUp, 
+import {
+  Edit3,
+  Zap,
+  Download,
+  RefreshCw,
+  BarChart3,
+  TrendingUp,
   AlertCircle,
   FileText,
   Split,
   Target,
   Award,
   Lightbulb,
-  Brain
+  Brain,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -122,52 +128,63 @@ interface LiveSuggestion {
 }
 
 export function OptimizationPage() {
-  const {
-    models,
-    selectedModel,
-    setSelectedModel,
-    isOllamaConnected
-  } = useAppStore();
+  const { models, selectedModel, setSelectedModel, isOllamaConnected } =
+    useAppStore();
 
   const [originalContent, setOriginalContent] = useState('');
   const [optimizedContent, setOptimizedContent] = useState('');
   const [jobDescription, setJobDescription] = useState('');
-  const [optimizationLevel, setOptimizationLevel] = useState<'Conservative' | 'Balanced' | 'Aggressive'>('Balanced');
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
+  const [optimizationLevel, setOptimizationLevel] = useState<
+    'Conservative' | 'Balanced' | 'Aggressive'
+  >('Balanced');
+  const [optimizationResult, setOptimizationResult] =
+    useState<OptimizationResult | null>(null);
   const [currentScore, setCurrentScore] = useState<AnalysisResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRealTimeMode, setIsRealTimeMode] = useState(false);
-  const [comprehensiveOptimization, setComprehensiveOptimization] = useState<ComprehensiveOptimization | null>(null);
+  const [comprehensiveOptimization, setComprehensiveOptimization] =
+    useState<ComprehensiveOptimization | null>(null);
   const [liveSuggestions, setLiveSuggestions] = useState<LiveSuggestion[]>([]);
-  const [showComprehensiveAnalysis, setShowComprehensiveAnalysis] = useState(false);
+  const [showComprehensiveAnalysis, setShowComprehensiveAnalysis] =
+    useState(false);
 
   // Real-time analysis with debouncing
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
-  const [suggestionTimer, setSuggestionTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
+  const [suggestionTimer, setSuggestionTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
 
-  const performAnalysis = useCallback(async (content: string) => {
-    if (!content.trim() || !jobDescription.trim() || !selectedModel) return;
+  const performAnalysis = useCallback(
+    async (content: string) => {
+      if (!content.trim() || !jobDescription.trim() || !selectedModel) return;
 
-    try {
-      setIsAnalyzing(true);
-      const result = await invoke<CommandResult<AnalysisResult>>('analyze_resume', {
-        request: {
-          resume_content: content,
-          job_description: jobDescription,
-          model_name: selectedModel
+      try {
+        setIsAnalyzing(true);
+        const result = await invoke<CommandResult<AnalysisResult>>(
+          'analyze_resume',
+          {
+            request: {
+              resume_content: content,
+              job_description: jobDescription,
+              model_name: selectedModel,
+            },
+          }
+        );
+
+        if (result.success && result.data) {
+          setCurrentScore(result.data);
         }
-      });
-
-      if (result.success && result.data) {
-        setCurrentScore(result.data);
+      } catch (error) {
+        console.error('Analysis error:', error);
+      } finally {
+        setIsAnalyzing(false);
       }
-    } catch (error) {
-      console.error('Analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [jobDescription, selectedModel]);
+    },
+    [jobDescription, selectedModel]
+  );
 
   // Debounced real-time analysis
   useEffect(() => {
@@ -190,7 +207,8 @@ export function OptimizationPage() {
 
   // Debounced real-time suggestions
   useEffect(() => {
-    if (!isRealTimeMode || !optimizedContent.trim() || !jobDescription.trim()) return;
+    if (!isRealTimeMode || !optimizedContent.trim() || !jobDescription.trim())
+      return;
 
     if (suggestionTimer) {
       clearTimeout(suggestionTimer);
@@ -210,10 +228,13 @@ export function OptimizationPage() {
   // Fetch live suggestions
   const fetchLiveSuggestions = async (content: string, jobDesc: string) => {
     try {
-      const result = await invoke<CommandResult<LiveSuggestion[]>>('get_realtime_suggestions', {
-        resumeContent: content,
-        jobDescription: jobDesc
-      });
+      const result = await invoke<CommandResult<LiveSuggestion[]>>(
+        'get_realtime_suggestions',
+        {
+          resumeContent: content,
+          jobDescription: jobDesc,
+        }
+      );
 
       if (result.success && result.data) {
         setLiveSuggestions(result.data);
@@ -227,9 +248,10 @@ export function OptimizationPage() {
   const handleComprehensiveOptimize = async () => {
     if (!originalContent.trim() || !jobDescription.trim() || !selectedModel) {
       toast({
-        title: "Missing information",
-        description: "Please provide resume content, job description, and select a model",
-        variant: "destructive"
+        title: 'Missing information',
+        description:
+          'Please provide resume content, job description, and select a model',
+        variant: 'destructive',
       });
       return;
     }
@@ -237,19 +259,22 @@ export function OptimizationPage() {
     try {
       setIsOptimizing(true);
 
-      const result = await invoke<CommandResult<ComprehensiveOptimization>>('generate_comprehensive_optimization', {
-        resumeContent: originalContent,
-        jobDescription: jobDescription,
-        optimizationLevel: optimizationLevel
-      });
+      const result = await invoke<CommandResult<ComprehensiveOptimization>>(
+        'generate_comprehensive_optimization',
+        {
+          resumeContent: originalContent,
+          jobDescription: jobDescription,
+          optimizationLevel: optimizationLevel,
+        }
+      );
 
       if (result.success && result.data) {
         setComprehensiveOptimization(result.data);
         setOptimizedContent(result.data.optimized_content);
         setShowComprehensiveAnalysis(true);
         toast({
-          title: "Comprehensive optimization completed",
-          description: `${result.data.overall_improvement_score.toFixed(1)}% improvement achieved`
+          title: 'Comprehensive optimization completed',
+          description: `${result.data.overall_improvement_score.toFixed(1)}% improvement achieved`,
         });
       } else {
         throw new Error(result.error || 'Comprehensive optimization failed');
@@ -257,9 +282,9 @@ export function OptimizationPage() {
     } catch (error) {
       console.error('Comprehensive optimization error:', error);
       toast({
-        title: "Optimization failed",
+        title: 'Optimization failed',
         description: `Error: ${error}`,
-        variant: "destructive"
+        variant: 'destructive',
       });
     } finally {
       setIsOptimizing(false);
@@ -269,9 +294,10 @@ export function OptimizationPage() {
   const handleOptimize = async () => {
     if (!originalContent.trim() || !jobDescription.trim() || !selectedModel) {
       toast({
-        title: "Missing information",
-        description: "Please provide resume content, job description, and select a model",
-        variant: "destructive"
+        title: 'Missing information',
+        description:
+          'Please provide resume content, job description, and select a model',
+        variant: 'destructive',
       });
       return;
     }
@@ -280,21 +306,24 @@ export function OptimizationPage() {
       setIsOptimizing(true);
       setOptimizationResult(null);
 
-      const result = await invoke<CommandResult<OptimizationResult>>('optimize_resume', {
-        request: {
-          resume_content: originalContent,
-          job_description: jobDescription,
-          model_name: selectedModel,
-          optimization_level: optimizationLevel
+      const result = await invoke<CommandResult<OptimizationResult>>(
+        'optimize_resume',
+        {
+          request: {
+            resume_content: originalContent,
+            job_description: jobDescription,
+            model_name: selectedModel,
+            optimization_level: optimizationLevel,
+          },
         }
-      });
+      );
 
       if (result.success && result.data) {
         setOptimizationResult(result.data);
         setOptimizedContent(result.data.optimized_content);
         toast({
-          title: "Optimization completed",
-          description: `${result.data.improvement_percentage.toFixed(1)}% improvement achieved`
+          title: 'Optimization completed',
+          description: `${result.data.improvement_percentage.toFixed(1)}% improvement achieved`,
         });
       } else {
         throw new Error(result.error || 'Optimization failed');
@@ -302,9 +331,9 @@ export function OptimizationPage() {
     } catch (error) {
       console.error('Optimization error:', error);
       toast({
-        title: "Optimization failed",
+        title: 'Optimization failed',
         description: `Error: ${error}`,
-        variant: "destructive"
+        variant: 'destructive',
       });
     } finally {
       setIsOptimizing(false);
@@ -314,34 +343,36 @@ export function OptimizationPage() {
   const handleExport = async () => {
     if (!optimizedContent.trim()) {
       toast({
-        title: "Nothing to export",
-        description: "Please optimize your resume first",
-        variant: "destructive"
+        title: 'Nothing to export',
+        description: 'Please optimize your resume first',
+        variant: 'destructive',
       });
       return;
     }
 
     try {
       const filePath = await save({
-        filters: [{
-          name: 'Text',
-          extensions: ['txt']
-        }]
+        filters: [
+          {
+            name: 'Text',
+            extensions: ['txt'],
+          },
+        ],
       });
 
       if (filePath) {
         await writeTextFile(filePath, optimizedContent);
         toast({
-          title: "Export successful",
-          description: `Resume saved to ${filePath}`
+          title: 'Export successful',
+          description: `Resume saved to ${filePath}`,
         });
       }
     } catch (error) {
       console.error('Export error:', error);
       toast({
-        title: "Export failed",
+        title: 'Export failed',
         description: `Error: ${error}`,
-        variant: "destructive"
+        variant: 'destructive',
       });
     }
   };
@@ -349,9 +380,12 @@ export function OptimizationPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Resume Optimization</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Resume Optimization
+        </h1>
         <p className="text-muted-foreground">
-          Optimize your resume with AI-powered suggestions for better ATS compatibility.
+          Optimize your resume with AI-powered suggestions for better ATS
+          compatibility.
         </p>
       </div>
 
@@ -360,7 +394,8 @@ export function OptimizationPage() {
           <CardContent className="flex items-center gap-2 pt-6">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
             <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              Ollama is not connected. Please check your Ollama installation and try again.
+              Ollama is not connected. Please check your Ollama installation and
+              try again.
             </p>
           </CardContent>
         </Card>
@@ -380,12 +415,12 @@ export function OptimizationPage() {
               <label className="text-sm font-medium">AI Model</label>
               <select
                 value={selectedModel || ''}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                onChange={e => setSelectedModel(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 disabled={models.length === 0}
               >
                 <option value="">Select a model...</option>
-                {models.map((model) => (
+                {models.map(model => (
                   <option key={model.name} value={model.name}>
                     {model.name}
                   </option>
@@ -397,8 +432,8 @@ export function OptimizationPage() {
               <label className="text-sm font-medium">Optimization Level</label>
               <select
                 value={optimizationLevel}
-                onChange={(e) => setOptimizationLevel(e.target.value as any)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                onChange={e => setOptimizationLevel(e.target.value as any)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="Conservative">Conservative</option>
                 <option value="Balanced">Balanced</option>
@@ -413,10 +448,12 @@ export function OptimizationPage() {
                   type="checkbox"
                   id="realtime"
                   checked={isRealTimeMode}
-                  onChange={(e) => setIsRealTimeMode(e.target.checked)}
+                  onChange={e => setIsRealTimeMode(e.target.checked)}
                   className="rounded border-input"
                 />
-                <label htmlFor="realtime" className="text-sm">Enable live scoring</label>
+                <label htmlFor="realtime" className="text-sm">
+                  Enable live scoring
+                </label>
               </div>
             </div>
           </div>
@@ -438,7 +475,7 @@ export function OptimizationPage() {
           <Textarea
             placeholder="Paste the job description here..."
             value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
+            onChange={e => setJobDescription(e.target.value)}
             className="min-h-[120px] resize-none"
           />
         </CardContent>
@@ -453,54 +490,62 @@ export function OptimizationPage() {
               <Edit3 className="h-5 w-5" />
               Original Resume
             </CardTitle>
-            <CardDescription>
-              Paste your current resume content
-            </CardDescription>
+            <CardDescription>Paste your current resume content</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
               placeholder="Paste your resume content here..."
               value={originalContent}
-              onChange={(e) => setOriginalContent(e.target.value)}
+              onChange={e => setOriginalContent(e.target.value)}
               className="min-h-[400px] font-mono text-sm"
               spellCheck={false}
             />
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {originalContent.length} characters
               </p>
               <div className="flex gap-2">
                 <Button
                   onClick={handleOptimize}
-                  disabled={!originalContent.trim() || !jobDescription.trim() || !selectedModel || isOptimizing}
+                  disabled={
+                    !originalContent.trim() ||
+                    !jobDescription.trim() ||
+                    !selectedModel ||
+                    isOptimizing
+                  }
                   size="sm"
                 >
                   {isOptimizing ? (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                       Optimizing...
                     </>
                   ) : (
                     <>
-                      <Zap className="h-4 w-4 mr-2" />
+                      <Zap className="mr-2 h-4 w-4" />
                       Quick Optimize
                     </>
                   )}
                 </Button>
                 <Button
                   onClick={handleComprehensiveOptimize}
-                  disabled={!originalContent.trim() || !jobDescription.trim() || !selectedModel || isOptimizing}
+                  disabled={
+                    !originalContent.trim() ||
+                    !jobDescription.trim() ||
+                    !selectedModel ||
+                    isOptimizing
+                  }
                   variant="outline"
                   size="sm"
                 >
                   {isOptimizing ? (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
                     </>
                   ) : (
                     <>
-                      <Brain className="h-4 w-4 mr-2" />
+                      <Brain className="mr-2 h-4 w-4" />
                       Comprehensive
                     </>
                   )}
@@ -537,29 +582,34 @@ export function OptimizationPage() {
             <Textarea
               placeholder="Optimized content will appear here..."
               value={optimizedContent}
-              onChange={(e) => setOptimizedContent(e.target.value)}
+              onChange={e => setOptimizedContent(e.target.value)}
               className="min-h-[400px] font-mono text-sm"
               spellCheck={false}
             />
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {optimizedContent.length} characters
               </p>
               <div className="flex gap-2">
                 <Button
                   onClick={() => performAnalysis(optimizedContent)}
-                  disabled={!optimizedContent.trim() || !jobDescription.trim() || !selectedModel || isAnalyzing}
+                  disabled={
+                    !optimizedContent.trim() ||
+                    !jobDescription.trim() ||
+                    !selectedModel ||
+                    isAnalyzing
+                  }
                   variant="outline"
                   size="sm"
                 >
                   {isAnalyzing ? (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                       Analyzing...
                     </>
                   ) : (
                     <>
-                      <BarChart3 className="h-4 w-4 mr-2" />
+                      <BarChart3 className="mr-2 h-4 w-4" />
                       Analyze
                     </>
                   )}
@@ -569,7 +619,7 @@ export function OptimizationPage() {
                   disabled={!optimizedContent.trim()}
                   size="sm"
                 >
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
               </div>
@@ -591,19 +641,23 @@ export function OptimizationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+            <div className="max-h-64 space-y-3 overflow-y-auto">
               {liveSuggestions.slice(0, 5).map((suggestion, index) => (
-                <div key={index} className="border rounded-lg p-3 space-y-2">
+                <div key={index} className="space-y-2 rounded-lg border p-3">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
+                    <span className="rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                       {suggestion.suggestion_type}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 text-xs rounded-md ${
-                        suggestion.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                        suggestion.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                        'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
-                      }`}>
+                      <span
+                        className={`rounded-md px-2 py-1 text-xs ${
+                          suggestion.priority === 'High'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : suggestion.priority === 'Medium'
+                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
+                        }`}
+                      >
                         {suggestion.priority}
                       </span>
                       <span className="text-xs text-muted-foreground">
@@ -611,18 +665,22 @@ export function OptimizationPage() {
                       </span>
                     </div>
                   </div>
-                  <h4 className="font-medium text-sm">{suggestion.title}</h4>
-                  <p className="text-xs text-muted-foreground">{suggestion.description}</p>
+                  <h4 className="text-sm font-medium">{suggestion.title}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {suggestion.description}
+                  </p>
                   {suggestion.suggested_text && (
-                    <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded border-l-2 border-green-200 dark:border-green-800">
-                      <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Suggested:</div>
+                    <div className="rounded border-l-2 border-green-200 bg-green-50 p-2 dark:border-green-800 dark:bg-green-900/20">
+                      <div className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
+                        Suggested:
+                      </div>
                       <div className="text-sm">{suggestion.suggested_text}</div>
                     </div>
                   )}
                 </div>
               ))}
               {liveSuggestions.length > 5 && (
-                <p className="text-xs text-muted-foreground text-center">
+                <p className="text-center text-xs text-muted-foreground">
                   And {liveSuggestions.length - 5} more suggestions...
                 </p>
               )}
@@ -641,7 +699,9 @@ export function OptimizationPage() {
                 Comprehensive Optimization
               </span>
               <div className="text-2xl font-bold text-primary">
-                +{comprehensiveOptimization.overall_improvement_score.toFixed(1)}%
+                +
+                {comprehensiveOptimization.overall_improvement_score.toFixed(1)}
+                %
               </div>
             </CardTitle>
             <CardDescription>
@@ -651,16 +711,26 @@ export function OptimizationPage() {
           <CardContent className="space-y-6">
             {/* Improvement Summary */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{comprehensiveOptimization.before_score.toFixed(1)}%</div>
+              <div className="rounded-lg border p-4 text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {comprehensiveOptimization.before_score.toFixed(1)}%
+                </div>
                 <div className="text-sm text-muted-foreground">Before</div>
               </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{comprehensiveOptimization.after_score.toFixed(1)}%</div>
+              <div className="rounded-lg border p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {comprehensiveOptimization.after_score.toFixed(1)}%
+                </div>
                 <div className="text-sm text-muted-foreground">After</div>
               </div>
-              <div className="text-center p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
-                <div className="text-2xl font-bold text-green-600">+{comprehensiveOptimization.overall_improvement_score.toFixed(1)}%</div>
+              <div className="rounded-lg border bg-green-50 p-4 text-center dark:bg-green-900/20">
+                <div className="text-2xl font-bold text-green-600">
+                  +
+                  {comprehensiveOptimization.overall_improvement_score.toFixed(
+                    1
+                  )}
+                  %
+                </div>
                 <div className="text-sm text-muted-foreground">Improvement</div>
               </div>
             </div>
@@ -668,45 +738,55 @@ export function OptimizationPage() {
             {/* Content Improvements */}
             {comprehensiveOptimization.content_improvements.length > 0 && (
               <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
+                <h3 className="flex items-center gap-2 font-semibold">
                   <Target className="h-4 w-4" />
-                  Content Improvements ({comprehensiveOptimization.content_improvements.length})
+                  Content Improvements (
+                  {comprehensiveOptimization.content_improvements.length})
                 </h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {comprehensiveOptimization.content_improvements.map((improvement, index) => (
-                    <div key={index} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
-                          {improvement.section}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-md">
-                            {improvement.improvement_type}
+                <div className="max-h-64 space-y-3 overflow-y-auto">
+                  {comprehensiveOptimization.content_improvements.map(
+                    (improvement, index) => (
+                      <div
+                        key={index}
+                        className="space-y-2 rounded-lg border p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            {improvement.section}
                           </span>
-                          <span className="text-sm font-medium">
-                            +{improvement.impact_score.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        <div>
-                          <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Original:</div>
-                          <div className="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-200 dark:border-red-800">
-                            {improvement.original}
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-md bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                              {improvement.improvement_type}
+                            </span>
+                            <span className="text-sm font-medium">
+                              +{improvement.impact_score.toFixed(1)}%
+                            </span>
                           </div>
                         </div>
-                        <div>
-                          <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Improved:</div>
-                          <div className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded border-l-2 border-green-200 dark:border-green-800">
-                            {improvement.improved}
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <div>
+                            <div className="mb-1 text-xs font-medium text-red-600 dark:text-red-400">
+                              Original:
+                            </div>
+                            <div className="rounded border-l-2 border-red-200 bg-red-50 p-2 text-sm dark:border-red-800 dark:bg-red-900/20">
+                              {improvement.original}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
+                              Improved:
+                            </div>
+                            <div className="rounded border-l-2 border-green-200 bg-green-50 p-2 text-sm dark:border-green-800 dark:bg-green-900/20">
+                              {improvement.improved}
+                            </div>
                           </div>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          {improvement.reasoning}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {improvement.reasoning}
-                      </p>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -714,44 +794,54 @@ export function OptimizationPage() {
             {/* Achievement Improvements */}
             {comprehensiveOptimization.achievement_improvements.length > 0 && (
               <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
+                <h3 className="flex items-center gap-2 font-semibold">
                   <Award className="h-4 w-4" />
-                  Achievement Improvements ({comprehensiveOptimization.achievement_improvements.length})
+                  Achievement Improvements (
+                  {comprehensiveOptimization.achievement_improvements.length})
                 </h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {comprehensiveOptimization.achievement_improvements.map((improvement, index) => (
-                    <div key={index} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-md">
-                          {improvement.improvement_type}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {improvement.xyz_structure_applied && (
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
-                              X-Y-Z Applied
-                            </span>
-                          )}
-                          <span className="text-sm font-medium">
-                            +{improvement.impact_score.toFixed(1)}%
+                <div className="max-h-64 space-y-3 overflow-y-auto">
+                  {comprehensiveOptimization.achievement_improvements.map(
+                    (improvement, index) => (
+                      <div
+                        key={index}
+                        className="space-y-2 rounded-lg border p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-md bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                            {improvement.improvement_type}
                           </span>
-                        </div>
-                      </div>
-                      <div className="grid gap-2">
-                        <div>
-                          <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Original:</div>
-                          <div className="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-200 dark:border-red-800">
-                            {improvement.original_bullet}
+                          <div className="flex items-center gap-2">
+                            {improvement.xyz_structure_applied && (
+                              <span className="rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                X-Y-Z Applied
+                              </span>
+                            )}
+                            <span className="text-sm font-medium">
+                              +{improvement.impact_score.toFixed(1)}%
+                            </span>
                           </div>
                         </div>
-                        <div>
-                          <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Improved:</div>
-                          <div className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded border-l-2 border-green-200 dark:border-green-800">
-                            {improvement.improved_bullet}
+                        <div className="grid gap-2">
+                          <div>
+                            <div className="mb-1 text-xs font-medium text-red-600 dark:text-red-400">
+                              Original:
+                            </div>
+                            <div className="rounded border-l-2 border-red-200 bg-red-50 p-2 text-sm dark:border-red-800 dark:bg-red-900/20">
+                              {improvement.original_bullet}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
+                              Improved:
+                            </div>
+                            <div className="rounded border-l-2 border-green-200 bg-green-50 p-2 text-sm dark:border-green-800 dark:bg-green-900/20">
+                              {improvement.improved_bullet}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -782,15 +872,21 @@ export function OptimizationPage() {
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Before</div>
-                  <div className="text-lg font-bold">{optimizationResult.before_score.toFixed(1)}%</div>
+                  <div className="text-lg font-bold">
+                    {optimizationResult.before_score.toFixed(1)}%
+                  </div>
                 </div>
                 <div className="text-2xl text-muted-foreground">→</div>
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">After</div>
-                  <div className="text-lg font-bold text-green-600">{optimizationResult.after_score.toFixed(1)}%</div>
+                  <div className="text-lg font-bold text-green-600">
+                    {optimizationResult.after_score.toFixed(1)}%
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Improvement</div>
+                  <div className="text-sm text-muted-foreground">
+                    Improvement
+                  </div>
                   <div className="text-lg font-bold text-green-600">
                     +{optimizationResult.improvement_percentage.toFixed(1)}%
                   </div>
@@ -803,13 +899,13 @@ export function OptimizationPage() {
               <h3 className="font-semibold">Changes Made</h3>
               <div className="space-y-3">
                 {optimizationResult.changes_made.map((change, index) => (
-                  <div key={index} className="border rounded-lg p-4 space-y-2">
+                  <div key={index} className="space-y-2 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
+                        <span className="rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                           {change.section}
                         </span>
-                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-md">
+                        <span className="rounded-md bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300">
                           {change.change_type}
                         </span>
                       </div>
@@ -819,14 +915,18 @@ export function OptimizationPage() {
                     </div>
                     <div className="grid gap-2 md:grid-cols-2">
                       <div>
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Original:</div>
-                        <div className="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-200 dark:border-red-800">
+                        <div className="mb-1 text-xs font-medium text-red-600 dark:text-red-400">
+                          Original:
+                        </div>
+                        <div className="rounded border-l-2 border-red-200 bg-red-50 p-2 text-sm dark:border-red-800 dark:bg-red-900/20">
                           {change.original}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Optimized:</div>
-                        <div className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded border-l-2 border-green-200 dark:border-green-800">
+                        <div className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
+                          Optimized:
+                        </div>
+                        <div className="rounded border-l-2 border-green-200 bg-green-50 p-2 text-sm dark:border-green-800 dark:bg-green-900/20">
                           {change.optimized}
                         </div>
                       </div>
@@ -851,15 +951,17 @@ export function OptimizationPage() {
           <CardContent className="space-y-6">
             {/* Category Scores */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(currentScore.category_scores).map(([category, score]) => (
-                <div key={category} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="capitalize font-medium">{category}</span>
-                    <span>{score.toFixed(1)}%</span>
+              {Object.entries(currentScore.category_scores).map(
+                ([category, score]) => (
+                  <div key={category} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium capitalize">{category}</span>
+                      <span>{score.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={score} />
                   </div>
-                  <Progress value={score} />
-                </div>
-              ))}
+                )
+              )}
             </div>
 
             {/* Missing Keywords */}
@@ -867,16 +969,18 @@ export function OptimizationPage() {
               <div className="space-y-3">
                 <h3 className="font-semibold">Missing Keywords</h3>
                 <div className="flex flex-wrap gap-2">
-                  {currentScore.missing_keywords.slice(0, 10).map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded-md"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
+                  {currentScore.missing_keywords
+                    .slice(0, 10)
+                    .map((keyword, index) => (
+                      <span
+                        key={index}
+                        className="rounded-md bg-red-100 px-2 py-1 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
                   {currentScore.missing_keywords.length > 10 && (
-                    <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded-md">
+                    <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
                       +{currentScore.missing_keywords.length - 10} more
                     </span>
                   )}
@@ -889,12 +993,17 @@ export function OptimizationPage() {
               <div className="space-y-3">
                 <h3 className="font-semibold">Recommendations</h3>
                 <ul className="space-y-2">
-                  {currentScore.recommendations.slice(0, 5).map((rec, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-primary mt-1">•</span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
+                  {currentScore.recommendations
+                    .slice(0, 5)
+                    .map((rec, index) => (
+                      <li
+                        key={index}
+                        className="flex items-start gap-2 text-sm"
+                      >
+                        <span className="mt-1 text-primary">•</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
                 </ul>
               </div>
             )}

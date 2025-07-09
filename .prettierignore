@@ -1,0 +1,13 @@
+dist
+node_modules
+src-tauri/target
+*.d.ts
+.git
+.vscode
+.idea
+coverage
+*.log
+*.lock
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
