@@ -22,7 +22,8 @@ function App() {
     userPreferences,
     setSelectedModel,
     currentDetailedAnalysis,
-    setActiveTab
+    setActiveTab,
+    isOllamaConnected
   } = useAppStore();
   
   // Initialize user preferences
@@ -121,7 +122,7 @@ function App() {
           } else {
             // If disconnected, clear models
             setModels([]);
-            setSelectedModel(null);
+            setSelectedModel('');
           }
         }
       } catch (error) {
