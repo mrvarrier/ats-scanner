@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/store/useAppStore';
@@ -20,8 +19,6 @@ import {
   Calendar,
   BarChart3,
   TrendingUp,
-  TrendingDown,
-  Eye,
   Trash2,
   RefreshCw,
   SortAsc,
@@ -81,8 +78,8 @@ export function ResultsPage() {
   );
 
   useEffect(() => {
-    loadAnalysisHistory();
-    loadResumeInfo();
+    void loadAnalysisHistory();
+    void loadResumeInfo();
   }, []);
 
   useEffect(() => {
@@ -103,10 +100,9 @@ export function ResultsPage() {
       if (result.success && result.data) {
         setAnalysisHistory(result.data);
       } else {
-        throw new Error(result.error || 'Failed to load analysis history');
+        throw new Error(result.error ?? 'Failed to load analysis history');
       }
     } catch (error) {
-      console.error('Error loading analysis history:', error);
       toast({
         title: 'Error loading results',
         description: `Failed to load analysis history: ${error}`,
@@ -128,8 +124,8 @@ export function ResultsPage() {
         });
         setResumeMap(map);
       }
-    } catch (error) {
-      console.error('Error loading resume info:', error);
+    } catch {
+      // Resume info loading failed - continue without it
     }
   };
 
@@ -207,10 +203,9 @@ export function ResultsPage() {
           description: `Analysis exported to ${exportResult.data}`,
         });
       } else {
-        throw new Error(exportResult.error || 'Export failed');
+        throw new Error(exportResult.error ?? 'Export failed');
       }
     } catch (error) {
-      console.error('Export error:', error);
       toast({
         title: 'Export failed',
         description: `Error: ${error}`,
@@ -219,7 +214,7 @@ export function ResultsPage() {
     }
   };
 
-  const handleDeleteResult = async (resultId: string) => {
+  const handleDeleteResult = async (_resultId: string) => {
     try {
       // Note: We would need to implement delete_analysis command in backend
       toast({
@@ -227,8 +222,8 @@ export function ResultsPage() {
         description: 'Delete functionality would be implemented here',
         variant: 'default',
       });
-    } catch (error) {
-      console.error('Delete error:', error);
+    } catch {
+      // Delete error - functionality not implemented yet
     }
   };
 
@@ -265,7 +260,7 @@ export function ResultsPage() {
         achievementAnalysis: achievementAnalysis,
         mlInsights: mlInsights,
         resumeFilename:
-          resumeInfo?.filename || `Resume ${result.resume_id.slice(0, 8)}`,
+          resumeInfo?.filename ?? `Resume ${result.resume_id.slice(0, 8)}`,
         jobDescription: '', // This would need to be retrieved from backend
         modelUsed: result.model_used,
         timestamp: result.created_at,
@@ -273,8 +268,7 @@ export function ResultsPage() {
 
       setCurrentDetailedAnalysis(detailedAnalysisData);
       setActiveTab('analysis-result');
-    } catch (error) {
-      console.error('Error viewing full analysis:', error);
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to load detailed analysis',
@@ -309,7 +303,7 @@ export function ResultsPage() {
 
   const parseMissingKeywords = (keywordsStr: string): string[] => {
     try {
-      return JSON.parse(keywordsStr) || [];
+      return (JSON.parse(keywordsStr) as string[]) ?? [];
     } catch {
       return keywordsStr ? [keywordsStr] : [];
     }
@@ -317,7 +311,7 @@ export function ResultsPage() {
 
   const parseRecommendations = (recommendationsStr: string): string[] => {
     try {
-      return JSON.parse(recommendationsStr) || [];
+      return (JSON.parse(recommendationsStr) as string[]) ?? [];
     } catch {
       return recommendationsStr ? [recommendationsStr] : [];
     }
@@ -359,7 +353,9 @@ export function ResultsPage() {
             <div className="flex gap-2">
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as any)}
+                onChange={e =>
+                  setSortBy(e.target.value as 'date' | 'score' | 'model')
+                }
                 className="rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="date">Sort by Date</option>
@@ -385,7 +381,11 @@ export function ResultsPage() {
             {/* Score Filter */}
             <select
               value={filterScore}
-              onChange={e => setFilterScore(e.target.value as any)}
+              onChange={e =>
+                setFilterScore(
+                  e.target.value as 'all' | 'high' | 'medium' | 'low'
+                )
+              }
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="all">All Scores</option>
@@ -502,7 +502,7 @@ export function ResultsPage() {
                         <div className="mb-3 flex items-center gap-3">
                           <FileText className="h-5 w-5 text-primary" />
                           <span className="text-lg font-semibold">
-                            {resumeInfo?.filename ||
+                            {resumeInfo?.filename ??
                               `Resume ${result.resume_id.slice(0, 8)}`}
                           </span>
                           <Badge variant="outline" className="text-xs">

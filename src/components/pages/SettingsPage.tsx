@@ -90,7 +90,7 @@ export function SettingsPage() {
       } else {
         toast({
           title: 'Error',
-          description: result.error || 'Failed to export preferences',
+          description: result.error ?? 'Failed to export preferences',
           variant: 'destructive',
         });
       }
@@ -477,7 +477,7 @@ export function SettingsPage() {
               <Input
                 id="notification-email"
                 type="email"
-                value={userPreferences.notification_email || ''}
+                value={userPreferences.notification_email ?? ''}
                 onChange={e =>
                   updatePreference({ notification_email: e.target.value })
                 }

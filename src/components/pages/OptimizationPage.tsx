@@ -150,12 +150,8 @@ export function OptimizationPage() {
     useState(false);
 
   // Real-time analysis with debouncing
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
-    null
-  );
-  const [suggestionTimer, setSuggestionTimer] = useState<NodeJS.Timeout | null>(
-    null
-  );
+  const [debounceTimer, setDebounceTimer] = useState<number | null>(null);
+  const [suggestionTimer, setSuggestionTimer] = useState<number | null>(null);
 
   const performAnalysis = useCallback(
     async (content: string) => {
@@ -177,8 +173,8 @@ export function OptimizationPage() {
         if (result.success && result.data) {
           setCurrentScore(result.data);
         }
-      } catch (error) {
-        console.error('Analysis error:', error);
+      } catch {
+        // Analysis error - continue without score
       } finally {
         setIsAnalyzing(false);
       }
@@ -195,7 +191,7 @@ export function OptimizationPage() {
     }
 
     const timer = setTimeout(() => {
-      performAnalysis(optimizedContent);
+      void performAnalysis(optimizedContent);
     }, 1000);
 
     setDebounceTimer(timer);
@@ -215,7 +211,7 @@ export function OptimizationPage() {
     }
 
     const timer = setTimeout(() => {
-      fetchLiveSuggestions(optimizedContent, jobDescription);
+      void fetchLiveSuggestions(optimizedContent, jobDescription);
     }, 2000);
 
     setSuggestionTimer(timer);
@@ -239,8 +235,8 @@ export function OptimizationPage() {
       if (result.success && result.data) {
         setLiveSuggestions(result.data);
       }
-    } catch (error) {
-      console.error('Live suggestions error:', error);
+    } catch {
+      // Live suggestions error - continue without suggestions
     }
   };
 
@@ -277,10 +273,9 @@ export function OptimizationPage() {
           description: `${result.data.overall_improvement_score.toFixed(1)}% improvement achieved`,
         });
       } else {
-        throw new Error(result.error || 'Comprehensive optimization failed');
+        throw new Error(result.error ?? 'Comprehensive optimization failed');
       }
     } catch (error) {
-      console.error('Comprehensive optimization error:', error);
       toast({
         title: 'Optimization failed',
         description: `Error: ${error}`,
@@ -326,10 +321,9 @@ export function OptimizationPage() {
           description: `${result.data.improvement_percentage.toFixed(1)}% improvement achieved`,
         });
       } else {
-        throw new Error(result.error || 'Optimization failed');
+        throw new Error(result.error ?? 'Optimization failed');
       }
     } catch (error) {
-      console.error('Optimization error:', error);
       toast({
         title: 'Optimization failed',
         description: `Error: ${error}`,
@@ -368,7 +362,6 @@ export function OptimizationPage() {
         });
       }
     } catch (error) {
-      console.error('Export error:', error);
       toast({
         title: 'Export failed',
         description: `Error: ${error}`,
@@ -414,7 +407,7 @@ export function OptimizationPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">AI Model</label>
               <select
-                value={selectedModel || ''}
+                value={selectedModel ?? ''}
                 onChange={e => setSelectedModel(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 disabled={models.length === 0}
@@ -432,7 +425,11 @@ export function OptimizationPage() {
               <label className="text-sm font-medium">Optimization Level</label>
               <select
                 value={optimizationLevel}
-                onChange={e => setOptimizationLevel(e.target.value as any)}
+                onChange={e =>
+                  setOptimizationLevel(
+                    e.target.value as 'Conservative' | 'Balanced' | 'Aggressive'
+                  )
+                }
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="Conservative">Conservative</option>
