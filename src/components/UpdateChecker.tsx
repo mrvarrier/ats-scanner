@@ -38,6 +38,38 @@ export function UpdateChecker() {
   const [checking, setChecking] = useState(false);
   const { toast } = useToast();
 
+  const checkForUpdates = useCallback(async () => {
+    try {
+      setChecking(true);
+      setUpdateStatus(prev => ({ ...prev, error: undefined }));
+
+      const update = await checkUpdate();
+
+      if (update.shouldUpdate) {
+        setUpdateStatus({
+          available: true,
+          version: update.manifest?.version,
+          date: update.manifest?.date,
+          body: update.manifest?.body,
+          downloading: false,
+          downloaded: false,
+          progress: 0,
+        });
+
+        toast({
+          title: 'Update Available',
+          description: `Version ${update.manifest?.version} is available for download.`,
+        });
+      } else {
+        setUpdateStatus(prev => ({ ...prev, available: false }));
+      }
+    } catch (error) {
+      setUpdateStatus(prev => ({ ...prev, error: String(error) }));
+    } finally {
+      setChecking(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     // Listen for updater events
     const unlisten = onUpdaterEvent(({ error, status }) => {
@@ -79,38 +111,6 @@ export function UpdateChecker() {
       void unlisten.then(fn => fn());
     };
   }, [checkForUpdates, toast]);
-
-  const checkForUpdates = useCallback(async () => {
-    try {
-      setChecking(true);
-      setUpdateStatus(prev => ({ ...prev, error: undefined }));
-
-      const update = await checkUpdate();
-
-      if (update.shouldUpdate) {
-        setUpdateStatus({
-          available: true,
-          version: update.manifest?.version,
-          date: update.manifest?.date,
-          body: update.manifest?.body,
-          downloading: false,
-          downloaded: false,
-          progress: 0,
-        });
-
-        toast({
-          title: 'Update Available',
-          description: `Version ${update.manifest?.version} is available for download.`,
-        });
-      } else {
-        setUpdateStatus(prev => ({ ...prev, available: false }));
-      }
-    } catch (error) {
-      setUpdateStatus(prev => ({ ...prev, error: String(error) }));
-    } finally {
-      setChecking(false);
-    }
-  }, [toast]);
 
   const downloadAndInstall = async () => {
     try {

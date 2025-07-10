@@ -23,8 +23,14 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 export function Dashboard() {
-  const { analysisHistory, models, isOllamaConnected, setActiveTab } =
-    useAppStore();
+  const {
+    analysisHistory,
+    models,
+    isOllamaConnected,
+    connectionLastChecked,
+    isMonitoringConnection,
+    setActiveTab,
+  } = useAppStore();
 
   // Calculate dashboard statistics
   const totalAnalyses = analysisHistory.length;
@@ -47,6 +53,17 @@ export function Dashboard() {
     return date > weekAgo;
   });
 
+  // Format the last connection check time
+  const formatLastChecked = (timestamp: number | null) => {
+    if (!timestamp) return 'Never';
+    const now = Date.now();
+    const diff = now - timestamp;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -61,24 +78,49 @@ export function Dashboard() {
       <Card
         className={`${isOllamaConnected ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20'}`}
       >
-        <CardContent className="flex items-center gap-2 pt-6">
-          {isOllamaConnected ? (
-            <>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <p className="text-sm text-green-700 dark:text-green-300">
-                System ready - Ollama is connected and {models.length} model
-                {models.length !== 1 ? 's' : ''} available
+        <CardContent className="pt-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              {isOllamaConnected ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                      System ready - Ollama is connected
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      {models.length} model{models.length !== 1 ? 's' : ''}{' '}
+                      available
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                      Ollama is not connected
+                    </p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                      Please check your Ollama installation to start analyzing
+                      resumes
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="text-right">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Activity
+                  className={`h-3 w-3 ${isMonitoringConnection ? 'text-green-500' : 'text-gray-400'}`}
+                />
+                {isMonitoringConnection ? 'Monitoring' : 'Stopped'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Last checked: {formatLastChecked(connectionLastChecked)}
               </p>
-            </>
-          ) : (
-            <>
-              <XCircle className="h-4 w-4 text-yellow-600" />
-              <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                Ollama is not connected. Please check your Ollama installation
-                to start analyzing resumes.
-              </p>
-            </>
-          )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

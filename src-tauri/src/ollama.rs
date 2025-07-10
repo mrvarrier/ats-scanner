@@ -106,6 +106,21 @@ impl OllamaClient {
         }
     }
 
+    /// Lightweight health check for periodic monitoring
+    /// Uses a shorter timeout and simpler endpoint for efficiency
+    pub async fn health_check(&self) -> Result<bool> {
+        let health_client = Client::builder()
+            .timeout(Duration::from_secs(5)) // Shorter timeout for health checks
+            .connect_timeout(Duration::from_secs(2))
+            .build()
+            .map_err(|e| anyhow::anyhow!("Failed to create health check client: {}", e))?;
+
+        match health_client.get(&self.base_url).send().await {
+            Ok(response) => Ok(response.status().is_success()),
+            Err(_) => Ok(false), // Silent failure for health checks
+        }
+    }
+
     pub async fn list_models(&self) -> Result<Vec<OllamaModel>> {
         info!("Fetching available Ollama models");
 

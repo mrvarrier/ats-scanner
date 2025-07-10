@@ -11,6 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAppStore } from '@/store/useAppStore';
 import {
   FileText,
@@ -77,6 +87,8 @@ export function ResultsPage() {
   const [resumeMap, setResumeMap] = useState<Map<string, ResumeInfo>>(
     new Map()
   );
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadAnalysisHistory = useCallback(async () => {
     setIsLoading(true);
@@ -222,17 +234,47 @@ export function ResultsPage() {
     }
   };
 
-  const handleDeleteResult = async (_resultId: string) => {
+  const handleDeleteClick = (resultId: string) => {
+    setDeleteConfirmId(resultId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+
+    setIsDeleting(true);
     try {
-      // Note: We would need to implement delete_analysis command in backend
-      toast({
-        title: 'Delete functionality',
-        description: 'Delete functionality would be implemented here',
-        variant: 'default',
+      const result = await invoke<CommandResult<boolean>>('delete_analysis', {
+        id: deleteConfirmId,
       });
-    } catch {
-      // Delete error - functionality not implemented yet
+
+      if (result.success) {
+        // Remove the deleted analysis from the local state
+        const updatedHistory = analysisHistory.filter(
+          analysis => analysis.id !== deleteConfirmId
+        );
+        setAnalysisHistory(updatedHistory);
+
+        toast({
+          title: 'Analysis deleted',
+          description: 'The analysis has been successfully deleted.',
+        });
+      } else {
+        throw new Error(result.error ?? 'Failed to delete analysis');
+      }
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: `Failed to delete analysis: ${error}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmId(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmId(null);
   };
 
   const handleViewFullAnalysis = async (result: AnalysisResult) => {
@@ -656,7 +698,7 @@ export function ResultsPage() {
                       </div>
                       <Button
                         variant="ghost"
-                        onClick={() => handleDeleteResult(result.id)}
+                        onClick={() => handleDeleteClick(result.id)}
                         size="sm"
                         className="text-muted-foreground hover:text-destructive"
                       >
@@ -670,6 +712,42 @@ export function ResultsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteConfirmId}
+        onOpenChange={() => !isDeleting && setDeleteConfirmId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Analysis</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this analysis? This action cannot
+              be undone.
+              {deleteConfirmId && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  Analysis ID: {deleteConfirmId.slice(0, 8)}...
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={handleDeleteCancel}
+              disabled={isDeleting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

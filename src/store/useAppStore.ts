@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { AchievementAnalysis, MLInsights, Analysis } from '../types/api';
+import { invoke } from '@tauri-apps/api/tauri';
 
 export interface OllamaModel {
   name: string;
@@ -80,6 +81,9 @@ interface AppState {
   models: OllamaModel[];
   selectedModel: string;
   isOllamaConnected: boolean;
+  connectionLastChecked: number | null;
+  connectionRetryCount: number;
+  isMonitoringConnection: boolean;
 
   // Analysis state
   currentAnalysis: AnalysisResult | null;
@@ -119,11 +123,18 @@ interface AppState {
   setIsLoadingPreferences: (_loading: boolean) => void;
   setActiveTab: (_tab: string) => void;
   toggleDarkMode: () => void;
+
+  // Connection monitoring actions
+  startConnectionMonitoring: () => void;
+  stopConnectionMonitoring: () => void;
+  checkConnectionHealth: () => Promise<void>;
+  setConnectionRetryCount: (_count: number) => void;
 }
 
-// Extend window type for theme cleanup function
-interface WindowWithThemeCleanup extends Window {
+// Extend window type for cleanup functions
+interface WindowWithCleanup extends Window {
   __themeChangeCleanup?: () => void;
+  __connectionMonitoringCleanup?: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -133,6 +144,9 @@ export const useAppStore = create<AppState>()(
       models: [],
       selectedModel: '',
       isOllamaConnected: false,
+      connectionLastChecked: null,
+      connectionRetryCount: 0,
+      isMonitoringConnection: false,
       currentAnalysis: null,
       analysisHistory: [],
       isAnalyzing: false,
@@ -215,8 +229,9 @@ export const useAppStore = create<AppState>()(
           // Listen for system theme changes if using System theme
           if (preferences.theme === 'System') {
             // Cleanup any existing listener
-            if ((window as WindowWithThemeCleanup).__themeChangeCleanup) {
-              (window as WindowWithThemeCleanup).__themeChangeCleanup();
+            const cleanup = (window as WindowWithCleanup).__themeChangeCleanup;
+            if (cleanup && typeof cleanup === 'function') {
+              cleanup();
             }
 
             const mediaQuery = window.matchMedia(
@@ -232,14 +247,15 @@ export const useAppStore = create<AppState>()(
             mediaQuery.addEventListener('change', handleSystemThemeChange);
 
             // Store cleanup function
-            (window as WindowWithThemeCleanup).__themeChangeCleanup = () => {
+            (window as WindowWithCleanup).__themeChangeCleanup = () => {
               mediaQuery.removeEventListener('change', handleSystemThemeChange);
             };
           } else {
             // Cleanup listener if not using System theme
-            if ((window as WindowWithThemeCleanup).__themeChangeCleanup) {
-              (window as WindowWithThemeCleanup).__themeChangeCleanup();
-              delete (window as WindowWithThemeCleanup).__themeChangeCleanup;
+            const cleanup = (window as WindowWithCleanup).__themeChangeCleanup;
+            if (cleanup && typeof cleanup === 'function') {
+              cleanup();
+              delete (window as WindowWithCleanup).__themeChangeCleanup;
             }
           }
         }
@@ -248,6 +264,95 @@ export const useAppStore = create<AppState>()(
         set({ isLoadingPreferences: loading }),
       setActiveTab: tab => set({ activeTab: tab }),
       toggleDarkMode: () => set(state => ({ isDarkMode: !state.isDarkMode })),
+
+      // Connection monitoring actions
+      setConnectionRetryCount: count => set({ connectionRetryCount: count }),
+
+      checkConnectionHealth: async () => {
+        try {
+          const result = await invoke<{ success: boolean; data: boolean }>(
+            'ollama_health_check'
+          );
+          const isConnected = result.success && result.data;
+          const currentState = get();
+
+          set({
+            isOllamaConnected: isConnected,
+            connectionLastChecked: Date.now(),
+            connectionRetryCount: isConnected
+              ? 0
+              : currentState.connectionRetryCount + 1,
+          });
+        } catch (_error) {
+          // Silent failure for health checks - no logging needed
+          const currentState = get();
+          set({
+            isOllamaConnected: false,
+            connectionLastChecked: Date.now(),
+            connectionRetryCount: currentState.connectionRetryCount + 1,
+          });
+        }
+      },
+
+      startConnectionMonitoring: () => {
+        const currentState = get();
+        if (currentState.isMonitoringConnection) return;
+
+        set({ isMonitoringConnection: true });
+
+        // Cleanup any existing monitoring
+        const cleanup = (window as WindowWithCleanup)
+          .__connectionMonitoringCleanup;
+        if (cleanup && typeof cleanup === 'function') {
+          cleanup();
+        }
+
+        // Initial health check
+        void get().checkConnectionHealth();
+
+        // Set up periodic health checks with exponential backoff on failures
+        const scheduleHealthCheck = () => {
+          const state = get();
+          if (!state.isMonitoringConnection) return;
+
+          const baseInterval = 10000; // 10 seconds base interval for better responsiveness
+          const maxInterval = 300000; // 5 minutes max interval
+          const backoffFactor = 1.5;
+
+          // Calculate delay based on retry count (exponential backoff for failures)
+          const interval = state.isOllamaConnected
+            ? baseInterval
+            : Math.min(
+                baseInterval *
+                  Math.pow(backoffFactor, state.connectionRetryCount),
+                maxInterval
+              );
+
+          const timeoutId = setTimeout(async () => {
+            await get().checkConnectionHealth();
+            scheduleHealthCheck();
+          }, interval);
+
+          // Store cleanup function
+          (window as WindowWithCleanup).__connectionMonitoringCleanup = () => {
+            clearTimeout(timeoutId);
+          };
+        };
+
+        scheduleHealthCheck();
+      },
+
+      stopConnectionMonitoring: () => {
+        set({ isMonitoringConnection: false });
+
+        // Cleanup monitoring
+        const cleanup = (window as WindowWithCleanup)
+          .__connectionMonitoringCleanup;
+        if (cleanup && typeof cleanup === 'function') {
+          cleanup();
+          delete (window as WindowWithCleanup).__connectionMonitoringCleanup;
+        }
+      },
     }),
     {
       name: 'ats-scanner-store',

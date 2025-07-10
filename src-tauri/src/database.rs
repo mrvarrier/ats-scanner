@@ -504,6 +504,16 @@ impl Database {
         Ok(analyses)
     }
 
+    pub async fn delete_analysis(&self, id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM analyses WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        info!("Analysis deleted: {}", id);
+        Ok(())
+    }
+
     pub async fn delete_resume(&self, id: &str) -> Result<()> {
         // First delete associated analyses
         sqlx::query("DELETE FROM analyses WHERE resume_id = ?")

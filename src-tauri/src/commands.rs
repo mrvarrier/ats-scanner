@@ -159,6 +159,19 @@ pub async fn test_ollama_connection() -> CommandResult<bool> {
 }
 
 #[tauri::command]
+pub async fn ollama_health_check() -> CommandResult<bool> {
+    let ollama_client = match OllamaClient::new(None) {
+        Ok(client) => client,
+        Err(_) => return CommandResult::success(false), // Silent failure for health checks
+    };
+
+    match ollama_client.health_check().await {
+        Ok(healthy) => CommandResult::success(healthy),
+        Err(_) => CommandResult::success(false), // Silent failure for health checks
+    }
+}
+
+#[tauri::command]
 pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
     info!("Parsing document: {}", file_path);
 
@@ -361,6 +374,30 @@ pub async fn get_analysis_history(
             error!("Failed to get analysis history: {}", e);
             Ok(CommandResult::error(format!(
                 "Failed to get history: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn delete_analysis(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<CommandResult<bool>, String> {
+    info!("Deleting analysis with ID: {}", id);
+
+    let db = state.db.lock().await;
+
+    match db.delete_analysis(&id).await {
+        Ok(()) => {
+            info!("Analysis deleted successfully");
+            Ok(CommandResult::success(true))
+        }
+        Err(e) => {
+            error!("Failed to delete analysis: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to delete analysis: {}",
                 e
             )))
         }

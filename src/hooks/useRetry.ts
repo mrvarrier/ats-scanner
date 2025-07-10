@@ -88,7 +88,7 @@ export function useRetry<T>(
     });
 
     let attempt = 1;
-    let lastError: Error;
+    let lastError: Error = new Error('Unknown error');
 
     while (attempt <= maxAttempts) {
       try {
@@ -230,7 +230,7 @@ export async function retryAsync<T>(
 ): Promise<T> {
   const opts = { ...defaultOptions, ...options };
   let attempt = 1;
-  let lastError: Error;
+  let lastError: Error = new Error('Unknown error');
 
   while (attempt <= opts.maxAttempts) {
     try {

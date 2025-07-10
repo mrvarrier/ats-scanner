@@ -21,6 +21,7 @@ function App() {
     setActiveTab,
     setOllamaConnection,
     setModels,
+    startConnectionMonitoring,
   } = useAppStore();
 
   // Initialize user preferences
@@ -75,6 +76,11 @@ function App() {
     setOllamaConnection,
     setModels,
   ]);
+
+  // Start connection monitoring when app initializes
+  useEffect(() => {
+    startConnectionMonitoring();
+  }, [startConnectionMonitoring]);
 
   const renderActivePage = () => {
     switch (activeTab) {

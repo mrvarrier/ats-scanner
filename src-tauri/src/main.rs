@@ -76,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .invoke_handler(tauri::generate_handler![
             commands::get_ollama_models,
             commands::test_ollama_connection,
+            commands::ollama_health_check,
             commands::parse_document,
             commands::save_resume,
             commands::get_all_resumes,
@@ -83,6 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::delete_resume,
             commands::analyze_resume,
             commands::get_analysis_history,
+            commands::delete_analysis,
             commands::export_results,
             commands::optimize_resume,
             commands::get_model_performance,
