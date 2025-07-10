@@ -199,7 +199,7 @@ export function OptimizationPage() {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [optimizedContent, isRealTimeMode, performAnalysis]);
+  }, [optimizedContent, isRealTimeMode, performAnalysis, debounceTimer]);
 
   // Debounced real-time suggestions
   useEffect(() => {
@@ -219,7 +219,7 @@ export function OptimizationPage() {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [optimizedContent, jobDescription, isRealTimeMode]);
+  }, [optimizedContent, jobDescription, isRealTimeMode, suggestionTimer]);
 
   // Fetch live suggestions
   const fetchLiveSuggestions = async (content: string, jobDesc: string) => {
