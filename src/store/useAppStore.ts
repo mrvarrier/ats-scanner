@@ -78,7 +78,7 @@ export interface UserPreferences {
 interface AppState {
   // Ollama state
   models: OllamaModel[];
-  selectedModel: string | null;
+  selectedModel: string;
   isOllamaConnected: boolean;
 
   // Analysis state
@@ -107,7 +107,7 @@ interface AppState {
 
   // Actions
   setModels: (_models: OllamaModel[]) => void;
-  setSelectedModel: (_model: string | null) => void;
+  setSelectedModel: (_model: string) => void;
   setOllamaConnection: (_connected: boolean) => void;
   setCurrentAnalysis: (_analysis: AnalysisResult | null) => void;
   setAnalysisHistory: (_history: Analysis[]) => void;
@@ -131,7 +131,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       // Initial state
       models: [],
-      selectedModel: null,
+      selectedModel: '',
       isOllamaConnected: false,
       currentAnalysis: null,
       analysisHistory: [],

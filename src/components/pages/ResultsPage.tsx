@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import {
   Card,
@@ -80,13 +80,20 @@ export function ResultsPage() {
   useEffect(() => {
     void loadAnalysisHistory();
     void loadResumeInfo();
-  }, []);
+  }, [loadAnalysisHistory, loadResumeInfo]);
 
   useEffect(() => {
     filterAndSortResults();
-  }, [analysisHistory, searchTerm, sortBy, sortOrder, filterScore]);
+  }, [
+    analysisHistory,
+    searchTerm,
+    sortBy,
+    sortOrder,
+    filterScore,
+    filterAndSortResults,
+  ]);
 
-  const loadAnalysisHistory = async () => {
+  const loadAnalysisHistory = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await invoke<CommandResult<AnalysisResult[]>>(
@@ -111,9 +118,9 @@ export function ResultsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setAnalysisHistory]);
 
-  const loadResumeInfo = async () => {
+  const loadResumeInfo = useCallback(async () => {
     try {
       const result =
         await invoke<CommandResult<ResumeInfo[]>>('get_all_resumes');
@@ -127,9 +134,9 @@ export function ResultsPage() {
     } catch {
       // Resume info loading failed - continue without it
     }
-  };
+  }, []);
 
-  const filterAndSortResults = () => {
+  const filterAndSortResults = useCallback(() => {
     let filtered = [...analysisHistory];
 
     // Apply search filter
@@ -185,7 +192,7 @@ export function ResultsPage() {
     });
 
     setFilteredResults(filtered);
-  };
+  }, [analysisHistory, searchTerm, sortBy, sortOrder, filterScore, resumeMap]);
 
   const handleExportResult = async (result: AnalysisResult) => {
     try {

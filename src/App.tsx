@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import React, { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { useUserPreferences } from './hooks/useUserPreferences';
 import { MainLayout } from './components/layout/MainLayout';
@@ -11,24 +10,18 @@ import { AnalysisResultPage } from './components/pages/AnalysisResultPage';
 import { SettingsPage } from './components/pages/SettingsPage';
 import { Toaster } from './components/ui/toaster';
 import { ErrorBoundary } from './components/ui/error-boundary';
-import { CommandResult, OllamaModel, Analysis } from './types/api';
 
 function App() {
   const {
     activeTab,
-    setModels,
-    setOllamaConnection,
-    setAnalysisHistory,
     isDarkMode,
     userPreferences,
-    setSelectedModel,
     currentDetailedAnalysis,
     setActiveTab,
-    isOllamaConnected,
   } = useAppStore();
 
   // Initialize user preferences
-  const { userPreferences: loadedPreferences } = useUserPreferences();
+  useUserPreferences();
 
   useEffect(() => {
     // Apply theme classes to html element
@@ -52,125 +45,6 @@ function App() {
     html.classList.add('light');
     html.classList.remove('dark', 'high-contrast');
   }, []);
-
-  useEffect(() => {
-    // Initialize app data when preferences are available
-    const initializeApp = async () => {
-      try {
-        // Only auto-connect if user preferences allow it
-        const shouldAutoConnect =
-          !userPreferences || userPreferences.auto_connect_on_startup;
-
-        if (shouldAutoConnect) {
-          // Test Ollama connection
-          const connectionResult = await invoke<CommandResult<boolean>>(
-            'test_ollama_connection'
-          );
-          if (connectionResult.success && connectionResult.data) {
-            setOllamaConnection(true);
-
-            // Get available models
-            const modelsResult =
-              await invoke<CommandResult<OllamaModel[]>>('get_ollama_models');
-            if (modelsResult.success) {
-              const models = modelsResult.data ?? [];
-              setModels(models);
-
-              // Auto-select default model if set in preferences
-              if (
-                userPreferences?.default_model &&
-                models.some(
-                  (m: OllamaModel) => m.name === userPreferences.default_model
-                )
-              ) {
-                setSelectedModel(userPreferences.default_model);
-              }
-            }
-          } else {
-            setOllamaConnection(false);
-          }
-        }
-
-        // Get analysis history (respecting retention settings)
-        const retentionDays =
-          userPreferences?.analysis_history_retention_days ?? 90;
-        const historyResult = await invoke<CommandResult<Analysis[]>>(
-          'get_analysis_history',
-          {
-            limit: 50,
-            days: retentionDays,
-          }
-        );
-        if (historyResult.success) {
-          setAnalysisHistory(
-            Array.isArray(historyResult.data) ? historyResult.data : []
-          );
-        }
-      } catch {
-        // Silently handle initialization failure - app will continue with defaults
-      }
-    };
-
-    // Only initialize when preferences have been loaded (or failed to load)
-    if (loadedPreferences !== undefined) {
-      void initializeApp();
-    }
-  }, [
-    setModels,
-    setOllamaConnection,
-    setAnalysisHistory,
-    userPreferences,
-    loadedPreferences,
-    setSelectedModel,
-  ]);
-
-  // Periodic Ollama connection monitoring
-  useEffect(() => {
-    const checkOllamaConnection = async () => {
-      try {
-        const result = await invoke<CommandResult<boolean>>(
-          'test_ollama_connection'
-        );
-        const isConnected = result.success && result.data;
-
-        // Only update if connection status changed
-        if (isConnected !== isOllamaConnected) {
-          setOllamaConnection(isConnected);
-
-          // If connected, refresh models list
-          if (isConnected) {
-            const modelsResult =
-              await invoke<CommandResult<OllamaModel[]>>('get_ollama_models');
-            if (modelsResult.success) {
-              setModels(modelsResult.data ?? []);
-            }
-          } else {
-            // If disconnected, clear models
-            setModels([]);
-            setSelectedModel('');
-          }
-        }
-      } catch {
-        // Silently handle connection check failure
-        setOllamaConnection(false);
-        setModels([]);
-        setSelectedModel(null);
-      }
-    };
-
-    // Start periodic monitoring after app is initialized
-    if (loadedPreferences !== undefined) {
-      const interval = setInterval(checkOllamaConnection, 5000); // Check every 5 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [
-    loadedPreferences,
-    isOllamaConnected,
-    setOllamaConnection,
-    setModels,
-    setSelectedModel,
-  ]);
 
   const renderActivePage = () => {
     switch (activeTab) {

@@ -14,7 +14,8 @@ export function useUserPreferences() {
 
   useEffect(() => {
     void loadUserPreferences();
-  }, [loadUserPreferences]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadUserPreferences = useCallback(async () => {
     try {

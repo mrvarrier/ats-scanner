@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import { AllTheProviders } from './test-providers';
 // Note: Commenting out router import since we don't have it installed yet
 // import { BrowserRouter } from 'react-router-dom'
 
@@ -68,13 +69,6 @@ export const mockOllamaModels = [
   { name: 'codellama', size: '13B' },
   { name: 'mistral', size: '7B' },
 ];
-
-// Custom render function that includes providers
-const AllTheProviders: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  return <div>{children}</div>;
-};
 
 const customRender = (
   ui: React.ReactElement,
