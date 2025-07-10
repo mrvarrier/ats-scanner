@@ -20,58 +20,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { useAppStore } from '@/store/useAppStore';
 import { UpdateChecker } from '@/components/UpdateChecker';
-
-interface UserPreferences {
-  id: string;
-  user_id: string;
-
-  // Ollama Settings
-  ollama_host: string;
-  ollama_port: number;
-  default_model: string | null;
-  connection_timeout_seconds: number;
-  auto_connect_on_startup: boolean;
-
-  // Analysis Settings
-  default_optimization_level: 'Conservative' | 'Balanced' | 'Aggressive';
-  auto_save_analyses: boolean;
-  analysis_history_retention_days: number;
-  enable_batch_notifications: boolean;
-
-  // UI Preferences
-  theme: 'Light' | 'Dark' | 'System' | 'HighContrast';
-  language: string;
-  sidebar_collapsed: boolean;
-  show_advanced_features: boolean;
-  animation_speed: 'None' | 'Reduced' | 'Normal' | 'Fast';
-
-  // Data & Privacy
-  data_storage_location: string | null;
-  auto_backup_enabled: boolean;
-  backup_frequency_hours: number;
-  telemetry_enabled: boolean;
-
-  // Notifications
-  desktop_notifications: boolean;
-  sound_notifications: boolean;
-  email_notifications: boolean;
-  notification_email: string | null;
-
-  // Performance
-  max_concurrent_analyses: number;
-  cache_size_mb: number;
-  enable_gpu_acceleration: boolean;
-
-  // Export Settings
-  default_export_format: 'JSON' | 'CSV' | 'PDF' | 'HTML';
-  include_metadata_in_exports: boolean;
-  compress_exports: boolean;
-
-  created_at: string;
-  updated_at: string;
-}
+import { UserPreferences } from '@/store/useAppStore';
 
 export function SettingsPage() {
   const {
@@ -96,8 +46,8 @@ export function SettingsPage() {
           description: 'Your preferences have been saved successfully.',
         });
       }
-    } catch (error) {
-      console.error('Failed to update preferences:', error);
+    } catch {
+      // Error handling is done in the hook
     } finally {
       setSaving(false);
     }
@@ -107,8 +57,8 @@ export function SettingsPage() {
     try {
       setSaving(true);
       await resetUserPreferences();
-    } catch (error) {
-      console.error('Failed to reset preferences:', error);
+    } catch {
+      // Error handling is done in the hook
     } finally {
       setSaving(false);
     }
@@ -144,8 +94,7 @@ export function SettingsPage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Failed to export preferences:', error);
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to export preferences',
@@ -266,7 +215,12 @@ export function SettingsPage() {
             <Select
               value={userPreferences.default_optimization_level}
               onValueChange={value =>
-                updatePreference({ default_optimization_level: value as any })
+                updatePreference({
+                  default_optimization_level: value as
+                    | 'Conservative'
+                    | 'Balanced'
+                    | 'Aggressive',
+                })
               }
             >
               <SelectTrigger>
@@ -329,7 +283,11 @@ export function SettingsPage() {
             <Label htmlFor="theme">Theme</Label>
             <Select
               value={userPreferences.theme}
-              onValueChange={value => updatePreference({ theme: value as any })}
+              onValueChange={value =>
+                updatePreference({
+                  theme: value as 'Light' | 'Dark' | 'System' | 'HighContrast',
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select theme" />
@@ -347,7 +305,13 @@ export function SettingsPage() {
             <Select
               value={userPreferences.animation_speed}
               onValueChange={value =>
-                updatePreference({ animation_speed: value as any })
+                updatePreference({
+                  animation_speed: value as
+                    | 'None'
+                    | 'Reduced'
+                    | 'Normal'
+                    | 'Fast',
+                })
               }
             >
               <SelectTrigger>
@@ -536,7 +500,13 @@ export function SettingsPage() {
             <Select
               value={userPreferences.default_export_format}
               onValueChange={value =>
-                updatePreference({ default_export_format: value as any })
+                updatePreference({
+                  default_export_format: value as
+                    | 'JSON'
+                    | 'CSV'
+                    | 'PDF'
+                    | 'HTML',
+                })
               }
             >
               <SelectTrigger>

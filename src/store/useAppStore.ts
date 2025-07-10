@@ -59,6 +59,7 @@ export interface UserPreferences {
   sound_notifications: boolean;
   email_notifications: boolean;
   notification_email: string | null;
+  enable_batch_notifications: boolean;
 
   // Performance
   max_concurrent_analyses: number;
