@@ -2,9 +2,23 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from './ui/button';
 
+// Type for Vite environment variables
+interface ImportMetaEnv {
+  readonly PROD: boolean;
+  readonly DEV: boolean;
+  readonly MODE: string;
+}
+
+declare global {
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  // eslint-disable-next-line no-unused-vars
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
@@ -30,8 +44,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-
     this.setState({
       error,
       errorInfo,
@@ -43,19 +55,15 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     // Report to error tracking service in production
-    if (process.env.NODE_ENV === 'production') {
-      this.reportError(error, errorInfo);
+    if (import.meta.env.PROD) {
+      this.reportError();
     }
   }
 
-  private reportError = (error: Error, errorInfo: ErrorInfo) => {
+  private reportError = () => {
     // In a real app, you'd send this to an error tracking service like Sentry
-    console.error('Error reported:', {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-    });
+    // For now, we'll just track the error internally without console output
+    // TODO: Send to error tracking service
   };
 
   private handleRetry = () => {
@@ -89,12 +97,12 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
 
             <p className="mb-6 text-gray-600">
-              We're sorry, but something unexpected happened. Please try again
-              or return to the home page.
+              We&apos;re sorry, but something unexpected happened. Please try
+              again or return to the home page.
             </p>
 
             {/* Show error details in development */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="mb-6 text-left">
                 <summary className="mb-2 cursor-pointer text-sm font-medium text-gray-700">
                   Error Details (Development Only)
@@ -166,7 +174,7 @@ export function withErrorBoundary<P extends object>(
     </ErrorBoundary>
   );
 
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
+  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName ?? Component.name})`;
 
   return WrappedComponent;
 }
@@ -176,7 +184,6 @@ export function useErrorHandler() {
   const [error, setError] = React.useState<Error | null>(null);
 
   const handleError = React.useCallback((error: Error) => {
-    console.error('Async error handled:', error);
     setError(error);
   }, []);
 

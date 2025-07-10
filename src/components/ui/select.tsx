@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface SelectProps {
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: (_value: string) => void;
   disabled?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -31,7 +31,7 @@ interface SelectValueProps {
 }
 
 export function Select({
-  value,
+  value: _value,
   onValueChange,
   disabled,
   className,
@@ -95,7 +95,7 @@ export function SelectContent({
   children,
   className,
   onClick,
-}: SelectContentProps & { onClick?: (value: string) => void }) {
+}: SelectContentProps & { onClick?: (_value: string) => void }) {
   return (
     <div className={cn('p-1', className)}>
       {React.Children.map(children, child =>
@@ -112,7 +112,7 @@ export function SelectItem({
   children,
   className,
   onClick,
-}: SelectItemProps & { onClick?: (value: string) => void }) {
+}: SelectItemProps & { onClick?: (_value: string) => void }) {
   return (
     <div
       className={cn(

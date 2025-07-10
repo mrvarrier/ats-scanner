@@ -14,12 +14,10 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppStore } from '@/store/useAppStore';
 import {
-  FileText,
   Upload,
   Zap,
   AlertCircle,
   CheckCircle,
-  ArrowRight,
   RotateCcw,
   Eye,
   Sparkles,
@@ -32,6 +30,11 @@ import type {
   AchievementAnalysis,
   MLInsights,
 } from '@/types';
+
+// Extended File interface for drag-and-drop with path support
+interface FileWithPath extends File {
+  path?: string;
+}
 
 type AnalysisStep =
   | 'upload'
@@ -57,24 +60,13 @@ export function AnalysisPage() {
   const [currentStep, setCurrentStep] = useState<AnalysisStep>('upload');
   const [uploadedFile, setUploadedFile] = useState<DocumentInfo | null>(null);
   const [jobDescription, setJobDescription] = useState('');
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [_uploadProgress, setUploadProgress] = useState(0);
   const [completedAnalysis, setCompletedAnalysis] =
     useState<AnalysisResult | null>(null);
 
-  // Auto-progress through steps
-  const progressToNextStep = () => {
-    if (currentStep === 'upload' && uploadedFile) {
-      setCurrentStep('job-description');
-    } else if (currentStep === 'job-description' && jobDescription.trim()) {
-      setCurrentStep('model');
-    } else if (currentStep === 'model' && selectedModel) {
-      setCurrentStep('ready');
-    }
-  };
-
   // Drag and drop handler
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: FileWithPath[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
@@ -86,7 +78,7 @@ export function AnalysisPage() {
       const result = await invoke<CommandResult<DocumentInfo>>(
         'parse_document',
         {
-          filePath: (file as any).path || file.name,
+          filePath: file.path ?? file.name,
         }
       );
 
@@ -99,10 +91,9 @@ export function AnalysisPage() {
           description: `Parsed ${result.data.filename} (${result.data.word_count} words)`,
         });
       } else {
-        throw new Error(result.error || 'Failed to parse document');
+        throw new Error(result.error ?? 'Failed to parse document');
       }
     } catch (error) {
-      console.error('File upload error:', error);
       toast({
         title: 'Upload failed',
         description: `Error: ${error}`,
@@ -152,11 +143,10 @@ export function AnalysisPage() {
             description: `Parsed ${result.data.filename} (${result.data.word_count} words)`,
           });
         } else {
-          throw new Error(result.error || 'Failed to parse document');
+          throw new Error(result.error ?? 'Failed to parse document');
         }
       }
     } catch (error) {
-      console.error('File selection error:', error);
       toast({
         title: 'File loading failed',
         description: `Error: ${error}`,
@@ -206,13 +196,16 @@ export function AnalysisPage() {
       }, 500);
 
       try {
-        const result = await invoke<CommandResult<any>>('analyze_resume', {
-          request: {
-            resume_content: uploadedFile.content,
-            job_description: jobDescription,
-            model_name: selectedModel,
-          },
-        });
+        const result = await invoke<CommandResult<AnalysisResult>>(
+          'analyze_resume',
+          {
+            request: {
+              resume_content: uploadedFile.content,
+              job_description: jobDescription,
+              model_name: selectedModel,
+            },
+          }
+        );
 
         clearInterval(progressInterval);
         setAnalysisProgress(100);
@@ -255,14 +248,13 @@ export function AnalysisPage() {
           });
         } else {
           clearInterval(progressInterval);
-          throw new Error(result.error || 'Analysis failed');
+          throw new Error(result.error ?? 'Analysis failed');
         }
       } catch (analysisError) {
         clearInterval(progressInterval);
         throw analysisError;
       }
     } catch (error) {
-      console.error('Analysis error:', error);
       setCurrentStep('ready');
       toast({
         title: 'Analysis failed',
@@ -289,11 +281,11 @@ export function AnalysisPage() {
       if (result.success && result.data) {
         return result.data;
       } else {
-        console.warn('Achievement analysis failed:', result.error);
+        // Achievement analysis failed - continue without it
         return null;
       }
-    } catch (error) {
-      console.error('Achievement analysis error:', error);
+    } catch {
+      // Achievement analysis error - continue without it
       return null;
     }
   };
@@ -315,11 +307,11 @@ export function AnalysisPage() {
       if (result.success && result.data) {
         return result.data;
       } else {
-        console.warn('ML insights failed:', result.error);
+        // ML insights failed - continue without it
         return null;
       }
-    } catch (error) {
-      console.error('ML insights error:', error);
+    } catch {
+      // ML insights error - continue without it
       return null;
     }
   };
@@ -333,11 +325,6 @@ export function AnalysisPage() {
     setCurrentStep('upload');
     setAnalysisProgress(0);
     setUploadProgress(0);
-  };
-
-  const getStepNumber = (step: AnalysisStep): number => {
-    const steps = ['upload', 'job-description', 'model', 'ready'];
-    return steps.indexOf(step) + 1;
   };
 
   const isStepComplete = (step: AnalysisStep): boolean => {
@@ -470,7 +457,7 @@ export function AnalysisPage() {
                             size="lg"
                             onClick={e => {
                               e.stopPropagation();
-                              handleBrowseFiles();
+                              void handleBrowseFiles();
                             }}
                           >
                             <Upload className="mr-2 h-4 w-4" />
@@ -567,7 +554,7 @@ export function AnalysisPage() {
 
                   <div className="space-y-3">
                     <select
-                      value={selectedModel || ''}
+                      value={selectedModel ?? ''}
                       onChange={e => handleModelSelect(e.target.value)}
                       className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-primary"
                       disabled={models.length === 0}

@@ -12,7 +12,7 @@ export interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   maxSize?: number; // Maximum number of entries
   staleWhileRevalidate?: boolean; // Return stale data while fetching fresh
-  onEvict?: (key: string, entry: CacheEntry<unknown>) => void;
+  onEvict?: (_key: string, _entry: CacheEntry<unknown>) => void;
 }
 
 export class MemoryCache {
@@ -182,8 +182,8 @@ export function useCache<T>(
     ttl?: number;
     enabled?: boolean;
     staleWhileRevalidate?: boolean;
-    onSuccess?: (data: T) => void;
-    onError?: (error: Error) => void;
+    onSuccess?: (_data: T) => void;
+    onError?: (_error: Error) => void;
   } = {}
 ) {
   const [data, setData] = useState<T | null>(null);
@@ -248,7 +248,7 @@ export function useCache<T>(
         setStale(false);
       } else {
         // Revalidate
-        fetchData(true);
+        void fetchData(true);
       }
     },
     [key, options.ttl, fetchData]
@@ -263,7 +263,7 @@ export function useCache<T>(
 
   // Fetch on mount and when key changes
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   return {
@@ -313,7 +313,7 @@ export function useJobDescriptionsCache<T>(fetcher: () => Promise<T>) {
 // Persistent cache using localStorage
 export class PersistentCache extends MemoryCache {
   private storageKey: string;
-  private saveInterval: NodeJS.Timeout;
+  private saveInterval: ReturnType<typeof setInterval>;
   private beforeUnloadHandler: () => void;
 
   constructor(storageKey: string, options: CacheOptions = {}) {
@@ -362,11 +362,11 @@ export class PersistentCache extends MemoryCache {
     try {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
-        const data = JSON.parse(stored);
+        const data = JSON.parse(stored) as Record<string, unknown>;
         const now = Date.now();
 
         // Restore non-expired entries
-        Object.entries(data).forEach(([key, entry]: [string, unknown]) => {
+        Object.entries(data).forEach(([key, entry]) => {
           if (entry && typeof entry === 'object' && 'expiresAt' in entry) {
             const cacheEntry = entry as CacheEntry<unknown>;
             if (cacheEntry.expiresAt > now) {
@@ -375,8 +375,8 @@ export class PersistentCache extends MemoryCache {
           }
         });
       }
-    } catch (error) {
-      console.warn('Failed to load cache from storage:', error);
+    } catch {
+      // Failed to load cache from storage - continue with empty cache
     }
   }
 
@@ -384,8 +384,8 @@ export class PersistentCache extends MemoryCache {
     try {
       const data = Object.fromEntries(this.cache.entries());
       localStorage.setItem(this.storageKey, JSON.stringify(data));
-    } catch (error) {
-      console.warn('Failed to save cache to storage:', error);
+    } catch {
+      // Failed to save cache to storage - continue without persistence
     }
   }
 }

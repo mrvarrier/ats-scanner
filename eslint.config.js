@@ -54,7 +54,14 @@ export default [
       '@typescript-eslint/await-thenable': 'error',
 
       // Code quality
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       '@typescript-eslint/no-duplicate-enum-values': 'error',
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
@@ -76,6 +83,16 @@ export default [
 
       // Prevent direct DOM manipulation
       'no-undef': 'error',
+
+      // Standard unused vars for JS
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
     settings: {
       react: {
@@ -103,7 +120,14 @@ export default [
       ...tseslint.configs.recommended.rules,
       ...prettierConfig.rules,
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'prettier/prettier': 'error',
       'no-console': 'warn',
     },

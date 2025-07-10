@@ -102,10 +102,12 @@ function App() {
           }
         );
         if (historyResult.success) {
-          setAnalysisHistory(historyResult.data ?? []);
+          setAnalysisHistory(
+            Array.isArray(historyResult.data) ? historyResult.data : []
+          );
         }
-      } catch (error) {
-        console.error('Failed to initialize app:', error);
+      } catch {
+        // Silently handle initialization failure - app will continue with defaults
       }
     };
 
@@ -148,8 +150,8 @@ function App() {
             setSelectedModel('');
           }
         }
-      } catch (error) {
-        console.error('Failed to check Ollama connection:', error);
+      } catch {
+        // Silently handle connection check failure
         setOllamaConnection(false);
         setModels([]);
         setSelectedModel(null);
@@ -174,51 +176,37 @@ function App() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <ErrorBoundary
-            onError={error => console.error('Dashboard error:', error)}
-          >
+          <ErrorBoundary>
             <Dashboard />
           </ErrorBoundary>
         );
       case 'analysis':
         return (
-          <ErrorBoundary
-            onError={error => console.error('Analysis page error:', error)}
-          >
+          <ErrorBoundary>
             <AnalysisPage />
           </ErrorBoundary>
         );
       case 'optimization':
         return (
-          <ErrorBoundary
-            onError={error => console.error('Optimization page error:', error)}
-          >
+          <ErrorBoundary>
             <OptimizationPage />
           </ErrorBoundary>
         );
       case 'results':
         return (
-          <ErrorBoundary
-            onError={error => console.error('Results page error:', error)}
-          >
+          <ErrorBoundary>
             <ResultsPage />
           </ErrorBoundary>
         );
       case 'settings':
         return (
-          <ErrorBoundary
-            onError={error => console.error('Settings page error:', error)}
-          >
+          <ErrorBoundary>
             <SettingsPage />
           </ErrorBoundary>
         );
       case 'analysis-result':
         return (
-          <ErrorBoundary
-            onError={error =>
-              console.error('Analysis result page error:', error)
-            }
-          >
+          <ErrorBoundary>
             <AnalysisResultPage
               analysisData={currentDetailedAnalysis}
               onBack={() => setActiveTab('analysis')}

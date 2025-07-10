@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useAppStore, UserPreferences } from '@/store/useAppStore';
 import { useToast } from '@/hooks/use-toast';
@@ -13,10 +13,10 @@ export function useUserPreferences() {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadUserPreferences();
-  }, []);
+    void loadUserPreferences();
+  }, [loadUserPreferences]);
 
-  const loadUserPreferences = async () => {
+  const loadUserPreferences = useCallback(async () => {
     try {
       setIsLoadingPreferences(true);
       const result = await invoke<{
@@ -28,16 +28,14 @@ export function useUserPreferences() {
       if (result.success && result.data) {
         setUserPreferences(result.data);
       } else {
-        console.error('Failed to load user preferences:', result.error);
-        // Don't show toast for initial load failure, just use defaults
+        // Failed to load user preferences - use defaults
       }
-    } catch (error) {
-      console.error('Failed to load user preferences:', error);
-      // Don't show toast for initial load failure, just use defaults
+    } catch {
+      // Failed to load user preferences - use defaults
     } finally {
       setIsLoadingPreferences(false);
     }
-  };
+  }, [setIsLoadingPreferences, setUserPreferences]);
 
   const updateUserPreferences = async (updates: Partial<UserPreferences>) => {
     try {
@@ -55,13 +53,12 @@ export function useUserPreferences() {
       } else {
         toast({
           title: 'Error',
-          description: result.error || 'Failed to update preferences',
+          description: result.error ?? 'Failed to update preferences',
           variant: 'destructive',
         });
         return false;
       }
-    } catch (error) {
-      console.error('Failed to update user preferences:', error);
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to update preferences',
@@ -89,13 +86,12 @@ export function useUserPreferences() {
       } else {
         toast({
           title: 'Error',
-          description: result.error || 'Failed to reset preferences',
+          description: result.error ?? 'Failed to reset preferences',
           variant: 'destructive',
         });
         return false;
       }
-    } catch (error) {
-      console.error('Failed to reset user preferences:', error);
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to reset preferences',

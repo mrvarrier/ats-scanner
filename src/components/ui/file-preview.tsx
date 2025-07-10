@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './card';
+import { Card, CardContent } from './card';
 import { Button } from './button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from './dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Badge } from './badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 import { ScrollArea } from './scroll-area';
@@ -48,8 +42,6 @@ const HighlightedText: React.FC<HighlightedTextProps> = ({
   searchTerm,
 }) => {
   const highlightText = (content: string) => {
-    let highlightedContent = content;
-
     // Create a map of all terms to highlight with their colors
     const highlightMap = new Map<string, string>();
 
@@ -70,7 +62,7 @@ const HighlightedText: React.FC<HighlightedTextProps> = ({
     });
 
     // Add search term (blue)
-    if (searchTerm && searchTerm.trim()) {
+    if (searchTerm?.trim()) {
       highlightMap.set(
         searchTerm.toLowerCase(),
         'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100'

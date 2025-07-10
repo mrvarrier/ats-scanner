@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   checkUpdate,
   installUpdate,
@@ -13,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Download, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -42,8 +41,6 @@ export function UpdateChecker() {
   useEffect(() => {
     // Listen for updater events
     const unlisten = onUpdaterEvent(({ error, status }) => {
-      console.log('Updater event:', { error, status });
-
       if (error) {
         setUpdateStatus(prev => ({ ...prev, error: error }));
         toast({
@@ -76,14 +73,14 @@ export function UpdateChecker() {
     });
 
     // Check for updates on component mount
-    checkForUpdates();
+    void checkForUpdates();
 
     return () => {
-      unlisten.then(fn => fn());
+      void unlisten.then(fn => fn());
     };
-  }, []);
+  }, [checkForUpdates, toast]);
 
-  const checkForUpdates = async () => {
+  const checkForUpdates = useCallback(async () => {
     try {
       setChecking(true);
       setUpdateStatus(prev => ({ ...prev, error: undefined }));
@@ -109,12 +106,11 @@ export function UpdateChecker() {
         setUpdateStatus(prev => ({ ...prev, available: false }));
       }
     } catch (error) {
-      console.error('Failed to check for updates:', error);
       setUpdateStatus(prev => ({ ...prev, error: String(error) }));
     } finally {
       setChecking(false);
     }
-  };
+  }, [toast]);
 
   const downloadAndInstall = async () => {
     try {
@@ -123,7 +119,6 @@ export function UpdateChecker() {
       // Install the update
       await installUpdate();
     } catch (error) {
-      console.error('Failed to install update:', error);
       setUpdateStatus(prev => ({
         ...prev,
         downloading: false,
@@ -140,8 +135,7 @@ export function UpdateChecker() {
   const restartAndUpdate = async () => {
     try {
       await relaunch();
-    } catch (error) {
-      console.error('Failed to restart:', error);
+    } catch {
       toast({
         title: 'Restart Failed',
         description:
@@ -195,7 +189,7 @@ export function UpdateChecker() {
       <CardContent className="space-y-4">
         {updateStatus.available && updateStatus.body && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">What's New:</h4>
+            <h4 className="text-sm font-medium">What&apos;s New:</h4>
             <div className="max-h-32 overflow-y-auto whitespace-pre-wrap text-xs text-muted-foreground">
               {updateStatus.body}
             </div>

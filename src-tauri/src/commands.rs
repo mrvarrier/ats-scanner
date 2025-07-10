@@ -2235,16 +2235,16 @@ pub async fn get_optimization_suggestions_prioritized(
             let mut suggestions = result.improvement_suggestions;
             // Sort by impact score (highest first)
             suggestions.sort_by(|a, b| {
-                b.impact_points
-                    .partial_cmp(&a.impact_points)
+                b.impact_score
+                    .partial_cmp(&a.impact_score)
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
 
             let optimization_data = serde_json::json!({
                 "suggestions": suggestions,
-                "total_potential_improvement": suggestions.iter().map(|s| s.impact_points).sum::<f64>(),
-                "high_impact_count": suggestions.iter().filter(|s| s.impact_points > 10.0).count(),
-                "quick_wins": suggestions.iter().filter(|s| matches!(s.difficulty_level, crate::advanced_scoring::DifficultyLevel::Easy)).count()
+                "total_potential_improvement": suggestions.iter().map(|s| s.impact_score).sum::<f64>(),
+                "high_impact_count": suggestions.iter().filter(|s| s.impact_score > 10.0).count(),
+                "quick_wins": suggestions.iter().filter(|s| s.difficulty == "Easy").count()
             });
 
             info!("Prioritized optimization suggestions completed");

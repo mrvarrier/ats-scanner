@@ -1496,7 +1496,7 @@ mod tests {
     #[tokio::test]
     async fn test_realtime_optimizer_creation() {
         let db = Database::new().await.unwrap();
-        let optimizer = RealtimeOptimizer::new(db);
+        let _optimizer = RealtimeOptimizer::new(db);
         assert!(true); // Basic creation test
     }
 

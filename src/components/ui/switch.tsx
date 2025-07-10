@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface SwitchProps {
   checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
+  onCheckedChange: (_checked: boolean) => void;
   disabled?: boolean;
   className?: string;
 }

@@ -36,6 +36,9 @@ base64 = "0.21"
 sha2 = "0.10"
 tempfile = "3.8"
 dirs = "5.0"
+rust-stemmers = "1.2"
+unicode-normalization = "0.1"
+unicode-segmentation = "1.10"
 
 [features]
 default = ["custom-protocol"]

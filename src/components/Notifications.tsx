@@ -20,28 +20,28 @@ export interface Notification {
 
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, 'id'>) => void;
-  removeNotification: (id: string) => void;
+  addNotification: (_notification: Omit<Notification, 'id'>) => void;
+  removeNotification: (_id: string) => void;
   clearAll: () => void;
   success: (
-    title: string,
-    message?: string,
-    options?: Partial<Notification>
+    _title: string,
+    _message?: string,
+    _options?: Partial<Notification>
   ) => void;
   error: (
-    title: string,
-    message?: string,
-    options?: Partial<Notification>
+    _title: string,
+    _message?: string,
+    _options?: Partial<Notification>
   ) => void;
   warning: (
-    title: string,
-    message?: string,
-    options?: Partial<Notification>
+    _title: string,
+    _message?: string,
+    _options?: Partial<Notification>
   ) => void;
   info: (
-    title: string,
-    message?: string,
-    options?: Partial<Notification>
+    _title: string,
+    _message?: string,
+    _options?: Partial<Notification>
   ) => void;
 }
 
@@ -82,7 +82,7 @@ export function NotificationProvider({
         }, newNotification.duration);
       }
     },
-    []
+    [removeNotification]
   );
 
   const removeNotification = useCallback((id: string) => {

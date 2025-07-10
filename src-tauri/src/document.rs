@@ -413,7 +413,7 @@ SKILLS
 Python, JavaScript, React, Node.js, Docker, AWS
 "#;
 
-    const SAMPLE_JOB_DESCRIPTION: &str = r#"
+    const _SAMPLE_JOB_DESCRIPTION: &str = r#"
 Software Engineer Position
 Tech Company Inc.
 

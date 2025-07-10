@@ -1255,7 +1255,7 @@ mod tests {
     #[tokio::test]
     async fn test_smart_optimizer_creation() {
         let db = crate::database::Database::new().await.unwrap();
-        let optimizer = SmartOptimizationEngine::new(db);
+        let _optimizer = SmartOptimizationEngine::new(db);
 
         // Test that all components are properly initialized
         assert!(true); // Basic creation test
@@ -1268,7 +1268,7 @@ mod tests {
 
         let resume_content =
             "Experience\n• Worked on various projects\n• Helped improve system performance";
-        let job_description = "Looking for software engineer with Python and React experience";
+        let _job_description = "Looking for software engineer with Python and React experience";
 
         // Test individual components instead of full optimization to avoid database dependencies
         let achievement_improvements = optimizer

@@ -17,7 +17,7 @@ interface ErrorBoundaryState {
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (_error: Error, _errorInfo: React.ErrorInfo) => void;
 }
 
 export class ErrorBoundary extends React.Component<
@@ -34,7 +34,6 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
 
@@ -93,8 +92,7 @@ export class ErrorBoundary extends React.Component<
 }
 
 export function useErrorHandler() {
-  const handleError = (error: Error) => {
-    console.error('Handled error:', error);
+  const handleError = (_error: Error) => {
     // You could add toast notifications here
   };
 

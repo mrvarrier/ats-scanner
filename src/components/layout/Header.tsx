@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import type { CommandResult, OllamaModel } from '@/types';
 
 export function Header() {
   const {
@@ -17,16 +18,19 @@ export function Header() {
 
   const handleRefreshConnection = async () => {
     try {
-      const result = await invoke('test_ollama_connection');
+      const result = await invoke<CommandResult<boolean>>(
+        'test_ollama_connection'
+      );
       if (result.success && result.data) {
         setOllamaConnection(true);
 
-        const modelsResult = await invoke('get_ollama_models');
+        const modelsResult =
+          await invoke<CommandResult<OllamaModel[]>>('get_ollama_models');
         if (modelsResult.success) {
-          setModels(modelsResult.data || []);
+          setModels(modelsResult.data ?? []);
           toast({
             title: 'Connection Refreshed',
-            description: `Found ${modelsResult.data?.length || 0} models`,
+            description: `Found ${modelsResult.data?.length ?? 0} models`,
           });
         }
       } else {
@@ -37,7 +41,7 @@ export function Header() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to refresh connection',

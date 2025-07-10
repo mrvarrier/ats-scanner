@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from './utils';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/tauri';
-import AnalysisPage from '../pages/AnalysisPage';
+import { AnalysisPage } from '../components/pages/AnalysisPage';
 import {
   mockAnalysisResult,
   mockJobDescription,
@@ -43,7 +43,6 @@ describe('AnalysisPage', () => {
   });
 
   it('handles file upload via drag and drop', async () => {
-    const _user = userEvent.setup();
     mockInvoke
       .mockResolvedValueOnce({ success: true, data: [mockJobDescription] })
       .mockResolvedValueOnce({ success: true, data: mockOllamaModels })
@@ -93,7 +92,7 @@ describe('AnalysisPage', () => {
   });
 
   it('enables analysis when all requirements are met', async () => {
-    const _user = userEvent.setup();
+    const user = userEvent.setup();
     mockInvoke
       .mockResolvedValueOnce({ success: true, data: [mockJobDescription] })
       .mockResolvedValueOnce({ success: true, data: mockOllamaModels })
@@ -144,7 +143,7 @@ describe('AnalysisPage', () => {
   });
 
   it('performs analysis and displays results', async () => {
-    const _user = userEvent.setup();
+    const user = userEvent.setup();
     mockInvoke
       .mockResolvedValueOnce({ success: true, data: [mockJobDescription] })
       .mockResolvedValueOnce({ success: true, data: mockOllamaModels })
@@ -217,7 +216,7 @@ describe('AnalysisPage', () => {
   });
 
   it('handles analysis errors gracefully', async () => {
-    const _user = userEvent.setup();
+    const user = userEvent.setup();
     mockInvoke
       .mockResolvedValueOnce({ success: true, data: [mockJobDescription] })
       .mockResolvedValueOnce({ success: true, data: mockOllamaModels })
@@ -279,8 +278,8 @@ describe('AnalysisPage', () => {
   });
 
   it('displays loading state during analysis', async () => {
-    const _user = userEvent.setup();
-    let resolveAnalysis: (value: unknown) => void;
+    const user = userEvent.setup();
+    let resolveAnalysis: (_value: unknown) => void;
     const analysisPromise = new Promise<unknown>(resolve => {
       resolveAnalysis = resolve;
     });

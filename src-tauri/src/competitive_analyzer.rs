@@ -1188,7 +1188,7 @@ mod tests {
     #[tokio::test]
     async fn test_competitive_analyzer_creation() {
         let db = crate::database::Database::new().await.unwrap();
-        let analyzer = CompetitiveAnalyzer::new(db);
+        let _analyzer = CompetitiveAnalyzer::new(db);
 
         // Test basic functionality
         assert!(true); // Basic creation test

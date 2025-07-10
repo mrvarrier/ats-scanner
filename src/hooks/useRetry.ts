@@ -5,10 +5,10 @@ export interface RetryOptions {
   baseDelay?: number;
   maxDelay?: number;
   backoffFactor?: number;
-  shouldRetry?: (error: Error, attemptNumber: number) => boolean;
-  onRetry?: (attemptNumber: number, error: Error) => void;
-  onSuccess?: (result: unknown, attemptNumber: number) => void;
-  onFailure?: (error: Error, totalAttempts: number) => void;
+  shouldRetry?: (_error: Error, _attemptNumber: number) => boolean;
+  onRetry?: (_attemptNumber: number, _error: Error) => void;
+  onSuccess?: (_result: unknown, _attemptNumber: number) => void;
+  onFailure?: (_error: Error, _totalAttempts: number) => void;
 }
 
 export interface RetryState {
@@ -50,7 +50,6 @@ export function useRetry<T>(
   asyncFunction: () => Promise<T>,
   options: RetryOptions = {}
 ) {
-  const opts = { ...defaultOptions, ...options };
   const [state, setState] = useState<RetryState>({
     isRetrying: false,
     attemptNumber: 0,
@@ -61,6 +60,18 @@ export function useRetry<T>(
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const execute = useCallback(async (): Promise<T> => {
+    // Move opts inside the callback to avoid dependencies changing on every render
+    const {
+      maxAttempts,
+      baseDelay,
+      backoffFactor,
+      maxDelay,
+      shouldRetry,
+      onSuccess,
+      onRetry,
+      onFailure,
+    } = { ...defaultOptions, ...options };
+
     // Cancel any ongoing retry
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -79,7 +90,7 @@ export function useRetry<T>(
     let attempt = 1;
     let lastError: Error;
 
-    while (attempt <= opts.maxAttempts) {
+    while (attempt <= maxAttempts) {
       try {
         if (signal.aborted) {
           throw new Error('Operation was cancelled');
@@ -99,7 +110,7 @@ export function useRetry<T>(
           canRetry: false,
         }));
 
-        opts.onSuccess(result, attempt);
+        onSuccess(result, attempt);
         return result;
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -108,22 +119,21 @@ export function useRetry<T>(
         setState(prev => ({
           ...prev,
           lastError: error,
-          canRetry:
-            attempt < opts.maxAttempts && opts.shouldRetry(error, attempt),
+          canRetry: attempt < maxAttempts && shouldRetry(error, attempt),
         }));
 
         // Don't retry if this is the last attempt or if we shouldn't retry
-        if (attempt >= opts.maxAttempts || !opts.shouldRetry(error, attempt)) {
+        if (attempt >= maxAttempts || !shouldRetry(error, attempt)) {
           break;
         }
 
         // Calculate delay with exponential backoff
         const delay = Math.min(
-          opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1),
-          opts.maxDelay
+          baseDelay * Math.pow(backoffFactor, attempt - 1),
+          maxDelay
         );
 
-        opts.onRetry(attempt, error);
+        onRetry(attempt, error);
 
         // Wait before retrying
         await new Promise((resolve, reject) => {
@@ -145,9 +155,9 @@ export function useRetry<T>(
       canRetry: false,
     }));
 
-    opts.onFailure(lastError, attempt - 1);
+    onFailure(lastError, attempt - 1);
     throw lastError;
-  }, [asyncFunction, opts]);
+  }, [asyncFunction, options]);
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
@@ -162,7 +172,7 @@ export function useRetry<T>(
 
   const retry = useCallback(() => {
     if (state.canRetry) {
-      execute();
+      void execute();
     }
   }, [state.canRetry, execute]);
 
@@ -306,14 +316,14 @@ export class CircuitBreaker {
   private state: 'closed' | 'open' | 'half-open' = 'closed';
 
   constructor(
-    private failureThreshold: number = 5,
-    private resetTimeout: number = 60000, // 1 minute
+    private _failureThreshold: number = 5,
+    private _resetTimeout: number = 60000, // 1 minute
     private _monitoringPeriod: number = 300000 // 5 minutes
   ) {}
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === 'open') {
-      if (Date.now() - this.lastFailureTime >= this.resetTimeout) {
+      if (Date.now() - this.lastFailureTime >= this._resetTimeout) {
         this.state = 'half-open';
       } else {
         throw new Error('Circuit breaker is open');

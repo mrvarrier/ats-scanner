@@ -1,26 +1,26 @@
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
 export type ValidationRule<T> = {
   required?: boolean;
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: T) => string | null;
+  custom?: (_value: T) => string | null;
   message?: string;
 };
 
 export type ValidationRules<T> = {
-  [K in keyof T]?: ValidationRule<T[K]>;
+  [_K in keyof T]?: ValidationRule<T[_K]>;
 };
 
 export type ValidationErrors<T> = {
-  [K in keyof T]?: string;
+  [_K in keyof T]?: string;
 };
 
 export type FormState<T> = {
   values: T;
   errors: ValidationErrors<T>;
-  touched: { [K in keyof T]?: boolean };
+  touched: { [_K in keyof T]?: boolean };
   isValid: boolean;
   isSubmitting: boolean;
 };
@@ -31,7 +31,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
 ) {
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<ValidationErrors<T>>({});
-  const [touched, setTouched] = useState<{ [K in keyof T]?: boolean }>({});
+  const [touched, setTouched] = useState<{ [_K in keyof T]?: boolean }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Validate a single field
@@ -45,7 +45,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
         rules.required &&
         (!value || (typeof value === 'string' && !value.trim()))
       ) {
-        return rules.message || `${String(name)} is required`;
+        return rules.message ?? `${String(name)} is required`;
       }
 
       // Skip other validations if field is empty and not required
@@ -56,7 +56,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
         // Min length validation
         if (rules.minLength && value.length < rules.minLength) {
           return (
-            rules.message ||
+            rules.message ??
             `${String(name)} must be at least ${rules.minLength} characters`
           );
         }
@@ -64,14 +64,14 @@ export function useFormValidation<T extends Record<string, unknown>>(
         // Max length validation
         if (rules.maxLength && value.length > rules.maxLength) {
           return (
-            rules.message ||
+            rules.message ??
             `${String(name)} must be no more than ${rules.maxLength} characters`
           );
         }
 
         // Pattern validation
         if (rules.pattern && !rules.pattern.test(value)) {
-          return rules.message || `${String(name)} format is invalid`;
+          return rules.message ?? `${String(name)} format is invalid`;
         }
       }
 
@@ -115,7 +115,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
         const error = validateField(name, value);
         setErrors(prev => ({
           ...prev,
-          [name]: error || undefined,
+          [name]: error ?? undefined,
         }));
       }
     },
@@ -135,7 +135,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
       const error = validateField(name, values[name]);
       setErrors(prev => ({
         ...prev,
-        [name]: error || undefined,
+        [name]: error ?? undefined,
       }));
     },
     [values, validateField]
@@ -159,7 +159,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
 
   // Submit form
   const handleSubmit = useCallback(
-    async (onSubmit: (values: T) => Promise<void> | void) => {
+    async (onSubmit: (_values: T) => Promise<void> | void) => {
       // Mark all fields as touched
       const allTouched = Object.keys(values).reduce(
         (acc, key) => ({
@@ -183,8 +183,8 @@ export function useFormValidation<T extends Record<string, unknown>>(
       try {
         await onSubmit(values);
         return true;
-      } catch (error) {
-        console.error('Form submission error:', error);
+      } catch {
+        // Form submission failed silently
         return false;
       } finally {
         setIsSubmitting(false);
@@ -251,7 +251,7 @@ export const commonValidationRules = {
   },
 
   phone: {
-    pattern: /^[\+]?[1-9][\d]{0,15}$/,
+    pattern: /^[+]?[1-9][\d]{0,15}$/,
     message: 'Please enter a valid phone number',
   },
 
@@ -282,17 +282,17 @@ export const commonValidationRules = {
 export const validators = {
   required: (message?: string) => ({
     required: true,
-    message: message || 'This field is required',
+    message: message ?? 'This field is required',
   }),
 
   minLength: (min: number, message?: string) => ({
     minLength: min,
-    message: message || `Must be at least ${min} characters`,
+    message: message ?? `Must be at least ${min} characters`,
   }),
 
   maxLength: (max: number, message?: string) => ({
     maxLength: max,
-    message: message || `Must be no more than ${max} characters`,
+    message: message ?? `Must be no more than ${max} characters`,
   }),
 
   pattern: (pattern: RegExp, message: string) => ({
@@ -300,24 +300,24 @@ export const validators = {
     message,
   }),
 
-  custom: (validator: (value: unknown) => string | null) => ({
+  custom: (validator: (_value: unknown) => string | null) => ({
     custom: validator,
   }),
 
   // Specific validators
   email: (message?: string) => ({
     ...commonValidationRules.email,
-    message: message || commonValidationRules.email.message,
+    message: message ?? commonValidationRules.email.message,
   }),
 
   phone: (message?: string) => ({
     ...commonValidationRules.phone,
-    message: message || commonValidationRules.phone.message,
+    message: message ?? commonValidationRules.phone.message,
   }),
 
   url: (message?: string) => ({
     ...commonValidationRules.url,
-    message: message || commonValidationRules.url.message,
+    message: message ?? commonValidationRules.url.message,
   }),
 
   fileSize: (maxSizeMB: number) => ({

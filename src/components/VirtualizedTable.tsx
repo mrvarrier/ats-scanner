@@ -1,11 +1,5 @@
-import React, {
-  useMemo,
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-} from 'react';
-import { FixedSizeList as List, VariableSizeList } from 'react-window';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
+import { FixedSizeList as List } from 'react-window';
 import { ChevronUp, ChevronDown, Search, Filter } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -18,9 +12,9 @@ export interface Column<T> {
   maxWidth?: number;
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, item: T, index: number) => React.ReactNode;
-  sortFn?: (a: T, b: T) => number;
-  filterFn?: (item: T, searchTerm: string) => boolean;
+  render?: (_value: T[keyof T], _item: T, _index: number) => React.ReactNode;
+  sortFn?: (_a: T, _b: T) => number;
+  filterFn?: (_item: T, _searchTerm: string) => boolean;
 }
 
 export interface VirtualizedTableProps<T> {
@@ -29,23 +23,23 @@ export interface VirtualizedTableProps<T> {
   height?: number;
   itemHeight?: number;
   overscan?: number;
-  onRowClick?: (item: T, index: number) => void;
-  onRowDoubleClick?: (item: T, index: number) => void;
+  onRowClick?: (_item: T, _index: number) => void;
+  onRowDoubleClick?: (_item: T, _index: number) => void;
   loading?: boolean;
   emptyMessage?: string;
   className?: string;
   headerClassName?: string;
-  rowClassName?: string | ((item: T, index: number) => string);
+  rowClassName?: string | ((_item: T, _index: number) => string);
   stickyHeader?: boolean;
   sortable?: boolean;
   filterable?: boolean;
   selectable?: boolean;
   selectedItems?: T[];
-  onSelectionChange?: (selectedItems: T[]) => void;
-  getItemKey?: (item: T, index: number) => string;
+  onSelectionChange?: (_selectedItems: T[]) => void;
+  getItemKey?: (_item: T, _index: number) => string;
 }
 
-export function VirtualizedTable<T extends Record<string, any>>({
+export function VirtualizedTable<T extends Record<string, unknown>>({
   data,
   columns,
   height = 400,
@@ -88,7 +82,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
           result = result.filter(item => column.filterFn!(item, filterValue));
         } else {
           result = result.filter(item => {
-            const value = item[columnKey];
+            const value = item[columnKey] as string | number | boolean;
             return String(value)
               .toLowerCase()
               .includes(filterValue.toLowerCase());
@@ -190,7 +184,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
   }, [onSelectionChange]);
 
   // Calculate column widths
-  const totalWidth = columns.reduce((sum, col) => sum + (col.width || 150), 0);
+  const totalWidth = columns.reduce((sum, col) => sum + (col.width ?? 150), 0);
 
   // Row renderer
   const Row = useCallback(
@@ -226,7 +220,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
             </div>
           )}
 
-          {columns.map((column, colIndex) => {
+          {columns.map((column, _colIndex) => {
             const value = item[column.key];
             const cellContent = column.render
               ? column.render(value, item, index)
@@ -237,7 +231,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
                 key={String(column.key)}
                 className="truncate px-4 py-2"
                 style={{
-                  width: column.width || 150,
+                  width: column.width ?? 150,
                   minWidth: column.minWidth,
                   maxWidth: column.maxWidth,
                 }}
@@ -301,10 +295,13 @@ export function VirtualizedTable<T extends Record<string, any>>({
                 selectedItems.length === processedData.length &&
                 processedData.length > 0
               }
-              indeterminate={
-                selectedItems.length > 0 &&
-                selectedItems.length < processedData.length
-              }
+              ref={input => {
+                if (input) {
+                  input.indeterminate =
+                    selectedItems.length > 0 &&
+                    selectedItems.length < processedData.length;
+                }
+              }}
               onChange={e => (e.target.checked ? selectAll() : deselectAll())}
               className="rounded"
             />
@@ -316,7 +313,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
             key={String(column.key)}
             className="flex cursor-pointer items-center gap-2 px-4 py-3 text-left font-medium hover:bg-gray-100"
             style={{
-              width: column.width || 150,
+              width: column.width ?? 150,
               minWidth: column.minWidth,
               maxWidth: column.maxWidth,
             }}
@@ -360,7 +357,7 @@ export function VirtualizedTable<T extends Record<string, any>>({
                   key={`filter-${String(column.key)}`}
                   className="px-4 py-2"
                   style={{
-                    width: column.width || 150,
+                    width: column.width ?? 150,
                     minWidth: column.minWidth,
                     maxWidth: column.maxWidth,
                   }}
@@ -484,7 +481,7 @@ export function AnalysisResultsTable({
   ...props
 }: {
   results: AnalysisResult[];
-  onResultClick?: (result: AnalysisResult) => void;
+  onResultClick?: (_result: AnalysisResult) => void;
 } & Omit<VirtualizedTableProps<AnalysisResult>, 'data' | 'columns'>) {
   const columns: Column<AnalysisResult>[] = [
     {
@@ -506,14 +503,14 @@ export function AnalysisResultsTable({
         <div className="flex items-center gap-2">
           <div
             className={`rounded px-2 py-1 text-sm font-medium ${
-              value >= 80
+              typeof value === 'number' && value >= 80
                 ? 'bg-green-100 text-green-800'
-                : value >= 60
+                : typeof value === 'number' && value >= 60
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'bg-red-100 text-red-800'
             }`}
           >
-            {value.toFixed(1)}
+            {typeof value === 'number' ? value.toFixed(1) : String(value)}
           </div>
         </div>
       ),

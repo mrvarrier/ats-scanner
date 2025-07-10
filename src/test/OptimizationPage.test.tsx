@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from './utils';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/tauri';
-import OptimizationPage from '../pages/OptimizationPage';
+import { OptimizationPage } from '../components/pages/OptimizationPage';
 import { mockJobDescription, mockOllamaModels } from './utils';
 
 // Mock Tauri invoke

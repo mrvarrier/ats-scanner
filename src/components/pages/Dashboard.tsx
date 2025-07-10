@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React from 'react';
 import {
   BarChart3,
   FileText,
@@ -24,13 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 export function Dashboard() {
-  const {
-    analysisHistory,
-    currentAnalysis,
-    models,
-    isOllamaConnected,
-    setActiveTab,
-  } = useAppStore();
+  const { analysisHistory, models, isOllamaConnected, setActiveTab } =
+    useAppStore();
 
   // Calculate dashboard statistics
   const totalAnalyses = analysisHistory.length;
@@ -46,7 +41,6 @@ export function Dashboard() {
   const highScoreAnalyses = analysisHistory.filter(a => a.overall_score >= 80);
 
   // Get the latest analysis for recent activity
-  const latestAnalysis = analysisHistory[0];
   const lastWeekAnalyses = analysisHistory.filter(a => {
     const date = new Date(a.created_at);
     const weekAgo = new Date();

@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAppStore } from '@/store/useAppStore';
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -13,12 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft,
-  FileText,
   Target,
   Award,
   TrendingUp,
   Brain,
-  Star,
   MapPin,
   DollarSign,
   Download,
@@ -68,7 +65,6 @@ export function AnalysisResultPage({
     achievementAnalysis,
     mlInsights,
     resumeFilename,
-    jobDescription,
     modelUsed,
     timestamp,
   } = analysisData;
@@ -408,10 +404,7 @@ export function AnalysisResultPage({
                                 className="flex items-start text-sm"
                               >
                                 <CheckCircle className="mr-2 mt-0.5 h-3 w-3 flex-shrink-0 text-green-600" />
-                                {typeof factor === 'string'
-                                  ? factor
-                                  : (factor as any)?.description ||
-                                    JSON.stringify(factor)}
+                                {factor}
                               </li>
                             )
                           )}
@@ -432,10 +425,7 @@ export function AnalysisResultPage({
                                     className="flex items-start text-sm"
                                   >
                                     <AlertCircle className="mr-2 mt-0.5 h-3 w-3 flex-shrink-0 text-red-600" />
-                                    {typeof factor === 'string'
-                                      ? factor
-                                      : (factor as any)?.description ||
-                                        JSON.stringify(factor)}
+                                    {factor}
                                   </li>
                                 )
                               )}
