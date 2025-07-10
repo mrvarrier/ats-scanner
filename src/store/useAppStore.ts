@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { AchievementAnalysis, MLInsights } from '../types/api';
+import { AchievementAnalysis, MLInsights, Analysis } from '../types/api';
 
 export interface OllamaModel {
   name: string;
@@ -22,24 +22,6 @@ interface AnalysisResult {
   missing_keywords: string[];
   recommendations: string[];
   processing_time_ms: number;
-}
-
-interface Analysis {
-  id: string;
-  resume_id: string;
-  job_description_id: string;
-  model_used: string;
-  overall_score: number;
-  skills_score: number;
-  experience_score: number;
-  education_score: number;
-  keywords_score: number;
-  format_score: number;
-  detailed_feedback: string;
-  missing_keywords: string;
-  recommendations: string;
-  processing_time_ms: number;
-  created_at: string;
 }
 
 export interface UserPreferences {

@@ -218,3 +218,22 @@ export interface OptimizationRequest {
   model_name: string;
   optimization_level: 'Basic' | 'Intermediate' | 'Advanced';
 }
+
+// Analysis Database Record
+export interface Analysis {
+  id: string;
+  resume_id: string;
+  job_description_id: string;
+  model_used: string;
+  overall_score: number;
+  skills_score: number;
+  experience_score: number;
+  education_score: number;
+  keywords_score: number;
+  format_score: number;
+  detailed_feedback: string;
+  missing_keywords: string;
+  recommendations: string;
+  processing_time_ms: number;
+  created_at: string;
+}
