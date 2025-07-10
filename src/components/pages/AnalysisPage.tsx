@@ -227,11 +227,11 @@ export function AnalysisPage() {
             achievementAnalysis:
               achievementResult.status === 'fulfilled'
                 ? achievementResult.value
-                : null,
+                : undefined,
             mlInsights:
               mlInsightsResult.status === 'fulfilled'
                 ? mlInsightsResult.value
-                : null,
+                : undefined,
             resumeFilename: uploadedFile.filename,
             jobDescription: jobDescription,
             modelUsed: selectedModel,
@@ -269,7 +269,7 @@ export function AnalysisPage() {
   // Achievement analysis handler
   const runAchievementAnalysis = async (
     resumeContent: string
-  ): Promise<AchievementAnalysis | null> => {
+  ): Promise<AchievementAnalysis | undefined> => {
     try {
       const result = await invoke<CommandResult<AchievementAnalysis>>(
         'analyze_achievements',
@@ -282,11 +282,11 @@ export function AnalysisPage() {
         return result.data;
       } else {
         // Achievement analysis failed - continue without it
-        return null;
+        return undefined;
       }
     } catch {
       // Achievement analysis error - continue without it
-      return null;
+      return undefined;
     }
   };
 
@@ -294,7 +294,7 @@ export function AnalysisPage() {
   const runMLInsights = async (
     resumeContent: string,
     jobDesc: string
-  ): Promise<MLInsights | null> => {
+  ): Promise<MLInsights | undefined> => {
     try {
       const result = await invoke<CommandResult<MLInsights>>(
         'generate_ml_insights',
@@ -308,11 +308,11 @@ export function AnalysisPage() {
         return result.data;
       } else {
         // ML insights failed - continue without it
-        return null;
+        return undefined;
       }
     } catch {
       // ML insights error - continue without it
-      return null;
+      return undefined;
     }
   };
 

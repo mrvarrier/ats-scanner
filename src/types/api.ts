@@ -22,7 +22,11 @@ export interface OllamaModel {
 }
 
 export interface CategoryScores {
-  [category: string]: number;
+  skills: number;
+  experience: number;
+  education: number;
+  keywords: number;
+  format: number;
 }
 
 export interface AnalysisResult {

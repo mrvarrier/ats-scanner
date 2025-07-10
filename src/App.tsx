@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { useAppStore } from './store/useAppStore';
+import { useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/tauri';
+import { useAppStore, OllamaModel } from './store/useAppStore';
 import { useUserPreferences } from './hooks/useUserPreferences';
 import { MainLayout } from './components/layout/MainLayout';
 import { Dashboard } from './components/pages/Dashboard';
@@ -18,6 +19,8 @@ function App() {
     userPreferences,
     currentDetailedAnalysis,
     setActiveTab,
+    setOllamaConnection,
+    setModels,
   } = useAppStore();
 
   // Initialize user preferences
@@ -39,12 +42,39 @@ function App() {
     }
   }, [isDarkMode, userPreferences?.theme]);
 
-  // Initialize light theme on component mount
+  // Auto-connect to Ollama on startup if enabled
   useEffect(() => {
-    const html = document.documentElement;
-    html.classList.add('light');
-    html.classList.remove('dark', 'high-contrast');
-  }, []);
+    const autoConnect = async () => {
+      if (userPreferences?.auto_connect_on_startup) {
+        try {
+          const result = await invoke<{ success: boolean }>(
+            'test_ollama_connection'
+          );
+          if (result.success) {
+            setOllamaConnection(true);
+            // Fetch available models
+            const modelsResult = await invoke<{
+              success: boolean;
+              data?: OllamaModel[];
+            }>('get_ollama_models');
+            if (modelsResult.success && modelsResult.data) {
+              setModels(modelsResult.data);
+            }
+          } else {
+            setOllamaConnection(false);
+          }
+        } catch {
+          setOllamaConnection(false);
+        }
+      }
+    };
+
+    void autoConnect();
+  }, [
+    userPreferences?.auto_connect_on_startup,
+    setOllamaConnection,
+    setModels,
+  ]);
 
   const renderActivePage = () => {
     switch (activeTab) {

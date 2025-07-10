@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { AchievementAnalysis, MLInsights } from '@/types/api';
 import {
   Card,
   CardContent,
@@ -76,22 +77,6 @@ export function ResultsPage() {
   const [resumeMap, setResumeMap] = useState<Map<string, ResumeInfo>>(
     new Map()
   );
-
-  useEffect(() => {
-    void loadAnalysisHistory();
-    void loadResumeInfo();
-  }, [loadAnalysisHistory, loadResumeInfo]);
-
-  useEffect(() => {
-    filterAndSortResults();
-  }, [
-    analysisHistory,
-    searchTerm,
-    sortBy,
-    sortOrder,
-    filterScore,
-    filterAndSortResults,
-  ]);
 
   const loadAnalysisHistory = useCallback(async () => {
     setIsLoading(true);
@@ -194,6 +179,22 @@ export function ResultsPage() {
     setFilteredResults(filtered);
   }, [analysisHistory, searchTerm, sortBy, sortOrder, filterScore, resumeMap]);
 
+  useEffect(() => {
+    void loadAnalysisHistory();
+    void loadResumeInfo();
+  }, [loadAnalysisHistory, loadResumeInfo]);
+
+  useEffect(() => {
+    filterAndSortResults();
+  }, [
+    analysisHistory,
+    searchTerm,
+    sortBy,
+    sortOrder,
+    filterScore,
+    filterAndSortResults,
+  ]);
+
   const handleExportResult = async (result: AnalysisResult) => {
     try {
       const exportResult = await invoke<CommandResult<string>>(
@@ -256,8 +257,8 @@ export function ResultsPage() {
       };
 
       // Try to get additional analysis data if available
-      let achievementAnalysis = null;
-      let mlInsights = null;
+      let achievementAnalysis: AchievementAnalysis | undefined = undefined;
+      let mlInsights: MLInsights | undefined = undefined;
 
       // Note: We would need backend commands to retrieve these if stored
       // For now, we'll show what we have from the basic analysis

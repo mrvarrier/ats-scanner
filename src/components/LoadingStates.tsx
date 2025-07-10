@@ -1,4 +1,3 @@
-import React from 'react';
 import { Loader2, FileText, Brain, Upload, BarChart3 } from 'lucide-react';
 import { Progress } from './ui/progress';
 

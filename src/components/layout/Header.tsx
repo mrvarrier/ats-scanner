@@ -1,4 +1,3 @@
-import React from 'react';
 import { Moon, Sun, RefreshCw } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useAppStore } from '@/store/useAppStore';

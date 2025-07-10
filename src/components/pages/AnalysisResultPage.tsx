@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Card,
   CardContent,
@@ -153,21 +152,24 @@ export function AnalysisResultPage({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {Object.entries(result.category_scores).map(([category, score]) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium capitalize">
-                    {category}
-                  </span>
-                  <span
-                    className={`text-sm font-semibold ${getScoreColor(score)}`}
-                  >
-                    {score}%
-                  </span>
+            {Object.entries(result.category_scores).map(([category, score]) => {
+              const numericScore = score as number;
+              return (
+                <div key={category} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium capitalize">
+                      {category}
+                    </span>
+                    <span
+                      className={`text-sm font-semibold ${getScoreColor(numericScore)}`}
+                    >
+                      {numericScore}%
+                    </span>
+                  </div>
+                  <Progress value={numericScore} className="h-2" />
                 </div>
-                <Progress value={score} className="h-2" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
