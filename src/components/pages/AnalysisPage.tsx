@@ -29,6 +29,20 @@ import type {
   AnalysisResult,
   AchievementAnalysis,
   MLInsights,
+  SemanticAnalysisResult,
+  FormatCompatibilityReport,
+  IndustryAnalysisResult,
+  ValidationReport,
+  ATSSimulationResult,
+  EnhancedAnalysisResult,
+  CompetitiveAnalysis,
+  MarketPositionAnalysis,
+  SalaryInsightsResponse,
+  HiringProbabilityResponse,
+  ApplicationSuccessResponse,
+  CareerPathSuggestionsResponse,
+  SalaryPredictionMLResponse,
+  MLRecommendationsResponse,
 } from '@/types';
 
 // Extended File interface for drag-and-drop with path support
@@ -64,6 +78,7 @@ export function AnalysisPage() {
   const [_uploadProgress, setUploadProgress] = useState(0);
   const [completedAnalysis, setCompletedAnalysis] =
     useState<AnalysisResult | null>(null);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('');
 
   // Drag and drop handler
   const onDrop = useCallback(async (acceptedFiles: FileWithPath[]) => {
@@ -214,12 +229,57 @@ export function AnalysisPage() {
           setCurrentAnalysis(result.data);
           setCompletedAnalysis(result.data);
 
-          // Run achievement analysis and ML insights in parallel
-          const [achievementResult, mlInsightsResult] =
-            await Promise.allSettled([
-              runAchievementAnalysis(uploadedFile.content),
-              runMLInsights(uploadedFile.content, jobDescription),
-            ]);
+          // Run achievement analysis, ML insights, semantic analysis, format compatibility, industry analysis, ATS testing, comprehensive analysis, competitive analysis, and individual ML commands in parallel
+          const [
+            achievementResult,
+            mlInsightsResult,
+            semanticResult,
+            formatResult,
+            industryResult,
+            atsValidationResult,
+            atsSimulationResult,
+            comprehensiveResult,
+            competitiveAnalysisResult,
+            marketPositionResult,
+            salaryInsightsResult,
+            hiringProbabilityResult,
+            applicationSuccessResult,
+            careerPathResult,
+            salaryPredictionMLResult,
+            mlRecommendationsResult,
+          ] = await Promise.allSettled([
+            runAchievementAnalysis(uploadedFile.content),
+            runMLInsights(uploadedFile.content, jobDescription),
+            runSemanticAnalysis(
+              uploadedFile.content,
+              jobDescription,
+              selectedIndustry || 'technology'
+            ),
+            runFormatCompatibilityCheck(uploadedFile.content),
+            runIndustryAnalysis(
+              uploadedFile.content,
+              jobDescription,
+              selectedIndustry || 'technology'
+            ),
+            runATSValidationSuite(),
+            runATSSimulation(uploadedFile.content, jobDescription),
+            runComprehensiveAnalysis(
+              uploadedFile.content,
+              jobDescription,
+              selectedIndustry || 'technology'
+            ),
+            runCompetitiveAnalysis(uploadedFile.content, jobDescription),
+            runMarketPositionAnalysis(uploadedFile.content, jobDescription),
+            runSalaryInsights(uploadedFile.content, jobDescription),
+            runHiringProbabilityAnalysis(uploadedFile.content, jobDescription),
+            runApplicationSuccessPrediction(
+              uploadedFile.content,
+              jobDescription
+            ),
+            runCareerPathSuggestions(uploadedFile.content),
+            runSalaryPredictionML(uploadedFile.content, jobDescription),
+            runMLRecommendations(uploadedFile.content, jobDescription),
+          ]);
 
           // Prepare detailed analysis data
           const detailedAnalysisData = {
@@ -231,6 +291,62 @@ export function AnalysisPage() {
             mlInsights:
               mlInsightsResult.status === 'fulfilled'
                 ? mlInsightsResult.value
+                : undefined,
+            semanticAnalysis:
+              semanticResult.status === 'fulfilled'
+                ? semanticResult.value
+                : undefined,
+            formatCompatibility:
+              formatResult.status === 'fulfilled'
+                ? formatResult.value
+                : undefined,
+            industryAnalysis:
+              industryResult.status === 'fulfilled'
+                ? industryResult.value
+                : undefined,
+            atsValidation:
+              atsValidationResult.status === 'fulfilled'
+                ? atsValidationResult.value
+                : undefined,
+            atsSimulation:
+              atsSimulationResult.status === 'fulfilled'
+                ? atsSimulationResult.value
+                : undefined,
+            comprehensiveAnalysis:
+              comprehensiveResult.status === 'fulfilled'
+                ? comprehensiveResult.value
+                : undefined,
+            competitiveAnalysis:
+              competitiveAnalysisResult.status === 'fulfilled'
+                ? competitiveAnalysisResult.value
+                : undefined,
+            marketPositionAnalysis:
+              marketPositionResult.status === 'fulfilled'
+                ? marketPositionResult.value
+                : undefined,
+            salaryInsights:
+              salaryInsightsResult.status === 'fulfilled'
+                ? salaryInsightsResult.value
+                : undefined,
+            hiringProbabilityAnalysis:
+              hiringProbabilityResult.status === 'fulfilled'
+                ? hiringProbabilityResult.value
+                : undefined,
+            applicationSuccessPrediction:
+              applicationSuccessResult.status === 'fulfilled'
+                ? applicationSuccessResult.value
+                : undefined,
+            careerPathSuggestions:
+              careerPathResult.status === 'fulfilled'
+                ? careerPathResult.value
+                : undefined,
+            salaryPredictionML:
+              salaryPredictionMLResult.status === 'fulfilled'
+                ? salaryPredictionMLResult.value
+                : undefined,
+            mlRecommendations:
+              mlRecommendationsResult.status === 'fulfilled'
+                ? mlRecommendationsResult.value
                 : undefined,
             resumeFilename: uploadedFile.filename,
             jobDescription: jobDescription,
@@ -312,6 +428,375 @@ export function AnalysisPage() {
       }
     } catch {
       // ML insights error - continue without it
+      return undefined;
+    }
+  };
+
+  // Semantic analysis handler
+  const runSemanticAnalysis = async (
+    resumeContent: string,
+    jobDesc: string,
+    industry: string
+  ): Promise<SemanticAnalysisResult | undefined> => {
+    try {
+      const result = await invoke<CommandResult<SemanticAnalysisResult>>(
+        'semantic_analysis',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+          industry,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Semantic analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Semantic analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  // Format compatibility check handler
+  const runFormatCompatibilityCheck = async (
+    resumeContent: string
+  ): Promise<FormatCompatibilityReport | undefined> => {
+    try {
+      const result = await invoke<CommandResult<FormatCompatibilityReport>>(
+        'check_format_compatibility',
+        {
+          resumeContent,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Format compatibility check failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Format compatibility check error - continue without it
+      return undefined;
+    }
+  };
+
+  // Industry analysis handler
+  const runIndustryAnalysis = async (
+    resumeContent: string,
+    jobDesc: string,
+    targetIndustry: string
+  ): Promise<IndustryAnalysisResult | undefined> => {
+    try {
+      const result = await invoke<CommandResult<IndustryAnalysisResult>>(
+        'industry_analysis',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+          targetIndustry,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Industry analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Industry analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  // ATS validation suite handler
+  const runATSValidationSuite = async (): Promise<
+    ValidationReport | undefined
+  > => {
+    try {
+      const result = await invoke<CommandResult<ValidationReport>>(
+        'run_ats_validation_suite'
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // ATS validation suite failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // ATS validation suite error - continue without it
+      return undefined;
+    }
+  };
+
+  // ATS simulation handler
+  const runATSSimulation = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<ATSSimulationResult | undefined> => {
+    try {
+      const result = await invoke<CommandResult<ATSSimulationResult>>(
+        'simulate_multiple_ats_systems',
+        {
+          resumeContent,
+          targetKeywords: jobDesc
+            .split(/\s+/)
+            .filter(word => word.length > 3)
+            .slice(0, 20),
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // ATS simulation failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // ATS simulation error - continue without it
+      return undefined;
+    }
+  };
+
+  // Comprehensive analysis handler
+  const runComprehensiveAnalysis = async (
+    resumeContent: string,
+    jobDescription: string,
+    targetIndustry: string
+  ): Promise<EnhancedAnalysisResult | undefined> => {
+    try {
+      const result = await invoke<CommandResult<EnhancedAnalysisResult>>(
+        'comprehensive_analysis',
+        {
+          resumeContent,
+          jobDescription,
+          targetIndustry,
+          targetRoleLevel: 'mid', // Default to mid-level, could be made configurable
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Comprehensive analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Comprehensive analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  // Competitive Analysis handlers
+  const runCompetitiveAnalysis = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<CompetitiveAnalysis | undefined> => {
+    try {
+      // Default target companies for comprehensive analysis
+      const targetCompanies = [
+        'Google',
+        'Microsoft',
+        'Amazon',
+        'Apple',
+        'Meta',
+      ];
+
+      const result = await invoke<CommandResult<CompetitiveAnalysis>>(
+        'generate_competitive_analysis',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+          targetCompanies,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Competitive analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Competitive analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  const runMarketPositionAnalysis = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<MarketPositionAnalysis | undefined> => {
+    try {
+      const result = await invoke<CommandResult<MarketPositionAnalysis>>(
+        'get_market_position_analysis',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Market position analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Market position analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  const runSalaryInsights = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<SalaryInsightsResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<SalaryInsightsResponse>>(
+        'get_salary_insights',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Salary insights failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Salary insights error - continue without it
+      return undefined;
+    }
+  };
+
+  const runHiringProbabilityAnalysis = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<HiringProbabilityResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<HiringProbabilityResponse>>(
+        'get_hiring_probability',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Hiring probability analysis failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Hiring probability analysis error - continue without it
+      return undefined;
+    }
+  };
+
+  // Individual ML command handlers
+  const runApplicationSuccessPrediction = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<ApplicationSuccessResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<ApplicationSuccessResponse>>(
+        'predict_application_success',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Application success prediction failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Application success prediction error - continue without it
+      return undefined;
+    }
+  };
+
+  const runCareerPathSuggestions = async (
+    resumeContent: string
+  ): Promise<CareerPathSuggestionsResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<CareerPathSuggestionsResponse>>(
+        'get_career_path_suggestions',
+        {
+          resumeContent,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // Career path suggestions failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // Career path suggestions error - continue without it
+      return undefined;
+    }
+  };
+
+  const runSalaryPredictionML = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<SalaryPredictionMLResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<SalaryPredictionMLResponse>>(
+        'get_salary_prediction_ml',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // ML salary prediction failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // ML salary prediction error - continue without it
+      return undefined;
+    }
+  };
+
+  const runMLRecommendations = async (
+    resumeContent: string,
+    jobDesc: string
+  ): Promise<MLRecommendationsResponse | undefined> => {
+    try {
+      const result = await invoke<CommandResult<MLRecommendationsResponse>>(
+        'get_ml_recommendations',
+        {
+          resumeContent,
+          jobDescription: jobDesc,
+        }
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        // ML recommendations failed - continue without it
+        return undefined;
+      }
+    } catch {
+      // ML recommendations error - continue without it
       return undefined;
     }
   };
@@ -523,6 +1008,35 @@ export function AnalysisPage() {
                       className="min-h-[150px] resize-none text-sm"
                       autoFocus={currentStep === 'job-description'}
                     />
+
+                    {/* Industry Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Target Industry (Optional)
+                      </label>
+                      <select
+                        value={selectedIndustry}
+                        onChange={e => setSelectedIndustry(e.target.value)}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">
+                          Auto-detect from job description
+                        </option>
+                        <option value="technology">Technology</option>
+                        <option value="finance">Finance</option>
+                        <option value="healthcare">Healthcare</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="sales">Sales</option>
+                        <option value="consulting">Consulting</option>
+                        <option value="education">Education</option>
+                        <option value="government">Government</option>
+                        <option value="nonprofit">Non-profit</option>
+                        <option value="retail">Retail</option>
+                        <option value="manufacturing">Manufacturing</option>
+                        <option value="legal">Legal</option>
+                      </select>
+                    </div>
+
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{jobDescription.length} characters</span>
                       {jobDescription.trim() && (
