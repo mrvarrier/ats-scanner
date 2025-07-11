@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
-use log::info;
+use log::{error, info, warn};
 use sqlx::{Row, SqlitePool};
+use std::path::PathBuf;
 
 use crate::models::{
     ATSCompatibilityRule, Analysis, IndustryKeyword, ModelPerformanceMetrics, Resume,
@@ -15,26 +16,158 @@ pub struct Database {
 
 impl Database {
     pub async fn new() -> Result<Self> {
+        // Use a fallback approach since we don't have access to Tauri app handle here
+        // First try current directory approach, then try home directory fallback
+        let result = Self::try_current_directory_database().await;
+
+        match result {
+            Ok(db) => {
+                info!("Database initialized successfully using current directory");
+                Ok(db)
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to initialize database using current directory: {}",
+                    e
+                );
+                info!("Attempting fallback to home directory");
+                Self::try_home_directory_database().await
+            }
+        }
+    }
+
+    async fn try_current_directory_database() -> Result<Self> {
         // Use persistent database file with absolute path
         let current_dir = std::env::current_dir().context("Failed to get current directory")?;
         let data_dir = current_dir.join("data");
         let db_path = data_dir.join("ats_scanner.db");
         let database_url = format!("sqlite:{}", db_path.to_string_lossy());
 
-        info!("Using persistent database: {}", database_url);
+        info!("Trying current directory database: {}", database_url);
         info!("Current directory: {:?}", current_dir);
         info!("Data directory: {:?}", data_dir);
 
         // Ensure data directory exists
         std::fs::create_dir_all(&data_dir).context("Failed to create data directory")?;
 
-        let pool = SqlitePool::connect(&database_url).await?;
+        // Try to connect with specific SQLite error handling
+        let pool = Self::connect_with_error_handling(&database_url, &data_dir, &db_path).await?;
 
         let db = Database { pool };
         db.run_migrations().await?;
         db.seed_initial_data().await?;
 
-        info!("Database initialized successfully");
+        Ok(db)
+    }
+
+    async fn try_home_directory_database() -> Result<Self> {
+        // Fallback to home directory approach
+        let home_dir = dirs::home_dir().context("Failed to get home directory")?;
+        let app_data_dir = home_dir.join(".ats-scanner");
+        let db_path = app_data_dir.join("ats_scanner.db");
+        let database_url = format!("sqlite:{}", db_path.to_string_lossy());
+
+        info!("Trying home directory database: {}", database_url);
+        info!("Home directory: {:?}", home_dir);
+        info!("App data directory: {:?}", app_data_dir);
+
+        // Ensure app data directory exists
+        std::fs::create_dir_all(&app_data_dir).context("Failed to create app data directory")?;
+
+        // Try to connect with specific SQLite error handling
+        let pool =
+            Self::connect_with_error_handling(&database_url, &app_data_dir, &db_path).await?;
+
+        let db = Database { pool };
+        db.run_migrations().await?;
+        db.seed_initial_data().await?;
+
+        info!("Database initialized successfully using home directory fallback");
+        Ok(db)
+    }
+
+    async fn connect_with_error_handling(
+        database_url: &str,
+        data_dir: &PathBuf,
+        db_path: &PathBuf,
+    ) -> Result<SqlitePool> {
+        match SqlitePool::connect(database_url).await {
+            Ok(pool) => Ok(pool),
+            Err(e) => {
+                error!("SQLite connection failed: {}", e);
+
+                // Check if this is the specific error code 14
+                if e.to_string().contains("code: 14")
+                    || e.to_string().contains("unable to open database file")
+                {
+                    error!("SQLite error code 14 detected: unable to open database file");
+                    error!("Database path: {}", database_url);
+                    error!("Data directory exists: {}", data_dir.exists());
+                    error!("Database file exists: {}", db_path.exists());
+
+                    // Try to provide more diagnostic information
+                    if let Ok(metadata) = std::fs::metadata(data_dir) {
+                        error!("Data directory permissions: {:?}", metadata.permissions());
+                    }
+
+                    if db_path.exists() {
+                        if let Ok(metadata) = std::fs::metadata(db_path) {
+                            error!("Database file permissions: {:?}", metadata.permissions());
+                            error!("Database file size: {}", metadata.len());
+                        }
+                    }
+
+                    return Err(anyhow::anyhow!(
+                        "SQLite error code 14: Unable to open database file at '{}'. This could be due to:\n\
+                        1. Permission issues - check if the application has write access to the directory\n\
+                        2. Disk space issues - ensure sufficient disk space is available\n\
+                        3. File system corruption - check the file system integrity\n\
+                        4. Concurrent access conflicts - ensure no other application instances are running\n\
+                        5. Path resolution issues - verify the path is correct and accessible\n\
+                        6. Directory creation failed - ensure parent directory can be created\n\n\
+                        Database path: {}\n\
+                        Directory exists: {}\n\
+                        File exists: {}\n\n\
+                        Please check the application logs for more details and try restarting the application.",
+                        database_url,
+                        database_url,
+                        data_dir.exists(),
+                        db_path.exists()
+                    ));
+                }
+
+                Err(e.into())
+            }
+        }
+    }
+
+    pub async fn new_with_app_handle(app_handle: &tauri::AppHandle) -> Result<Self> {
+        // Use Tauri's app data directory for more reliable path resolution
+        let app_data_dir = app_handle
+            .path_resolver()
+            .app_data_dir()
+            .context("Failed to get app data directory")?;
+
+        let db_path = app_data_dir.join("ats_scanner.db");
+        let database_url = format!("sqlite:{}", db_path.to_string_lossy());
+
+        info!("Using Tauri app data directory: {}", database_url);
+        info!("App data directory: {:?}", app_data_dir);
+
+        // Ensure app data directory exists
+        tokio::fs::create_dir_all(&app_data_dir)
+            .await
+            .context("Failed to create app data directory")?;
+
+        // Try to connect with specific SQLite error handling
+        let pool =
+            Self::connect_with_error_handling(&database_url, &app_data_dir, &db_path).await?;
+
+        let db = Database { pool };
+        db.run_migrations().await?;
+        db.seed_initial_data().await?;
+
+        info!("Database initialized successfully using Tauri app handle");
         Ok(db)
     }
 
@@ -43,13 +176,31 @@ impl Database {
 
         // If it's a file-based SQLite database, ensure the parent directory exists
         if database_url.starts_with("sqlite:") && !database_url.contains(":memory:") {
-            let db_path = database_url.strip_prefix("sqlite:").unwrap_or(database_url);
-            if let Some(parent) = std::path::Path::new(db_path).parent() {
+            let db_path_str = database_url.strip_prefix("sqlite:").unwrap_or(database_url);
+            let db_path = PathBuf::from(db_path_str);
+
+            if let Some(parent) = db_path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
                 info!("Created database directory: {:?}", parent);
+
+                // Try to connect with specific SQLite error handling
+                let pool = Self::connect_with_error_handling(
+                    database_url,
+                    &parent.to_path_buf(),
+                    &db_path,
+                )
+                .await?;
+
+                let db = Database { pool };
+                db.run_migrations().await?;
+                db.seed_initial_data().await?;
+
+                info!("Database initialized successfully");
+                return Ok(db);
             }
         }
 
+        // For in-memory databases or other cases
         let pool = SqlitePool::connect(database_url).await?;
 
         let db = Database { pool };
@@ -304,33 +455,617 @@ impl Database {
     async fn seed_initial_data(&self) -> Result<()> {
         info!("Seeding initial data");
 
-        // Add some basic industry keywords for common industries
+        // Technology industry keywords
         let tech_keywords = vec![
-            ("python", "programming_language", 2.0),
-            ("javascript", "programming_language", 2.0),
-            ("react", "framework", 1.8),
-            ("nodejs", "framework", 1.5),
-            ("docker", "devops", 1.5),
-            ("kubernetes", "devops", 1.8),
-            ("aws", "cloud", 2.0),
-            ("git", "version_control", 1.5),
+            (
+                "python",
+                "programming_language",
+                2.0,
+                r#"["py", "python3"]"#,
+            ),
+            (
+                "javascript",
+                "programming_language",
+                2.0,
+                r#"["js", "node.js", "nodejs"]"#,
+            ),
+            ("react", "framework", 1.8, r#"["reactjs", "react.js"]"#),
+            ("nodejs", "framework", 1.5, r#"["node.js", "node"]"#),
+            ("docker", "devops", 1.5, r#"["containerization"]"#),
+            ("kubernetes", "devops", 1.8, r#"["k8s"]"#),
+            ("aws", "cloud", 2.0, r#"["amazon web services"]"#),
+            ("git", "version_control", 1.5, r#"["github", "gitlab"]"#),
+            ("java", "programming_language", 2.0, r#"["jvm", "spring"]"#),
+            ("typescript", "programming_language", 1.8, r#"["ts"]"#),
+            (
+                "sql",
+                "database",
+                1.8,
+                r#"["mysql", "postgresql", "sqlite"]"#,
+            ),
+            ("api", "technical", 1.5, r#"["rest", "restful", "graphql"]"#),
+            ("agile", "methodology", 1.3, r#"["scrum", "kanban"]"#),
+            (
+                "microservices",
+                "architecture",
+                1.6,
+                r#"["micro-services"]"#,
+            ),
+            (
+                "ci/cd",
+                "devops",
+                1.5,
+                r#"["continuous integration", "continuous deployment"]"#,
+            ),
         ];
 
-        for (keyword, category, weight) in tech_keywords {
-            let _ = sqlx::query(
-                "INSERT OR IGNORE INTO industry_keywords (id, industry, keyword, weight, category, synonyms) VALUES (?, ?, ?, ?, ?, ?)"
-            )
-            .bind(format!("tech-{}", keyword))
-            .bind("technology")
-            .bind(keyword)
-            .bind(weight)
-            .bind(category)
-            .bind("[]")
-            .execute(&self.pool)
-            .await;
+        // Healthcare industry keywords
+        let healthcare_keywords = vec![
+            (
+                "hipaa",
+                "regulation",
+                2.0,
+                r#"["health insurance portability"]"#,
+            ),
+            (
+                "ehr",
+                "software",
+                1.8,
+                r#"["electronic health record", "emr"]"#,
+            ),
+            (
+                "clinical",
+                "domain",
+                1.5,
+                r#"["clinical research", "clinical trial"]"#,
+            ),
+            (
+                "medical device",
+                "domain",
+                1.8,
+                r#"["medical devices", "fda"]"#,
+            ),
+            ("nursing", "role", 1.5, r#"["rn", "registered nurse"]"#),
+            (
+                "patient care",
+                "soft_skill",
+                1.4,
+                r#"["patient safety", "patient outcomes"]"#,
+            ),
+            (
+                "pharmacy",
+                "domain",
+                1.6,
+                r#"["pharmacist", "medication management"]"#,
+            ),
+            (
+                "healthcare analytics",
+                "technical",
+                1.7,
+                r#"["health data", "medical data"]"#,
+            ),
+            (
+                "telemedicine",
+                "domain",
+                1.5,
+                r#"["telehealth", "remote care"]"#,
+            ),
+            (
+                "cpt",
+                "standard",
+                1.4,
+                r#"["current procedural terminology"]"#,
+            ),
+            (
+                "icd",
+                "standard",
+                1.4,
+                r#"["international classification of diseases"]"#,
+            ),
+            (
+                "gdpr",
+                "regulation",
+                1.6,
+                r#"["general data protection regulation"]"#,
+            ),
+            (
+                "quality assurance",
+                "methodology",
+                1.3,
+                r#"["qa", "quality control"]"#,
+            ),
+            (
+                "medical coding",
+                "technical",
+                1.5,
+                r#"["medical coder", "coding"]"#,
+            ),
+            (
+                "healthcare management",
+                "leadership",
+                1.4,
+                r#"["health administration"]"#,
+            ),
+        ];
+
+        // Finance industry keywords
+        let finance_keywords = vec![
+            (
+                "financial modeling",
+                "technical",
+                1.8,
+                r#"["financial models", "modeling"]"#,
+            ),
+            (
+                "risk management",
+                "domain",
+                1.7,
+                r#"["risk assessment", "credit risk"]"#,
+            ),
+            (
+                "compliance",
+                "regulation",
+                1.6,
+                r#"["regulatory compliance", "sox"]"#,
+            ),
+            (
+                "investment",
+                "domain",
+                1.5,
+                r#"["investment analysis", "portfolio management"]"#,
+            ),
+            (
+                "banking",
+                "domain",
+                1.4,
+                r#"["retail banking", "commercial banking"]"#,
+            ),
+            ("fintech", "domain", 1.6, r#"["financial technology"]"#),
+            (
+                "trading",
+                "domain",
+                1.5,
+                r#"["equity trading", "derivatives"]"#,
+            ),
+            ("accounting", "domain", 1.4, r#"["cpa", "gaap"]"#),
+            (
+                "excel",
+                "technical",
+                1.3,
+                r#"["microsoft excel", "spreadsheet"]"#,
+            ),
+            ("bloomberg", "technical", 1.5, r#"["bloomberg terminal"]"#),
+            (
+                "financial reporting",
+                "technical",
+                1.4,
+                r#"["financial statements"]"#,
+            ),
+            ("kyc", "regulation", 1.5, r#"["know your customer", "aml"]"#),
+            (
+                "securities",
+                "domain",
+                1.4,
+                r#"["securities analysis", "equity"]"#,
+            ),
+            (
+                "credit analysis",
+                "technical",
+                1.5,
+                r#"["credit scoring", "underwriting"]"#,
+            ),
+            (
+                "quantitative analysis",
+                "technical",
+                1.6,
+                r#"["quant", "quantitative finance"]"#,
+            ),
+        ];
+
+        // Education industry keywords
+        let education_keywords = vec![
+            (
+                "curriculum",
+                "domain",
+                1.5,
+                r#"["curriculum development", "course design"]"#,
+            ),
+            (
+                "learning management",
+                "technical",
+                1.4,
+                r#"["lms", "blackboard", "canvas"]"#,
+            ),
+            (
+                "student assessment",
+                "methodology",
+                1.3,
+                r#"["assessment", "evaluation"]"#,
+            ),
+            (
+                "educational technology",
+                "technical",
+                1.5,
+                r#"["edtech", "e-learning"]"#,
+            ),
+            (
+                "pedagogy",
+                "methodology",
+                1.4,
+                r#"["teaching methods", "instructional design"]"#,
+            ),
+            (
+                "special education",
+                "domain",
+                1.3,
+                r#"["special needs", "iep"]"#,
+            ),
+            (
+                "academic research",
+                "methodology",
+                1.4,
+                r#"["research methods", "publications"]"#,
+            ),
+            (
+                "student affairs",
+                "domain",
+                1.2,
+                r#"["student services", "student life"]"#,
+            ),
+            (
+                "higher education",
+                "domain",
+                1.3,
+                r#"["university", "college"]"#,
+            ),
+            (
+                "k-12",
+                "domain",
+                1.3,
+                r#"["elementary", "secondary education"]"#,
+            ),
+            (
+                "distance learning",
+                "methodology",
+                1.4,
+                r#"["online learning", "remote education"]"#,
+            ),
+            (
+                "educational leadership",
+                "leadership",
+                1.5,
+                r#"["academic leadership", "administration"]"#,
+            ),
+            (
+                "data analysis",
+                "technical",
+                1.4,
+                r#"["educational data", "student data"]"#,
+            ),
+            (
+                "grant writing",
+                "technical",
+                1.3,
+                r#"["funding", "proposals"]"#,
+            ),
+            (
+                "accreditation",
+                "regulation",
+                1.2,
+                r#"["accreditation standards"]"#,
+            ),
+        ];
+
+        // Manufacturing industry keywords
+        let manufacturing_keywords = vec![
+            (
+                "lean manufacturing",
+                "methodology",
+                1.6,
+                r#"["lean", "continuous improvement"]"#,
+            ),
+            (
+                "six sigma",
+                "methodology",
+                1.5,
+                r#"["quality improvement", "dmaic"]"#,
+            ),
+            (
+                "quality control",
+                "methodology",
+                1.4,
+                r#"["qc", "quality assurance"]"#,
+            ),
+            (
+                "supply chain",
+                "domain",
+                1.5,
+                r#"["supply chain management", "logistics"]"#,
+            ),
+            (
+                "production planning",
+                "technical",
+                1.4,
+                r#"["production scheduling", "planning"]"#,
+            ),
+            ("safety", "domain", 1.3, r#"["workplace safety", "osha"]"#),
+            (
+                "process improvement",
+                "methodology",
+                1.5,
+                r#"["process optimization"]"#,
+            ),
+            (
+                "inventory management",
+                "technical",
+                1.3,
+                r#"["inventory control", "stock management"]"#,
+            ),
+            (
+                "manufacturing engineering",
+                "technical",
+                1.6,
+                r#"["industrial engineering"]"#,
+            ),
+            (
+                "automation",
+                "technical",
+                1.5,
+                r#"["process automation", "robotics"]"#,
+            ),
+            (
+                "kaizen",
+                "methodology",
+                1.4,
+                r#"["continuous improvement"]"#,
+            ),
+            (
+                "erp",
+                "software",
+                1.4,
+                r#"["enterprise resource planning", "sap"]"#,
+            ),
+            (
+                "iso",
+                "standard",
+                1.3,
+                r#"["iso 9001", "quality standards"]"#,
+            ),
+            (
+                "maintenance",
+                "technical",
+                1.2,
+                r#"["preventive maintenance", "equipment maintenance"]"#,
+            ),
+            (
+                "operations",
+                "domain",
+                1.3,
+                r#"["operations management", "plant operations"]"#,
+            ),
+        ];
+
+        // Retail industry keywords
+        let retail_keywords = vec![
+            (
+                "customer service",
+                "soft_skill",
+                1.5,
+                r#"["customer support", "customer experience"]"#,
+            ),
+            (
+                "sales",
+                "domain",
+                1.4,
+                r#"["sales management", "retail sales"]"#,
+            ),
+            (
+                "inventory",
+                "technical",
+                1.3,
+                r#"["inventory management", "stock control"]"#,
+            ),
+            (
+                "merchandising",
+                "domain",
+                1.4,
+                r#"["visual merchandising", "product placement"]"#,
+            ),
+            (
+                "pos",
+                "technical",
+                1.2,
+                r#"["point of sale", "cash register"]"#,
+            ),
+            (
+                "e-commerce",
+                "domain",
+                1.5,
+                r#"["online retail", "digital commerce"]"#,
+            ),
+            (
+                "brand management",
+                "marketing",
+                1.4,
+                r#"["branding", "brand strategy"]"#,
+            ),
+            (
+                "market research",
+                "methodology",
+                1.3,
+                r#"["consumer research", "market analysis"]"#,
+            ),
+            (
+                "supply chain",
+                "domain",
+                1.4,
+                r#"["logistics", "distribution"]"#,
+            ),
+            (
+                "pricing",
+                "technical",
+                1.3,
+                r#"["pricing strategy", "revenue management"]"#,
+            ),
+            (
+                "loss prevention",
+                "domain",
+                1.2,
+                r#"["security", "theft prevention"]"#,
+            ),
+            (
+                "buying",
+                "domain",
+                1.3,
+                r#"["procurement", "vendor management"]"#,
+            ),
+            (
+                "store management",
+                "leadership",
+                1.4,
+                r#"["retail management", "store operations"]"#,
+            ),
+            (
+                "omnichannel",
+                "strategy",
+                1.5,
+                r#"["multichannel", "cross-channel"]"#,
+            ),
+            (
+                "customer analytics",
+                "technical",
+                1.4,
+                r#"["customer data", "retail analytics"]"#,
+            ),
+        ];
+
+        // Consulting industry keywords
+        let consulting_keywords = vec![
+            (
+                "project management",
+                "methodology",
+                1.6,
+                r#"["pmp", "project planning"]"#,
+            ),
+            (
+                "business analysis",
+                "technical",
+                1.5,
+                r#"["business analyst", "requirements gathering"]"#,
+            ),
+            (
+                "strategy",
+                "domain",
+                1.5,
+                r#"["strategic planning", "business strategy"]"#,
+            ),
+            (
+                "change management",
+                "methodology",
+                1.4,
+                r#"["organizational change", "transformation"]"#,
+            ),
+            (
+                "stakeholder management",
+                "soft_skill",
+                1.4,
+                r#"["stakeholder engagement"]"#,
+            ),
+            (
+                "process mapping",
+                "technical",
+                1.3,
+                r#"["process analysis", "workflow"]"#,
+            ),
+            (
+                "data analysis",
+                "technical",
+                1.4,
+                r#"["data analytics", "business intelligence"]"#,
+            ),
+            (
+                "client management",
+                "soft_skill",
+                1.3,
+                r#"["client relationship", "account management"]"#,
+            ),
+            (
+                "presentation",
+                "soft_skill",
+                1.2,
+                r#"["presentations", "public speaking"]"#,
+            ),
+            (
+                "problem solving",
+                "soft_skill",
+                1.4,
+                r#"["analytical thinking", "critical thinking"]"#,
+            ),
+            (
+                "facilitation",
+                "soft_skill",
+                1.3,
+                r#"["workshop facilitation", "meeting facilitation"]"#,
+            ),
+            (
+                "requirements analysis",
+                "technical",
+                1.4,
+                r#"["requirements gathering", "business requirements"]"#,
+            ),
+            (
+                "implementation",
+                "technical",
+                1.3,
+                r#"["solution implementation", "deployment"]"#,
+            ),
+            (
+                "training",
+                "soft_skill",
+                1.2,
+                r#"["training delivery", "knowledge transfer"]"#,
+            ),
+            (
+                "process improvement",
+                "methodology",
+                1.4,
+                r#"["process optimization", "efficiency"]"#,
+            ),
+        ];
+
+        // Insert all keywords into the database
+        let all_keywords = vec![
+            ("technology", tech_keywords),
+            ("healthcare", healthcare_keywords),
+            ("finance", finance_keywords),
+            ("education", education_keywords),
+            ("manufacturing", manufacturing_keywords),
+            ("retail", retail_keywords),
+            ("consulting", consulting_keywords),
+        ];
+
+        let industry_count = all_keywords.len();
+
+        for (industry, keywords) in all_keywords {
+            for (keyword, category, weight, synonyms) in keywords {
+                let _ = sqlx::query(
+                    "INSERT OR IGNORE INTO industry_keywords (id, industry, keyword, weight, category, synonyms) VALUES (?, ?, ?, ?, ?, ?)"
+                )
+                .bind(format!("{}-{}", industry, keyword.replace(" ", "_")))
+                .bind(industry)
+                .bind(keyword)
+                .bind(weight)
+                .bind(category)
+                .bind(synonyms)
+                .execute(&self.pool)
+                .await;
+            }
         }
 
-        info!("Initial data seeded successfully");
+        info!(
+            "Initial data seeded successfully with {} industries",
+            industry_count
+        );
         Ok(())
     }
 
@@ -535,6 +1270,252 @@ impl Database {
     pub async fn health_check(&self) -> Result<bool> {
         let result = sqlx::query("SELECT 1").fetch_one(&self.pool).await?;
         Ok(result.get::<i32, _>(0) == 1)
+    }
+
+    // Comprehensive health check with detailed information
+    pub async fn comprehensive_health_check(&self) -> Result<serde_json::Value> {
+        let mut health_info = std::collections::HashMap::new();
+
+        // Basic connectivity check
+        let basic_check = match sqlx::query("SELECT 1").fetch_one(&self.pool).await {
+            Ok(result) => result.get::<i32, _>(0) == 1,
+            Err(e) => {
+                health_info.insert(
+                    "basic_connectivity".to_string(),
+                    serde_json::json!({
+                        "status": "failed",
+                        "error": e.to_string()
+                    }),
+                );
+                false
+            }
+        };
+
+        health_info.insert(
+            "basic_connectivity".to_string(),
+            serde_json::json!({
+                "status": if basic_check { "healthy" } else { "failed" },
+                "description": "Basic database connectivity test"
+            }),
+        );
+
+        // Table existence check
+        let table_check = self.check_table_existence().await;
+        health_info.insert(
+            "table_existence".to_string(),
+            serde_json::json!(table_check),
+        );
+
+        // Database size check
+        let db_size = self.get_database_size().await;
+        health_info.insert("database_size".to_string(), serde_json::json!(db_size));
+
+        // Connection pool status
+        let pool_info = self.get_connection_pool_info();
+        health_info.insert("connection_pool".to_string(), serde_json::json!(pool_info));
+
+        // Performance check
+        let performance_check = self.check_database_performance().await;
+        health_info.insert(
+            "performance".to_string(),
+            serde_json::json!(performance_check),
+        );
+
+        // Calculate overall health
+        let overall_healthy = basic_check
+            && table_check
+                .get("all_tables_exist")
+                .unwrap_or(&serde_json::Value::Bool(false))
+                .as_bool()
+                .unwrap_or(false);
+
+        health_info.insert("overall_status".to_string(), serde_json::json!({
+            "healthy": overall_healthy,
+            "timestamp": Utc::now().to_rfc3339(),
+            "summary": if overall_healthy { "Database is healthy" } else { "Database has issues" }
+        }));
+
+        Ok(serde_json::json!(health_info))
+    }
+
+    async fn check_table_existence(&self) -> serde_json::Value {
+        let required_tables = vec![
+            "resumes",
+            "analyses",
+            "user_preferences",
+            "industry_keywords",
+            "ats_compatibility_rules",
+            "scoring_benchmarks",
+            "user_feedback",
+            "model_performance_metrics",
+        ];
+
+        let mut table_status = std::collections::HashMap::new();
+        let mut all_exist = true;
+
+        for table in &required_tables {
+            let exists = match sqlx::query(&format!(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='{}'",
+                table
+            ))
+            .fetch_optional(&self.pool)
+            .await
+            {
+                Ok(Some(_)) => true,
+                Ok(None) => false,
+                Err(e) => {
+                    table_status
+                        .insert(format!("{}_error", table), serde_json::json!(e.to_string()));
+                    false
+                }
+            };
+
+            table_status.insert(table.to_string(), serde_json::json!(exists));
+            if !exists {
+                all_exist = false;
+            }
+        }
+
+        table_status.insert("all_tables_exist".to_string(), serde_json::json!(all_exist));
+        serde_json::json!(table_status)
+    }
+
+    async fn get_database_size(&self) -> serde_json::Value {
+        let page_count = sqlx::query("PRAGMA page_count")
+            .fetch_one(&self.pool)
+            .await
+            .map(|row| row.get::<i32, _>(0))
+            .unwrap_or(0);
+
+        let page_size = sqlx::query("PRAGMA page_size")
+            .fetch_one(&self.pool)
+            .await
+            .map(|row| row.get::<i32, _>(0))
+            .unwrap_or(0);
+
+        let total_size = (page_count as i64) * (page_size as i64);
+
+        serde_json::json!({
+            "page_count": page_count,
+            "page_size": page_size,
+            "total_size_bytes": total_size,
+            "total_size_mb": total_size as f64 / 1024.0 / 1024.0
+        })
+    }
+
+    fn get_connection_pool_info(&self) -> serde_json::Value {
+        serde_json::json!({
+            "size": self.pool.size(),
+            "idle": self.pool.num_idle(),
+            "description": "SQLite connection pool information"
+        })
+    }
+
+    async fn check_database_performance(&self) -> serde_json::Value {
+        let start_time = std::time::Instant::now();
+
+        // Run a simple query to test performance
+        let query_result = sqlx::query("SELECT COUNT(*) FROM sqlite_master")
+            .fetch_one(&self.pool)
+            .await;
+
+        let duration = start_time.elapsed();
+
+        match query_result {
+            Ok(_) => serde_json::json!({
+                "status": "healthy",
+                "query_time_ms": duration.as_millis(),
+                "description": "Database query performance check"
+            }),
+            Err(e) => serde_json::json!({
+                "status": "failed",
+                "error": e.to_string(),
+                "query_time_ms": duration.as_millis(),
+                "description": "Database query performance check failed"
+            }),
+        }
+    }
+
+    // Database maintenance and optimization
+    pub async fn optimize_database(&self) -> Result<serde_json::Value> {
+        let mut results = std::collections::HashMap::new();
+
+        // Run VACUUM to reclaim space
+        let vacuum_start = std::time::Instant::now();
+        match sqlx::query("VACUUM").execute(&self.pool).await {
+            Ok(_) => {
+                results.insert(
+                    "vacuum".to_string(),
+                    serde_json::json!({
+                        "status": "success",
+                        "duration_ms": vacuum_start.elapsed().as_millis(),
+                        "description": "Database vacuum completed successfully"
+                    }),
+                );
+            }
+            Err(e) => {
+                results.insert(
+                    "vacuum".to_string(),
+                    serde_json::json!({
+                        "status": "failed",
+                        "error": e.to_string(),
+                        "description": "Database vacuum failed"
+                    }),
+                );
+            }
+        }
+
+        // Run ANALYZE to update statistics
+        let analyze_start = std::time::Instant::now();
+        match sqlx::query("ANALYZE").execute(&self.pool).await {
+            Ok(_) => {
+                results.insert(
+                    "analyze".to_string(),
+                    serde_json::json!({
+                        "status": "success",
+                        "duration_ms": analyze_start.elapsed().as_millis(),
+                        "description": "Database analysis completed successfully"
+                    }),
+                );
+            }
+            Err(e) => {
+                results.insert(
+                    "analyze".to_string(),
+                    serde_json::json!({
+                        "status": "failed",
+                        "error": e.to_string(),
+                        "description": "Database analysis failed"
+                    }),
+                );
+            }
+        }
+
+        // Check integrity
+        let integrity_check = match sqlx::query("PRAGMA integrity_check")
+            .fetch_one(&self.pool)
+            .await
+        {
+            Ok(row) => {
+                let result: String = row.get(0);
+                serde_json::json!({
+                    "status": if result == "ok" { "healthy" } else { "issues_found" },
+                    "result": result,
+                    "description": "Database integrity check"
+                })
+            }
+            Err(e) => serde_json::json!({
+                "status": "failed",
+                "error": e.to_string(),
+                "description": "Database integrity check failed"
+            }),
+        };
+
+        results.insert("integrity_check".to_string(), integrity_check);
+
+        Ok(serde_json::json!({
+            "timestamp": Utc::now().to_rfc3339(),
+            "results": results
+        }))
     }
 
     pub async fn get_analysis_stats(&self, days: Option<i32>) -> Result<serde_json::Value> {
@@ -976,7 +1957,206 @@ impl Database {
             keywords.push(keyword);
         }
 
+        // If no keywords found for the specific industry, provide fallback keywords
+        if keywords.is_empty() {
+            info!(
+                "No keywords found for industry '{}', using fallback keywords",
+                industry
+            );
+            keywords = self.get_fallback_keywords(industry).await;
+        }
+
         Ok(keywords)
+    }
+
+    async fn get_fallback_keywords(&self, industry: &str) -> Vec<IndustryKeyword> {
+        let now = chrono::Utc::now();
+
+        // Generic keywords that apply to most industries
+        let generic_keywords = vec![
+            (
+                "communication",
+                "soft_skill",
+                1.3,
+                r#"["verbal communication", "written communication"]"#,
+            ),
+            (
+                "teamwork",
+                "soft_skill",
+                1.2,
+                r#"["collaboration", "team player"]"#,
+            ),
+            (
+                "leadership",
+                "soft_skill",
+                1.4,
+                r#"["team leadership", "management"]"#,
+            ),
+            (
+                "problem solving",
+                "soft_skill",
+                1.4,
+                r#"["analytical thinking", "critical thinking"]"#,
+            ),
+            (
+                "project management",
+                "methodology",
+                1.3,
+                r#"["project planning", "project coordination"]"#,
+            ),
+            (
+                "data analysis",
+                "technical",
+                1.3,
+                r#"["data analytics", "analysis"]"#,
+            ),
+            (
+                "microsoft office",
+                "technical",
+                1.1,
+                r#"["excel", "word", "powerpoint"]"#,
+            ),
+            (
+                "customer service",
+                "soft_skill",
+                1.2,
+                r#"["customer support", "client service"]"#,
+            ),
+            (
+                "time management",
+                "soft_skill",
+                1.1,
+                r#"["organization", "prioritization"]"#,
+            ),
+            (
+                "attention to detail",
+                "soft_skill",
+                1.1,
+                r#"["accuracy", "detail-oriented"]"#,
+            ),
+        ];
+
+        // Industry-specific fallback keywords for common industries
+        let industry_specific_fallback = match industry.to_lowercase().as_str() {
+            "business" | "general" | "administration" => vec![
+                (
+                    "business analysis",
+                    "technical",
+                    1.3,
+                    r#"["business planning", "strategic analysis"]"#,
+                ),
+                (
+                    "office administration",
+                    "technical",
+                    1.2,
+                    r#"["administrative support", "office management"]"#,
+                ),
+                (
+                    "customer relations",
+                    "soft_skill",
+                    1.2,
+                    r#"["client relations", "relationship management"]"#,
+                ),
+            ],
+            "sales" | "marketing" => vec![
+                (
+                    "sales experience",
+                    "domain",
+                    1.4,
+                    r#"["sales performance", "revenue generation"]"#,
+                ),
+                (
+                    "marketing",
+                    "domain",
+                    1.3,
+                    r#"["digital marketing", "brand marketing"]"#,
+                ),
+                (
+                    "customer acquisition",
+                    "technical",
+                    1.3,
+                    r#"["lead generation", "prospecting"]"#,
+                ),
+            ],
+            "operations" | "logistics" => vec![
+                (
+                    "operations management",
+                    "technical",
+                    1.4,
+                    r#"["operational efficiency", "process management"]"#,
+                ),
+                (
+                    "supply chain",
+                    "domain",
+                    1.3,
+                    r#"["logistics", "distribution"]"#,
+                ),
+                (
+                    "inventory management",
+                    "technical",
+                    1.2,
+                    r#"["inventory control", "stock management"]"#,
+                ),
+            ],
+            "human resources" | "hr" => vec![
+                (
+                    "recruitment",
+                    "technical",
+                    1.4,
+                    r#"["hiring", "talent acquisition"]"#,
+                ),
+                (
+                    "employee relations",
+                    "soft_skill",
+                    1.3,
+                    r#"["hr management", "personnel management"]"#,
+                ),
+                (
+                    "performance management",
+                    "technical",
+                    1.3,
+                    r#"["performance evaluation", "employee development"]"#,
+                ),
+            ],
+            _ => vec![
+                (
+                    "industry experience",
+                    "domain",
+                    1.2,
+                    r#"["sector knowledge", "domain expertise"]"#,
+                ),
+                (
+                    "professional development",
+                    "soft_skill",
+                    1.1,
+                    r#"["continuous learning", "skill development"]"#,
+                ),
+                (
+                    "compliance",
+                    "regulation",
+                    1.2,
+                    r#"["regulatory compliance", "standards"]"#,
+                ),
+            ],
+        };
+
+        // Combine generic and industry-specific keywords
+        let mut all_fallback_keywords = generic_keywords;
+        all_fallback_keywords.extend(industry_specific_fallback);
+
+        // Convert to IndustryKeyword structs
+        all_fallback_keywords
+            .into_iter()
+            .map(|(keyword, category, weight, synonyms)| IndustryKeyword {
+                id: format!("fallback-{}-{}", industry, keyword.replace(" ", "_")),
+                industry: industry.to_string(),
+                keyword: keyword.to_string(),
+                weight,
+                category: category.to_string(),
+                synonyms: synonyms.to_string(),
+                created_at: now,
+            })
+            .collect()
     }
 
     pub async fn get_all_industries(&self) -> Result<Vec<String>> {

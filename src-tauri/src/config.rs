@@ -83,8 +83,15 @@ impl ConfigManager {
     }
 
     fn default_config() -> AppConfig {
+        let default_db_path = if let Some(home_dir) = dirs::home_dir() {
+            home_dir.join(".ats-scanner").join("ats_scanner.db")
+        } else {
+            PathBuf::from("./data/ats_scanner.db")
+        };
+        let database_url = format!("sqlite:{}", default_db_path.to_string_lossy());
+        
         AppConfig {
-            database_url: "sqlite:./data/ats_scanner.db".to_string(),
+            database_url,
             ollama_config: OllamaConfig {
                 host: "localhost".to_string(),
                 port: 11434,
@@ -185,6 +192,11 @@ impl ConfigManager {
     pub fn validate_config(&self) -> Result<Vec<String>> {
         let mut warnings = Vec::new();
 
+        // Validate database URL
+        if let Some(db_warnings) = self.validate_database_url() {
+            warnings.extend(db_warnings);
+        }
+
         // Validate Ollama config
         if self.config.ollama_config.port == 0 {
             warnings.push("Ollama port cannot be 0".to_string());
@@ -224,6 +236,113 @@ impl ConfigManager {
         }
 
         Ok(warnings)
+    }
+
+    // Validate and sanitize database URL
+    fn validate_database_url(&self) -> Option<Vec<String>> {
+        let mut warnings = Vec::new();
+        let db_url = &self.config.database_url;
+
+        // Check if database URL is valid
+        if db_url.is_empty() {
+            warnings.push("Database URL cannot be empty".to_string());
+            return Some(warnings);
+        }
+
+        // Validate SQLite URLs
+        if db_url.starts_with("sqlite:") {
+            let db_path_str = db_url.strip_prefix("sqlite:").unwrap_or(db_url);
+
+            // Check for in-memory database
+            if db_path_str.contains(":memory:") {
+                info!("Using in-memory database (data will not persist)");
+                return None;
+            }
+
+            // Validate file path
+            let db_path = PathBuf::from(db_path_str);
+
+            // Check for relative paths that might cause issues
+            if db_path_str.starts_with("./") || db_path_str.starts_with("../") {
+                warnings.push(format!(
+                    "Relative database path '{}' may cause issues. Consider using absolute paths.",
+                    db_path_str
+                ));
+            }
+
+            // Check parent directory accessibility
+            if let Some(parent) = db_path.parent() {
+                if parent.to_string_lossy().is_empty() {
+                    warnings.push("Database path has no parent directory".to_string());
+                } else {
+                    // Note: Directory creation will be handled async during database initialization
+                    info!("Database directory will be created: {:?}", parent);
+                }
+            }
+
+            // Check for potentially problematic characters
+            if db_path_str.contains(' ') && !db_path_str.starts_with('"') {
+                warnings.push(
+                    "Database path contains spaces. Consider using quotes or avoiding spaces."
+                        .to_string(),
+                );
+            }
+
+            // Check for very long paths
+            if db_path_str.len() > 260 {
+                warnings.push(
+                    "Database path is very long and may cause issues on some systems".to_string(),
+                );
+            }
+        } else {
+            warnings.push(format!("Unsupported database URL format: '{}'", db_url));
+        }
+
+        if warnings.is_empty() {
+            None
+        } else {
+            Some(warnings)
+        }
+    }
+
+    // Sanitize database URL
+    pub fn sanitize_database_url(&mut self) -> Result<()> {
+        let db_url = &self.config.database_url;
+
+        // Skip sanitization for in-memory databases
+        if db_url.contains(":memory:") {
+            return Ok(());
+        }
+
+        if db_url.starts_with("sqlite:") {
+            let db_path_str = db_url.strip_prefix("sqlite:").unwrap_or(db_url);
+            let db_path = PathBuf::from(db_path_str);
+
+            // Convert relative paths to absolute when possible
+            if db_path.is_relative() {
+                if let Ok(current_dir) = std::env::current_dir() {
+                    let absolute_path = current_dir.join(&db_path);
+                    let sanitized_url = format!("sqlite:{}", absolute_path.to_string_lossy());
+                    self.config.database_url = sanitized_url;
+                    info!(
+                        "Sanitized database URL to absolute path: {}",
+                        self.config.database_url
+                    );
+                }
+            }
+
+            // Normalize path separators
+            let normalized_path = db_path.to_string_lossy().replace('\\', "/");
+            if normalized_path != db_path.to_string_lossy() {
+                self.config.database_url = format!("sqlite:{}", normalized_path);
+                info!(
+                    "Normalized database URL path separators: {}",
+                    self.config.database_url
+                );
+            }
+        }
+
+        Ok(())
     }
 
     // Reset to default configuration

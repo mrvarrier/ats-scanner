@@ -50,6 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config_manager = ConfigManager::new()?;
     config_manager.apply_env_overrides()?;
 
+    // Sanitize configuration
+    config_manager.sanitize_database_url()?;
+
     // Validate configuration
     let warnings = config_manager.validate_config()?;
     if !warnings.is_empty() {
@@ -61,10 +64,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize database with config
     let database_url = config_manager.get_database_url();
     let database = if database_url == "sqlite::memory:" {
-        Database::new().await?
+        Database::new_with_url(database_url).await?
     } else {
         Database::new_with_url(database_url).await?
     };
+
+    // Perform initial health check
+    match database.health_check().await {
+        Ok(true) => {
+            info!("Database health check passed");
+        }
+        Ok(false) => {
+            log::warn!("Database health check failed - database may not be functioning correctly");
+        }
+        Err(e) => {
+            log::error!("Database health check error: {}", e);
+            return Err(e.into());
+        }
+    }
 
     let app_state = AppState {
         db: std::sync::Arc::new(tokio::sync::Mutex::new(database)),
@@ -148,6 +165,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .setup(|_app| {
             info!("Application setup completed");
+            // Note: Database upgrade to use app handle is handled by the Database methods
+            // which include fallback strategies for path resolution
             Ok(())
         })
         .run(tauri::generate_context!())
