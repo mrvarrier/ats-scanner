@@ -636,6 +636,14 @@ export function OptimizationPage() {
             <CardDescription>
               Real-time optimization suggestions as you type
             </CardDescription>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <div className="text-sm text-yellow-800">
+                <strong>Beta Feature:</strong> Real-time suggestions are
+                currently using simplified algorithms. Review carefully before
+                applying.
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="max-h-64 space-y-3 overflow-y-auto">

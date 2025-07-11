@@ -2396,6 +2396,14 @@ export function AnalysisResultPage({
             <CardDescription>
               Market positioning, peer comparison, and competitive intelligence
             </CardDescription>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <div className="text-sm text-yellow-800">
+                <strong>Beta Feature:</strong> This analysis is currently using
+                simplified data models. Results may not reflect actual market
+                conditions.
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Market Position Overview */}
@@ -2563,6 +2571,14 @@ export function AnalysisResultPage({
               Compensation benchmarking, negotiation insights, and market
               positioning
             </CardDescription>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <div className="text-sm text-yellow-800">
+                <strong>Beta Feature:</strong> Salary predictions are currently
+                using simplified models. Consult market research for final
+                negotiations.
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Salary Overview */}
@@ -2742,6 +2758,13 @@ export function AnalysisResultPage({
               Success predictions, probability analysis, and improvement
               opportunities
             </CardDescription>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <div className="text-sm text-yellow-800">
+                <strong>Beta Feature:</strong> Probability predictions are based
+                on simplified algorithms. Use as guidance only.
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Probability Overview */}
@@ -2911,6 +2934,14 @@ export function AnalysisResultPage({
             <CardDescription>
               Competitive landscape analysis and strategic positioning insights
             </CardDescription>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <div className="text-sm text-yellow-800">
+                <strong>Beta Feature:</strong> Market intelligence is currently
+                based on simplified models and may not reflect current market
+                conditions.
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="rounded-lg bg-indigo-50 p-4 dark:bg-indigo-900/20">
