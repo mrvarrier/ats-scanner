@@ -89,7 +89,7 @@ impl ConfigManager {
             PathBuf::from("./data/ats_scanner.db")
         };
         let database_url = format!("sqlite:{}", default_db_path.to_string_lossy());
-        
+
         AppConfig {
             database_url,
             ollama_config: OllamaConfig {

@@ -1354,16 +1354,200 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         Ok(missing_skills.into_iter().take(6).collect())
     }
 
-    fn is_skills_section_organized(&self, _skills: &str) -> bool {
-        false // Placeholder
+    fn is_skills_section_organized(&self, skills: &str) -> bool {
+        let skills_lower = skills.to_lowercase();
+        let mut organization_score = 0;
+
+        // Check for bullet points or clear structure
+        if skills.contains("•") || skills.contains("-") || skills.contains("*") {
+            organization_score += 2;
+        }
+
+        // Check for categories
+        let category_indicators = vec![
+            "programming languages",
+            "frameworks",
+            "databases",
+            "tools",
+            "technologies",
+            "frontend",
+            "backend",
+            "devops",
+            "cloud",
+            "languages",
+            "technical skills",
+        ];
+
+        for indicator in category_indicators {
+            if skills_lower.contains(indicator) {
+                organization_score += 3;
+                break;
+            }
+        }
+
+        // Check for consistent formatting (colons, sections)
+        if skills.contains(":") {
+            organization_score += 1;
+        }
+
+        // Check for line breaks indicating structure
+        let lines: Vec<&str> = skills.lines().collect();
+        if lines.len() >= 3 {
+            organization_score += 1;
+        }
+
+        // Check if skills are not just a long comma-separated list
+        let comma_count = skills.matches(',').count();
+        let word_count = skills.split_whitespace().count();
+
+        if comma_count > 10 && word_count > 20 && !skills.contains('\n') {
+            // Likely an unorganized comma list
+            organization_score -= 2;
+        }
+
+        // Well organized if score >= 3
+        organization_score >= 3
     }
 
-    fn extract_education_section(&self, _content: &str) -> Option<String> {
-        Some("Education section content".to_string()) // Placeholder
+    fn extract_education_section(&self, content: &str) -> Option<String> {
+        // Common education section headers
+        let education_patterns = vec![
+            r"(?i)\b(education|academic|university|college|degree|certification)\b.*?:",
+            r"(?i)^\s*(education|academic background|educational background)",
+            r"(?i)^\s*#{1,3}\s*(education|academic|university)",
+        ];
+
+        for pattern in education_patterns {
+            if let Ok(regex) = regex::Regex::new(pattern) {
+                if let Some(mat) = regex.find(content) {
+                    let start = mat.start();
+                    let remaining_content = &content[start..];
+
+                    // Find the end of the section (next major section or end of content)
+                    let section_end_patterns = vec![
+                        r"(?i)\n\s*(experience|work history|employment|skills|projects|certifications)\s*[:\n]",
+                        r"(?i)\n\s*#{1,3}\s*(experience|work|skills|projects)",
+                    ];
+
+                    let mut section_end = remaining_content.len();
+                    for end_pattern in section_end_patterns {
+                        if let Ok(end_regex) = regex::Regex::new(end_pattern) {
+                            if let Some(end_match) = end_regex.find(remaining_content) {
+                                section_end = section_end.min(end_match.start());
+                            }
+                        }
+                    }
+
+                    let education_content = &remaining_content[..section_end];
+                    if education_content.trim().len() > 10 {
+                        return Some(education_content.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        // Fallback: look for degree keywords anywhere in the content
+        let degree_keywords = vec![
+            "bachelor",
+            "master",
+            "phd",
+            "doctorate",
+            "degree",
+            "university",
+            "college",
+        ];
+        let content_lower = content.to_lowercase();
+
+        for keyword in degree_keywords {
+            if content_lower.contains(keyword) {
+                // Extract a reasonable chunk around the keyword
+                if let Some(pos) = content_lower.find(keyword) {
+                    let start = pos.saturating_sub(100);
+                    let end = (pos + 200).min(content.len());
+                    return Some(content[start..end].trim().to_string());
+                }
+            }
+        }
+
+        None
     }
 
-    fn appears_to_be_recent_graduate(&self, _education: &str) -> bool {
-        true // Placeholder
+    fn appears_to_be_recent_graduate(&self, education: &str) -> bool {
+        let education_lower = education.to_lowercase();
+        use chrono::Datelike;
+        let current_year = chrono::Utc::now().year();
+
+        // Look for graduation years in the last 3 years
+        for year in (current_year - 3)..=current_year {
+            if education_lower.contains(&year.to_string()) {
+                return true;
+            }
+        }
+
+        // Look for terms indicating recent graduation
+        let recent_grad_indicators = vec![
+            "recent graduate",
+            "new graduate",
+            "fresh graduate",
+            "graduating",
+            "expected graduation",
+            "anticipated graduation",
+            "bachelor's degree",
+            "master's degree",
+            "bs ",
+            "ms ",
+            "ba ",
+            "ma ",
+        ];
+
+        for indicator in recent_grad_indicators {
+            if education_lower.contains(indicator) {
+                return true;
+            }
+        }
+
+        // Look for student-related terms
+        let student_indicators = [
+            "student",
+            "gpa",
+            "dean's list",
+            "honors",
+            "cum laude",
+            "thesis",
+            "capstone",
+            "coursework",
+            "relevant courses",
+        ];
+
+        let student_indicator_count = student_indicators
+            .iter()
+            .filter(|&indicator| education_lower.contains(indicator))
+            .count();
+
+        // If multiple student indicators, likely recent graduate
+        if student_indicator_count >= 2 {
+            return true;
+        }
+
+        // Check for lack of extensive work experience (suggesting recent grad)
+        let experience_indicators = [
+            "years experience",
+            "senior",
+            "lead",
+            "manager",
+            "director",
+            "principal",
+            "architect",
+            "10+",
+            "15+",
+            "20+",
+        ];
+
+        let has_extensive_experience = experience_indicators
+            .iter()
+            .any(|&indicator| education_lower.contains(indicator));
+
+        !has_extensive_experience && (student_indicator_count > 0 || education.len() > 50)
     }
 
     fn contains_gpa(&self, education: &str) -> bool {
@@ -1375,8 +1559,76 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
             || education.to_lowercase().contains("courses")
     }
 
-    fn extract_projects_section(&self, _content: &str) -> Option<String> {
-        Some("Projects section content".to_string()) // Placeholder
+    fn extract_projects_section(&self, content: &str) -> Option<String> {
+        // Common project section headers
+        let project_patterns = vec![
+            r"(?i)\b(projects|portfolio|work samples|personal projects)\b.*?:",
+            r"(?i)^\s*(projects|portfolio|personal projects|side projects)",
+            r"(?i)^\s*#{1,3}\s*(projects|portfolio|work)",
+        ];
+
+        for pattern in project_patterns {
+            if let Ok(regex) = regex::Regex::new(pattern) {
+                if let Some(mat) = regex.find(content) {
+                    let start = mat.start();
+                    let remaining_content = &content[start..];
+
+                    // Find the end of the section
+                    let section_end_patterns = vec![
+                        r"(?i)\n\s*(experience|education|skills|certifications)\s*[:)
+]",
+                        r"(?i)\n\s*#{1,3}\s*(experience|education|skills)",
+                    ];
+
+                    let mut section_end = remaining_content.len();
+                    for end_pattern in section_end_patterns {
+                        if let Ok(end_regex) = regex::Regex::new(end_pattern) {
+                            if let Some(end_match) = end_regex.find(remaining_content) {
+                                section_end = section_end.min(end_match.start());
+                            }
+                        }
+                    }
+
+                    let projects_content = &remaining_content[..section_end];
+                    if projects_content.trim().len() > 10 {
+                        return Some(projects_content.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        // Fallback: look for project-related keywords
+        let project_keywords = vec![
+            "github",
+            "repository",
+            "demo",
+            "built",
+            "developed",
+            "created",
+            "implemented",
+        ];
+        let content_lower = content.to_lowercase();
+
+        for keyword in project_keywords {
+            if content_lower.contains(keyword) {
+                if let Some(pos) = content_lower.find(keyword) {
+                    let start = pos.saturating_sub(150);
+                    let end = (pos + 300).min(content.len());
+                    let potential_content = content[start..end].trim();
+
+                    // Check if this looks like a project description
+                    if potential_content.len() > 50
+                        && (potential_content.to_lowercase().contains("project")
+                            || potential_content.to_lowercase().contains("application")
+                            || potential_content.to_lowercase().contains("system"))
+                    {
+                        return Some(potential_content.to_string());
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     fn contains_project_links(&self, projects: &str) -> bool {
@@ -1385,41 +1637,747 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
 
     async fn identify_missing_project_technologies(
         &self,
-        _projects: &str,
-        _job_description: &str,
+        projects: &str,
+        job_description: &str,
     ) -> Result<Vec<String>> {
-        Ok(vec!["AWS".to_string(), "MongoDB".to_string()]) // Placeholder
+        use crate::ollama::OllamaClient;
+
+        let tech_analysis_prompt = format!(
+            "Analyze the technologies mentioned in these project descriptions against the job requirements.
+
+Project Descriptions:
+{}
+
+Job Requirements:
+{}
+
+Identify technologies, frameworks, tools, or platforms mentioned in the job description that are missing from the project descriptions.
+
+Focus on:
+- Programming languages and frameworks
+- Database technologies
+- Cloud platforms and services
+- Development tools and methodologies
+- APIs and integrations
+- DevOps and deployment tools
+
+Return missing technologies as a JSON array of strings.
+Example: [\"Docker\", \"Kubernetes\", \"Redis\", \"CI/CD\"]",
+            projects, job_description
+        );
+
+        let ollama_client = OllamaClient::new(None)?;
+        let response = ollama_client
+            .generate_ml_analysis("mistral:latest", &tech_analysis_prompt, "tech_gap_analysis")
+            .await?;
+
+        match serde_json::from_str::<Vec<String>>(&response) {
+            Ok(missing_techs) => {
+                info!(
+                    "ML identified {} missing project technologies",
+                    missing_techs.len()
+                );
+                Ok(missing_techs.into_iter().take(6).collect()) // Limit to top 6
+            }
+            Err(e) => {
+                log::warn!("ML tech analysis failed: {}, using fallback", e);
+                self.fallback_missing_project_technologies(projects, job_description)
+            }
+        }
     }
 
-    fn has_formatting_issues(&self, _content: &str) -> bool {
-        false // Placeholder
+    fn fallback_missing_project_technologies(
+        &self,
+        projects: &str,
+        job_description: &str,
+    ) -> Result<Vec<String>> {
+        let projects_lower = projects.to_lowercase();
+        let job_lower = job_description.to_lowercase();
+
+        // Common project technologies to check
+        let common_tech = vec![
+            "docker",
+            "kubernetes",
+            "jenkins",
+            "terraform",
+            "ansible",
+            "mongodb",
+            "postgresql",
+            "redis",
+            "elasticsearch",
+            "aws",
+            "azure",
+            "gcp",
+            "firebase",
+            "heroku",
+            "react",
+            "angular",
+            "vue",
+            "nextjs",
+            "gatsby",
+            "nodejs",
+            "express",
+            "django",
+            "flask",
+            "spring",
+            "graphql",
+            "rest api",
+            "microservices",
+            "websockets",
+            "ci/cd",
+            "github actions",
+            "gitlab ci",
+            "testing",
+            "jest",
+        ];
+
+        let mut missing_technologies = Vec::new();
+
+        for tech in common_tech {
+            if job_lower.contains(tech) && !projects_lower.contains(tech) {
+                // Capitalize first letter
+                let formatted_tech = tech
+                    .chars()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        if i == 0 {
+                            c.to_uppercase().collect::<String>()
+                        } else {
+                            c.to_string()
+                        }
+                    })
+                    .collect::<String>();
+                missing_technologies.push(formatted_tech);
+            }
+        }
+
+        info!(
+            "Fallback analysis found {} missing project technologies",
+            missing_technologies.len()
+        );
+        Ok(missing_technologies.into_iter().take(5).collect())
     }
 
-    fn extract_section_content(&self, _content: &str, _section: &str) -> Option<String> {
-        Some("Section content".to_string()) // Placeholder
+    fn has_formatting_issues(&self, content: &str) -> bool {
+        let mut issue_count = 0;
+
+        // Check for inconsistent spacing
+        if content.contains("  ") || content.contains("\t") {
+            issue_count += 1;
+        }
+
+        // Check for ALL CAPS sections (usually bad formatting)
+        let lines: Vec<&str> = content.lines().collect();
+        let all_caps_lines = lines
+            .iter()
+            .filter(|line| {
+                line.len() > 10
+                    && line.chars().filter(|c| c.is_alphabetic()).count() > 5
+                    && line.chars().filter(|c| c.is_uppercase()).count() as f64
+                        / line.chars().filter(|c| c.is_alphabetic()).count() as f64
+                        > 0.8
+            })
+            .count();
+
+        if all_caps_lines > 0 {
+            issue_count += 1;
+        }
+
+        // Check for poor bullet point consistency
+        let bullet_types = ["•", "*", "-", "◦", "‣"];
+        let bullet_count: usize = bullet_types
+            .iter()
+            .map(|bullet| content.matches(bullet).count())
+            .sum();
+
+        let different_bullet_types = bullet_types
+            .iter()
+            .filter(|bullet| content.contains(*bullet))
+            .count();
+
+        if bullet_count > 5 && different_bullet_types > 2 {
+            issue_count += 1;
+        }
+
+        // Check for excessive line breaks
+        let consecutive_breaks = content.matches("\n\n\n").count();
+        if consecutive_breaks > 2 {
+            issue_count += 1;
+        }
+
+        // Check for lack of structure (very long paragraphs)
+        let long_paragraphs = lines
+            .iter()
+            .filter(|line| line.len() > 200 && !line.contains('.') && !line.contains(';'))
+            .count();
+
+        if long_paragraphs > 0 {
+            issue_count += 1;
+        }
+
+        // Check for mixed date formats
+        let date_formats = [
+            regex::Regex::new(r"\d{1,2}/\d{1,2}/\d{4}").unwrap(),
+            regex::Regex::new(r"\d{4}-\d{1,2}-\d{1,2}").unwrap(),
+            regex::Regex::new(r"[A-Za-z]+ \d{4}").unwrap(),
+        ];
+
+        let format_count = date_formats
+            .iter()
+            .filter(|regex| regex.is_match(content))
+            .count();
+
+        if format_count > 1 {
+            issue_count += 1;
+        }
+
+        // Consider it having formatting issues if 2+ issues found
+        issue_count >= 2
+    }
+
+    fn extract_section_content(&self, content: &str, section: &str) -> Option<String> {
+        let section_lower = section.to_lowercase();
+
+        // Create patterns for the requested section
+        let section_patterns = vec![
+            format!(r"(?i)\b{}\b.*?:", regex::escape(&section_lower)),
+            format!(r"(?i)^\s*{}", regex::escape(&section_lower)),
+            format!(r"(?i)^\s*#{{1,3}}\s*{}", regex::escape(&section_lower)),
+            format!(r"(?i)\b{}\s*section\b", regex::escape(&section_lower)),
+        ];
+
+        for pattern in section_patterns {
+            if let Ok(regex) = regex::Regex::new(&pattern) {
+                if let Some(mat) = regex.find(content) {
+                    let start = mat.start();
+                    let remaining_content = &content[start..];
+
+                    // Find the end of the section (next major section)
+                    let common_sections = vec![
+                        "experience",
+                        "education",
+                        "skills",
+                        "projects",
+                        "certifications",
+                        "summary",
+                        "contact",
+                    ];
+                    let mut section_end = remaining_content.len();
+
+                    for other_section in common_sections {
+                        if other_section != section_lower {
+                            let end_patterns = vec![
+                                format!(r"(?i)\n\s*{}\s*[:)\n]", regex::escape(other_section)),
+                                format!(r"(?i)\n\s*#{{1,3}}\s*{}", regex::escape(other_section)),
+                            ];
+
+                            for end_pattern in end_patterns {
+                                if let Ok(end_regex) = regex::Regex::new(&end_pattern) {
+                                    if let Some(end_match) = end_regex.find(remaining_content) {
+                                        section_end = section_end.min(end_match.start());
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let section_content = &remaining_content[..section_end];
+                    if section_content.trim().len() > 5 {
+                        return Some(section_content.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        // Fallback: simple keyword search
+        let content_lower = content.to_lowercase();
+        if let Some(pos) = content_lower.find(&section_lower) {
+            let start = pos.saturating_sub(50);
+            let end = (pos + 200).min(content.len());
+            let potential_content = content[start..end].trim();
+
+            if potential_content.len() > 20 {
+                return Some(potential_content.to_string());
+            }
+        }
+
+        None
     }
 
     fn generate_live_typing_suggestions(
         &self,
-        _content: &str,
-        _position: usize,
+        content: &str,
+        position: usize,
     ) -> Vec<LiveSuggestion> {
-        vec![] // Placeholder
+        let mut suggestions = Vec::new();
+
+        if position >= content.len() {
+            return suggestions;
+        }
+
+        let current_line_start = content[..position]
+            .rfind('\n')
+            .map(|pos| pos + 1)
+            .unwrap_or(0);
+        let current_line_end = content[position..]
+            .find('\n')
+            .map(|pos| position + pos)
+            .unwrap_or(content.len());
+        let current_line = &content[current_line_start..current_line_end];
+        let cursor_in_line = position - current_line_start;
+
+        // Analyze context around cursor
+        let words_before: Vec<&str> = content[..position].split_whitespace().collect();
+        let current_word_start = content[..position]
+            .rfind(' ')
+            .map(|pos| pos + 1)
+            .unwrap_or(0);
+        let current_partial = &content[current_word_start..position];
+
+        // Suggest action verbs if starting a bullet point or sentence
+        if (current_line.trim_start().starts_with("•")
+            || current_line.trim_start().starts_with("- "))
+            && (cursor_in_line <= 10 || current_partial.is_empty())
+        {
+            let action_verbs = vec![
+                "Developed",
+                "Implemented",
+                "Created",
+                "Built",
+                "Designed",
+                "Managed",
+                "Led",
+                "Coordinated",
+                "Executed",
+                "Delivered",
+                "Optimized",
+                "Improved",
+                "Increased",
+                "Reduced",
+                "Streamlined",
+                "Automated",
+                "Integrated",
+            ];
+
+            for verb in action_verbs.iter().take(5) {
+                if verb
+                    .to_lowercase()
+                    .starts_with(&current_partial.to_lowercase())
+                {
+                    suggestions.push(LiveSuggestion {
+                        position: current_word_start,
+                        suggestion_type: "action_verb".to_string(),
+                        text: verb.to_string(),
+                        confidence: 0.8,
+                        auto_apply: false,
+                    });
+                }
+            }
+        }
+
+        // Suggest quantifiers when appropriate
+        if words_before.len() > 2 {
+            let last_words = &words_before[words_before.len().saturating_sub(3)..];
+            let context = last_words.join(" ").to_lowercase();
+
+            if (context.contains("increased")
+                || context.contains("improved")
+                || context.contains("reduced"))
+                && !context.contains('%')
+                && !context.contains('$')
+            {
+                suggestions.push(LiveSuggestion {
+                    position,
+                    suggestion_type: "quantifier".to_string(),
+                    text: "by X%".to_string(),
+                    confidence: 0.7,
+                    auto_apply: false,
+                });
+            }
+        }
+
+        // Suggest technical terms based on context
+        if current_partial.len() >= 2 {
+            let tech_terms = vec![
+                "API",
+                "REST",
+                "GraphQL",
+                "microservices",
+                "Docker",
+                "Kubernetes",
+                "AWS",
+                "Azure",
+                "GCP",
+                "CI/CD",
+                "Jenkins",
+                "Git",
+                "React",
+                "Node.js",
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "PostgreSQL",
+                "MongoDB",
+                "Redis",
+            ];
+
+            for term in tech_terms {
+                if term
+                    .to_lowercase()
+                    .starts_with(&current_partial.to_lowercase())
+                {
+                    suggestions.push(LiveSuggestion {
+                        position: current_word_start,
+                        suggestion_type: "technology".to_string(),
+                        text: term.to_string(),
+                        confidence: 0.9,
+                        auto_apply: false,
+                    });
+                }
+            }
+        }
+
+        // Suggest improvements for weak language
+        let weak_phrases = vec![
+            (
+                "responsible for",
+                "Led",
+                "Use active language to show ownership",
+            ),
+            (
+                "worked on",
+                "Developed",
+                "Be specific about your contributions",
+            ),
+            (
+                "helped",
+                "Collaborated to",
+                "Show your active role in the team",
+            ),
+            (
+                "participated in",
+                "Contributed to",
+                "Highlight your specific involvement",
+            ),
+        ];
+
+        for (weak, strong, _explanation) in weak_phrases {
+            if current_line.to_lowercase().contains(weak) {
+                suggestions.push(LiveSuggestion {
+                    position,
+                    suggestion_type: "improvement".to_string(),
+                    text: format!("Replace '{}' with '{}'", weak, strong),
+                    confidence: 0.6,
+                    auto_apply: false,
+                });
+            }
+        }
+
+        // Limit to top 3 most relevant suggestions
+        suggestions.into_iter().take(3).collect()
     }
 
-    fn analyze_tone(&self, _content: &str) -> ToneAnalysis {
+    fn analyze_tone(&self, content: &str) -> ToneAnalysis {
+        let content_lower = content.to_lowercase();
+        let words: Vec<&str> = content.split_whitespace().collect();
+        let total_words = words.len() as f64;
+
+        if total_words == 0.0 {
+            return ToneAnalysis {
+                professionalism_score: 0.0,
+                confidence_level: 0.0,
+                action_orientation: 0.0,
+                specificity_score: 0.0,
+                overall_tone: "insufficient_content".to_string(),
+                tone_suggestions: vec!["Add more content to analyze tone".to_string()],
+            };
+        }
+
+        // Calculate professionalism score
+        let professional_words = vec![
+            "accomplished",
+            "achieved",
+            "developed",
+            "implemented",
+            "managed",
+            "coordinated",
+            "supervised",
+            "collaborated",
+            "executed",
+            "delivered",
+            "optimized",
+            "enhanced",
+            "streamlined",
+            "strategic",
+            "analytical",
+        ];
+
+        let unprofessional_indicators = [
+            "awesome",
+            "cool",
+            "stuff",
+            "things",
+            "pretty good",
+            "kinda",
+            "sorta",
+        ];
+
+        let professional_count = professional_words
+            .iter()
+            .filter(|&word| content_lower.contains(word))
+            .count() as f64;
+
+        let unprofessional_count = unprofessional_indicators
+            .iter()
+            .filter(|&word| content_lower.contains(word))
+            .count() as f64;
+
+        let professionalism_score = ((professional_count / total_words * 100.0)
+            - (unprofessional_count / total_words * 50.0))
+            .clamp(0.0, 100.0)
+            .max(50.0);
+
+        // Calculate confidence level
+        let confident_words = [
+            "led",
+            "spearheaded",
+            "pioneered",
+            "established",
+            "created",
+            "built",
+            "designed",
+            "architected",
+            "founded",
+            "initiated",
+        ];
+
+        let weak_words = [
+            "helped",
+            "assisted",
+            "participated",
+            "contributed",
+            "involved in",
+            "responsible for",
+            "worked on",
+            "tried",
+            "attempted",
+        ];
+
+        let confident_count = confident_words
+            .iter()
+            .filter(|&word| content_lower.contains(word))
+            .count() as f64;
+
+        let weak_count = weak_words
+            .iter()
+            .filter(|&word| content_lower.contains(word))
+            .count() as f64;
+
+        let confidence_level = ((confident_count / total_words * 100.0)
+            - (weak_count / total_words * 30.0))
+            .clamp(0.0, 100.0)
+            .max(40.0);
+
+        // Calculate action orientation
+        let action_verbs = vec![
+            "developed",
+            "implemented",
+            "created",
+            "built",
+            "designed",
+            "managed",
+            "led",
+            "coordinated",
+            "executed",
+            "delivered",
+            "optimized",
+            "improved",
+            "increased",
+            "reduced",
+            "streamlined",
+            "automated",
+            "integrated",
+        ];
+
+        let action_count = action_verbs
+            .iter()
+            .filter(|&verb| content_lower.contains(verb))
+            .count() as f64;
+
+        let action_orientation = (action_count / total_words * 200.0)
+            .clamp(0.0, 100.0)
+            .max(30.0);
+
+        // Calculate specificity score
+        let specific_indicators = vec![
+            "%",
+            "$",
+            "million",
+            "thousand",
+            "users",
+            "customers",
+            "team",
+            "time",
+            "months",
+            "weeks",
+            "projects",
+            "systems",
+            "applications",
+        ];
+
+        let number_pattern = regex::Regex::new(r"\d+").unwrap();
+        let number_count = number_pattern.find_iter(content).count() as f64;
+
+        let specific_count = specific_indicators
+            .iter()
+            .filter(|&indicator| content_lower.contains(indicator))
+            .count() as f64;
+
+        let specificity_score = ((specific_count + number_count) / total_words * 150.0)
+            .clamp(0.0, 100.0)
+            .max(25.0);
+
+        // Determine overall tone
+        let avg_score =
+            (professionalism_score + confidence_level + action_orientation + specificity_score)
+                / 4.0;
+        let overall_tone = match avg_score {
+            s if s >= 80.0 => "excellent",
+            s if s >= 70.0 => "professional",
+            s if s >= 60.0 => "good",
+            s if s >= 50.0 => "adequate",
+            _ => "needs_improvement",
+        }
+        .to_string();
+
+        // Generate suggestions
+        let mut suggestions = Vec::new();
+
+        if action_orientation < 60.0 {
+            suggestions.push("Use more action verbs to show your impact".to_string());
+        }
+        if confidence_level < 60.0 {
+            suggestions.push("Replace passive language with confident statements".to_string());
+        }
+        if specificity_score < 50.0 {
+            suggestions.push("Add specific metrics and quantifiable achievements".to_string());
+        }
+        if professionalism_score < 70.0 {
+            suggestions.push("Use more professional terminology".to_string());
+        }
+
+        if suggestions.is_empty() {
+            suggestions
+                .push("Your tone is strong - maintain this professional approach".to_string());
+        }
+
         ToneAnalysis {
-            professionalism_score: 85.0,
-            confidence_level: 78.0,
-            action_orientation: 82.0,
-            specificity_score: 75.0,
-            overall_tone: "professional".to_string(),
-            tone_suggestions: vec!["Use more action-oriented language".to_string()],
+            professionalism_score,
+            confidence_level,
+            action_orientation,
+            specificity_score,
+            overall_tone,
+            tone_suggestions: suggestions,
         }
     }
 
-    fn calculate_clarity_score(&self, _content: &str) -> f64 {
-        80.0 // Placeholder
+    fn calculate_clarity_score(&self, content: &str) -> f64 {
+        let mut clarity_score = 100.0;
+        let sentences: Vec<&str> = content.split(". ").collect();
+        let words: Vec<&str> = content.split_whitespace().collect();
+        let total_words = words.len() as f64;
+
+        if total_words == 0.0 {
+            return 0.0;
+        }
+
+        // Check average sentence length (ideal: 15-20 words)
+        let avg_sentence_length = total_words / sentences.len() as f64;
+        if avg_sentence_length > 25.0 {
+            clarity_score -= 15.0; // Too long sentences
+        } else if avg_sentence_length < 8.0 {
+            clarity_score -= 10.0; // Too short sentences
+        }
+
+        // Check for complex words (more than 3 syllables approximation)
+        let complex_words = words
+            .iter()
+            .filter(|word| word.len() > 12 || word.matches(['a', 'e', 'i', 'o', 'u']).count() > 4)
+            .count() as f64;
+        let complex_ratio = complex_words / total_words;
+        if complex_ratio > 0.15 {
+            clarity_score -= 20.0;
+        }
+
+        // Check for jargon and buzzwords
+        let jargon_words = [
+            "synergy",
+            "leverage",
+            "paradigm",
+            "optimize",
+            "streamline",
+            "robust",
+            "scalable",
+            "dynamic",
+            "innovative",
+            "cutting-edge",
+            "state-of-the-art",
+        ];
+        let jargon_count = jargon_words
+            .iter()
+            .filter(|&word| content.to_lowercase().contains(word))
+            .count() as f64;
+        if jargon_count > 3.0 {
+            clarity_score -= 15.0;
+        }
+
+        // Check for passive voice indicators
+        let passive_indicators = ["was", "were", "been", "being", "is", "are"];
+        let passive_count = passive_indicators
+            .iter()
+            .filter(|&indicator| content.to_lowercase().contains(indicator))
+            .count() as f64;
+        let passive_ratio = passive_count / total_words;
+        if passive_ratio > 0.1 {
+            clarity_score -= 10.0;
+        }
+
+        // Check for clear structure (bullet points, numbers)
+        if content.contains("•") || content.contains("- ") || content.contains("1.") {
+            clarity_score += 5.0;
+        }
+
+        // Check for specific metrics and numbers
+        let number_pattern = regex::Regex::new(r"\d+").unwrap();
+        let number_count = number_pattern.find_iter(content).count() as f64;
+        if number_count > 0.0 {
+            clarity_score += (number_count / total_words * 50.0).min(10.0);
+        }
+
+        // Check for action verbs
+        let action_verbs = [
+            "achieved",
+            "developed",
+            "implemented",
+            "created",
+            "built",
+            "designed",
+            "managed",
+            "led",
+            "improved",
+            "increased",
+            "reduced",
+            "optimized",
+        ];
+        let action_count = action_verbs
+            .iter()
+            .filter(|&verb| content.to_lowercase().contains(verb))
+            .count() as f64;
+        if action_count > 0.0 {
+            clarity_score += (action_count / total_words * 100.0).min(10.0);
+        }
+
+        clarity_score.clamp(0.0, 100.0)
     }
 
     fn quick_keyword_match(&self, content: &str, job_description: &str) -> f64 {
@@ -1463,12 +2421,360 @@ Example: [\"Docker\", \"Kubernetes\", \"Terraform\", \"CI/CD\"]",
         score.max(0.0)
     }
 
-    fn calculate_section_strength(&self, _content: &str) -> f64 {
-        75.0 // Placeholder
+    fn calculate_section_strength(&self, content: &str) -> f64 {
+        let mut strength_score = 0.0;
+        let content_lower = content.to_lowercase();
+        let words: Vec<&str> = content.split_whitespace().collect();
+        let total_words = words.len() as f64;
+
+        if total_words == 0.0 {
+            return 0.0;
+        }
+
+        // Base score from content length (ideal range: 50-200 words per section)
+        let length_score = match total_words {
+            w if w < 20.0 => 20.0,
+            w if w < 50.0 => 40.0 + (w - 20.0) * 1.5,
+            w if (50.0..=150.0).contains(&w) => 85.0,
+            w if w > 150.0 && w <= 200.0 => 85.0 - (w - 150.0) * 0.3,
+            _ => 70.0,
+        };
+        strength_score += length_score * 0.3;
+
+        // Check for strong action verbs
+        let strong_verbs = vec![
+            "led",
+            "managed",
+            "developed",
+            "implemented",
+            "created",
+            "built",
+            "designed",
+            "architected",
+            "optimized",
+            "improved",
+            "increased",
+            "reduced",
+            "achieved",
+            "delivered",
+            "executed",
+            "spearheaded",
+        ];
+
+        let verb_count = strong_verbs
+            .iter()
+            .filter(|&verb| content_lower.contains(verb))
+            .count() as f64;
+        strength_score += (verb_count / total_words * 200.0).min(25.0);
+
+        // Check for quantifiable achievements
+        let achievement_indicators = vec![
+            "%",
+            "$",
+            "million",
+            "thousand",
+            "increase",
+            "decrease",
+            "improve",
+            "save",
+            "generate",
+            "revenue",
+            "cost",
+            "efficiency",
+            "time",
+            "users",
+        ];
+
+        let achievement_count = achievement_indicators
+            .iter()
+            .filter(|&indicator| content_lower.contains(indicator))
+            .count() as f64;
+        strength_score += (achievement_count / total_words * 150.0).min(20.0);
+
+        // Check for technical depth
+        let technical_keywords = [
+            "system",
+            "application",
+            "database",
+            "api",
+            "framework",
+            "architecture",
+            "integration",
+            "deployment",
+            "testing",
+            "performance",
+            "security",
+            "scalability",
+        ];
+
+        let technical_count = technical_keywords
+            .iter()
+            .filter(|&keyword| content_lower.contains(keyword))
+            .count() as f64;
+        strength_score += (technical_count / total_words * 100.0).min(15.0);
+
+        // Check for specific technologies and tools
+        let technologies = vec![
+            "python",
+            "java",
+            "javascript",
+            "react",
+            "node",
+            "sql",
+            "aws",
+            "docker",
+            "kubernetes",
+            "git",
+            "api",
+            "rest",
+            "graphql",
+            "microservices",
+        ];
+
+        let tech_count = technologies
+            .iter()
+            .filter(|&tech| content_lower.contains(tech))
+            .count() as f64;
+        strength_score += (tech_count / total_words * 80.0).min(10.0);
+
+        // Bonus for clear structure
+        if content.contains("•") || content.contains("- ") {
+            strength_score += 5.0;
+        }
+
+        // Bonus for numbers and metrics
+        let number_pattern = regex::Regex::new(r"\d+").unwrap();
+        let number_count = number_pattern.find_iter(content).count() as f64;
+        if number_count > 0.0 {
+            strength_score += (number_count / total_words * 50.0).min(5.0);
+        }
+
+        strength_score.clamp(0.0, 100.0)
     }
 
-    fn calculate_completion_percentage(&self, _content: &str, _section: &Section) -> f64 {
-        80.0 // Placeholder
+    fn calculate_completion_percentage(&self, content: &str, section: &Section) -> f64 {
+        let content_lower = content.to_lowercase();
+        let words: Vec<&str> = content.split_whitespace().collect();
+        let total_words = words.len() as f64;
+
+        if total_words == 0.0 {
+            return 0.0;
+        }
+
+        let completion_score: f64 = match section {
+            Section::Experience => {
+                // Check for essential experience elements
+                let mut elements_present = 0;
+
+                // Job titles or roles
+                let role_indicators = [
+                    "engineer",
+                    "developer",
+                    "analyst",
+                    "manager",
+                    "lead",
+                    "specialist",
+                ];
+                if role_indicators
+                    .iter()
+                    .any(|&role| content_lower.contains(role))
+                {
+                    elements_present += 1;
+                }
+
+                // Company names or organization context
+                if content_lower.contains("company")
+                    || content_lower.contains("organization")
+                    || content.chars().filter(|c| c.is_uppercase()).count() > 5
+                {
+                    elements_present += 1;
+                }
+
+                // Time periods
+                let time_indicators = [
+                    "2019", "2020", "2021", "2022", "2023", "2024", "2025", "months", "years",
+                ];
+                if time_indicators
+                    .iter()
+                    .any(|&time| content_lower.contains(time))
+                {
+                    elements_present += 1;
+                }
+
+                // Achievements and responsibilities
+                let achievement_verbs = [
+                    "developed",
+                    "implemented",
+                    "managed",
+                    "led",
+                    "created",
+                    "improved",
+                ];
+                if achievement_verbs
+                    .iter()
+                    .any(|&verb| content_lower.contains(verb))
+                {
+                    elements_present += 1;
+                }
+
+                // Technologies used
+                let tech_terms = ["python", "java", "javascript", "sql", "aws", "react", "api"];
+                if tech_terms.iter().any(|&tech| content_lower.contains(tech)) {
+                    elements_present += 1;
+                }
+
+                (elements_present as f64 / 5.0) * 100.0
+            }
+
+            Section::Education => {
+                let mut elements_present = 0;
+
+                // Degree type
+                let degrees = [
+                    "bachelor",
+                    "master",
+                    "phd",
+                    "doctorate",
+                    "degree",
+                    "diploma",
+                ];
+                if degrees.iter().any(|&degree| content_lower.contains(degree)) {
+                    elements_present += 1;
+                }
+
+                // Institution
+                if content_lower.contains("university")
+                    || content_lower.contains("college")
+                    || content_lower.contains("institute")
+                {
+                    elements_present += 1;
+                }
+
+                // Field of study
+                let fields = [
+                    "computer science",
+                    "engineering",
+                    "business",
+                    "science",
+                    "arts",
+                    "technology",
+                ];
+                if fields.iter().any(|&field| content_lower.contains(field)) {
+                    elements_present += 1;
+                }
+
+                // Graduation year or time period
+                let years = ["2019", "2020", "2021", "2022", "2023", "2024", "2025"];
+                if years.iter().any(|&year| content_lower.contains(year)) {
+                    elements_present += 1;
+                }
+
+                (elements_present as f64 / 4.0) * 100.0
+            }
+
+            Section::Skills => {
+                let mut elements_present = 0;
+
+                // Programming languages
+                let languages = [
+                    "python",
+                    "java",
+                    "javascript",
+                    "typescript",
+                    "go",
+                    "rust",
+                    "c++",
+                ];
+                if languages.iter().any(|&lang| content_lower.contains(lang)) {
+                    elements_present += 1;
+                }
+
+                // Frameworks/tools
+                let frameworks = ["react", "angular", "vue", "django", "express", "spring"];
+                if frameworks
+                    .iter()
+                    .any(|&framework| content_lower.contains(framework))
+                {
+                    elements_present += 1;
+                }
+
+                // Cloud/DevOps
+                let cloud_tools = ["aws", "azure", "docker", "kubernetes", "jenkins"];
+                if cloud_tools.iter().any(|&tool| content_lower.contains(tool)) {
+                    elements_present += 1;
+                }
+
+                // Databases
+                let databases = ["sql", "mysql", "postgresql", "mongodb", "redis"];
+                if databases.iter().any(|&db| content_lower.contains(db)) {
+                    elements_present += 1;
+                }
+
+                // Organization (categories or structure)
+                if content.contains("•") || content.contains(":") || content.contains("-") {
+                    elements_present += 1;
+                }
+
+                (elements_present as f64 / 5.0) * 100.0
+            }
+
+            Section::Projects => {
+                let mut elements_present = 0;
+
+                // Project names or descriptions
+                if content_lower.contains("project")
+                    || content_lower.contains("application")
+                    || content_lower.contains("system")
+                {
+                    elements_present += 1;
+                }
+
+                // Technologies used
+                let tech_terms = ["python", "react", "node", "sql", "api", "database"];
+                if tech_terms.iter().any(|&tech| content_lower.contains(tech)) {
+                    elements_present += 1;
+                }
+
+                // Project outcomes or features
+                let outcome_words = ["built", "developed", "created", "implemented", "features"];
+                if outcome_words
+                    .iter()
+                    .any(|&outcome| content_lower.contains(outcome))
+                {
+                    elements_present += 1;
+                }
+
+                // Links or repositories
+                if content_lower.contains("github")
+                    || content_lower.contains("demo")
+                    || content_lower.contains("http")
+                {
+                    elements_present += 1;
+                }
+
+                (elements_present as f64 / 4.0) * 100.0
+            }
+
+            _ => {
+                // Generic completion for other sections
+                match total_words {
+                    w if w < 10.0 => 30.0,
+                    w if w < 25.0 => 60.0,
+                    w if w >= 25.0 => 90.0,
+                    _ => 80.0,
+                }
+            }
+        };
+
+        // Adjust based on content length
+        let length_factor = match total_words {
+            w if w < 10.0 => 0.5,
+            w if w < 25.0 => 0.8,
+            w if w >= 25.0 => 1.0,
+            _ => 1.0,
+        };
+
+        (completion_score * length_factor).clamp(0.0, 100.0)
     }
 
     fn determine_next_action(

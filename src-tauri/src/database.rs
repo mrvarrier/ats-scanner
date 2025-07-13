@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::Utc;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use log::{error, info, warn};
 use sqlx::{Row, SqlitePool};
 use std::path::PathBuf;
@@ -9,12 +9,54 @@ use crate::models::{
     ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
 };
 
+/// Helper function to parse timestamps in multiple formats
+fn parse_timestamp(timestamp_str: &str) -> Result<DateTime<Utc>> {
+    // Try RFC3339 format first
+    if let Ok(dt) = timestamp_str.parse::<DateTime<Utc>>() {
+        return Ok(dt);
+    }
+
+    // Try SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
+    if let Ok(naive_dt) = NaiveDateTime::parse_from_str(timestamp_str, "%Y-%m-%d %H:%M:%S") {
+        return Ok(DateTime::from_naive_utc_and_offset(naive_dt, Utc));
+    }
+
+    // Try other common formats
+    let formats = [
+        "%Y-%m-%dT%H:%M:%S%.fZ", // RFC3339 with microseconds
+        "%Y-%m-%dT%H:%M:%SZ",    // RFC3339 without microseconds
+        "%Y-%m-%d %H:%M:%S%.f",  // SQLite with microseconds
+        "%Y-%m-%dT%H:%M:%S",     // ISO 8601 without timezone
+    ];
+
+    for format in &formats {
+        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(timestamp_str, format) {
+            return Ok(DateTime::from_naive_utc_and_offset(naive_dt, Utc));
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "Unable to parse timestamp '{}' with any known format",
+        timestamp_str
+    ))
+}
+
 #[derive(Debug, Clone)]
 pub struct Database {
     pool: SqlitePool,
 }
 
 impl Database {
+    // Create a new Database instance that shares the same connection pool
+    pub fn shared_clone(&self) -> Self {
+        Database {
+            pool: self.pool.clone(),
+        }
+    }
+
+    pub fn get_pool(&self) -> &SqlitePool {
+        &self.pool
+    }
     pub async fn new() -> Result<Self> {
         // Use a fallback approach since we don't have access to Tauri app handle here
         // First try current directory approach, then try home directory fallback
@@ -214,7 +256,11 @@ impl Database {
     async fn run_migrations(&self) -> Result<()> {
         info!("Running database migrations");
 
+        // Start transaction for atomic migrations
+        let mut tx = self.pool.begin().await?;
+
         // Create resumes table
+        info!("Creating resumes table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS resumes (
@@ -227,10 +273,12 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create resumes table")?;
 
         // Create analyses table
+        info!("Creating analyses table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS analyses (
@@ -253,19 +301,24 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create analyses table")?;
 
         // Create indexes for better performance
+        info!("Creating database indexes");
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_analyses_resume_id ON analyses(resume_id)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_analyses_resume_id index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_analyses_created_at index")?;
 
         // Create user_preferences table
+        info!("Creating user_preferences table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS user_preferences (
@@ -320,19 +373,22 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create user_preferences table")?;
 
         // Create index for user preferences
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id)",
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create idx_user_preferences_user_id index")?;
 
         // === PHASE 1 ENHANCED SCHEMA ===
 
         // Create industry_keywords table for industry-specific keyword dictionaries
+        info!("Creating industry_keywords table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS industry_keywords (
@@ -346,10 +402,12 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create industry_keywords table")?;
 
         // Create ats_compatibility_rules table
+        info!("Creating ats_compatibility_rules table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS ats_compatibility_rules (
@@ -365,10 +423,12 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create ats_compatibility_rules table")?;
 
         // Create scoring_benchmarks table for industry/role benchmarks
+        info!("Creating scoring_benchmarks table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS scoring_benchmarks (
@@ -383,10 +443,12 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create scoring_benchmarks table")?;
 
         // Create user_feedback table for continuous learning
+        info!("Creating user_feedback table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS user_feedback (
@@ -401,10 +463,12 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create user_feedback table")?;
 
         // Create model_performance_metrics table
+        info!("Creating model_performance_metrics table");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS model_performance_metrics (
@@ -420,40 +484,56 @@ impl Database {
             )
             "#,
         )
-        .execute(&self.pool)
-        .await?;
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create model_performance_metrics table")?;
 
         // Create indexes for enhanced performance
+        info!("Creating enhanced performance indexes");
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_industry_keywords_industry ON industry_keywords(industry)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_industry_keywords_industry index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_industry_keywords_keyword ON industry_keywords(keyword)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_industry_keywords_keyword index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_ats_rules_system ON ats_compatibility_rules(ats_system)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_ats_rules_system index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_scoring_benchmarks_industry ON scoring_benchmarks(industry)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_scoring_benchmarks_industry index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_user_feedback_analysis_id ON user_feedback(analysis_id)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_user_feedback_analysis_id index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_model_performance_model_name ON model_performance_metrics(model_name)")
-            .execute(&self.pool)
-            .await?;
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_model_performance_model_name index")?;
 
-        info!("Database migrations completed successfully");
+        // Commit transaction to ensure all migrations are successful
+        tx.commit()
+            .await
+            .context("Failed to commit database migrations")?;
+
+        info!("Database migrations completed successfully - all tables and indexes created");
         Ok(())
     }
 
     async fn seed_initial_data(&self) -> Result<()> {
-        info!("Seeding initial data");
+        info!("Starting initial data seeding process");
+
+        // Verify all required tables exist before seeding
+        self.verify_required_tables().await?;
 
         // Technology industry keywords
         let tech_keywords = vec![
@@ -1045,6 +1125,10 @@ impl Database {
         ];
 
         let industry_count = all_keywords.len();
+        let total_keywords: usize = all_keywords
+            .iter()
+            .map(|(_, keywords)| keywords.len())
+            .sum();
 
         for (industry, keywords) in all_keywords {
             for (keyword, category, weight, synonyms) in keywords {
@@ -1063,8 +1147,46 @@ impl Database {
         }
 
         info!(
-            "Initial data seeded successfully with {} industries",
-            industry_count
+            "Initial data seeding completed successfully with {} industries and {} total keywords",
+            industry_count, total_keywords
+        );
+        Ok(())
+    }
+
+    async fn verify_required_tables(&self) -> Result<()> {
+        let required_tables = vec![
+            "resumes",
+            "analyses",
+            "user_preferences",
+            "industry_keywords",
+            "ats_compatibility_rules",
+            "scoring_benchmarks",
+            "user_feedback",
+            "model_performance_metrics",
+        ];
+
+        info!("Verifying {} required tables exist", required_tables.len());
+
+        for table in &required_tables {
+            let exists = sqlx::query(&format!(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='{}'",
+                table
+            ))
+            .fetch_optional(&self.pool)
+            .await?
+            .is_some();
+
+            if !exists {
+                return Err(anyhow::anyhow!(
+                    "Required table '{}' does not exist in database",
+                    table
+                ));
+            }
+        }
+
+        info!(
+            "All {} required tables verified successfully",
+            required_tables.len()
         );
         Ok(())
     }
@@ -1104,8 +1226,8 @@ impl Database {
                 filename: row.get("filename"),
                 content: row.get("content"),
                 file_type: row.get("file_type"),
-                created_at: row.get::<String, _>("created_at").parse()?,
-                updated_at: row.get::<String, _>("updated_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
             };
             Ok(Some(resume))
         } else {
@@ -1127,8 +1249,8 @@ impl Database {
                 filename: row.get("filename"),
                 content: row.get("content"),
                 file_type: row.get("file_type"),
-                created_at: row.get::<String, _>("created_at").parse()?,
-                updated_at: row.get::<String, _>("updated_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
             };
             resumes.push(resume);
         }
@@ -1199,7 +1321,7 @@ impl Database {
                 missing_keywords: row.get("missing_keywords"),
                 recommendations: row.get("recommendations"),
                 processing_time_ms: row.get("processing_time_ms"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
             };
             analyses.push(analysis);
         }
@@ -1231,7 +1353,7 @@ impl Database {
                 missing_keywords: row.get("missing_keywords"),
                 recommendations: row.get("recommendations"),
                 processing_time_ms: row.get("processing_time_ms"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
             };
             analyses.push(analysis);
         }
@@ -1737,8 +1859,8 @@ impl Database {
                 .unwrap_or(crate::models::ExportFormat::Json),
                 include_metadata_in_exports: row.get("include_metadata_in_exports"),
                 compress_exports: row.get("compress_exports"),
-                created_at: row.get::<String, _>("created_at").parse()?,
-                updated_at: row.get::<String, _>("updated_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
             };
             Ok(Some(preferences))
         } else {
@@ -1945,6 +2067,17 @@ impl Database {
 
         let mut keywords = Vec::new();
         for row in rows {
+            // Safe parsing of created_at with proper error handling for multiple timestamp formats
+            let created_at_str: String = row.get("created_at");
+            let created_at = parse_timestamp(&created_at_str).map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to parse created_at timestamp '{}' for industry '{}': {}. This indicates corrupted database data.",
+                    created_at_str,
+                    industry,
+                    e
+                )
+            })?;
+
             let keyword = IndustryKeyword {
                 id: row.get("id"),
                 industry: row.get("industry"),
@@ -1952,7 +2085,7 @@ impl Database {
                 weight: row.get("weight"),
                 category: row.get("category"),
                 synonyms: row.get("synonyms"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at,
             };
             keywords.push(keyword);
         }
@@ -2224,7 +2357,7 @@ impl Database {
                 detection_pattern: row.get("detection_pattern"),
                 suggestion: row.get("suggestion"),
                 severity: row.get("severity"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
             };
             rules.push(rule);
         }
@@ -2283,7 +2416,7 @@ impl Database {
                 benchmark_type: row.get("benchmark_type"),
                 score_threshold: row.get("score_threshold"),
                 description: row.get("description"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
             };
             benchmarks.push(benchmark);
         }
@@ -2334,7 +2467,7 @@ impl Database {
                 rating: row.get("rating"),
                 comment: row.get("comment"),
                 helpful_suggestions: row.get("helpful_suggestions"),
-                created_at: row.get::<String, _>("created_at").parse()?,
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
             };
             feedback_list.push(feedback);
         }

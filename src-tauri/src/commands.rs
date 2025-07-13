@@ -1242,14 +1242,68 @@ pub async fn semantic_analysis(
 ) -> Result<CommandResult<SemanticAnalysisResult>, ()> {
     info!("Performing semantic analysis for industry: {}", industry);
 
-    let db = state.db.lock().await;
-    let analyzer = SemanticAnalyzer::new(db.clone());
+    // Clone the database first, then release the lock
+    let db_clone = {
+        let db = state.db.lock().await;
+        info!("Database lock acquired for semantic analysis");
+
+        // Test database connectivity before creating analyzer
+        match db.health_check().await {
+            Ok(true) => {
+                info!("Database health check passed in semantic analysis");
+            }
+            Ok(false) => {
+                error!("Database health check failed in semantic analysis");
+                return Ok(CommandResult::error(
+                    "Database health check failed".to_string(),
+                ));
+            }
+            Err(e) => {
+                error!("Database health check error in semantic analysis: {}", e);
+                return Ok(CommandResult::error(format!(
+                    "Database health check error: {}",
+                    e
+                )));
+            }
+        }
+
+        // Test industry keywords access directly
+        match db.get_industry_keywords(&industry).await {
+            Ok(keywords) => {
+                info!(
+                    "Successfully loaded {} keywords for industry '{}' in command",
+                    keywords.len(),
+                    industry
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to load industry keywords directly in command: {}",
+                    e
+                );
+                return Ok(CommandResult::error(format!(
+                    "Failed to load industry keywords: {}",
+                    e
+                )));
+            }
+        }
+
+        // Clone the database before releasing the lock
+        db.clone()
+    }; // Lock is released here
+
+    info!("Database lock released, creating SemanticAnalyzer");
+    let analyzer = SemanticAnalyzer::new(db_clone);
+    info!("SemanticAnalyzer created successfully");
 
     match analyzer
         .analyze_semantic_keywords(&resume_content, &job_description, &industry)
         .await
     {
-        Ok(result) => Ok(CommandResult::success(result)),
+        Ok(result) => {
+            info!("Semantic analysis completed successfully");
+            Ok(CommandResult::success(result))
+        }
         Err(e) => {
             error!("Failed to perform semantic analysis: {}", e);
             Ok(CommandResult::error(format!(
@@ -1273,8 +1327,62 @@ pub async fn comprehensive_analysis(
         target_role_level, target_industry
     );
 
-    let db = state.db.lock().await;
-    let scoring_engine = EnhancedScoringEngine::new(db.clone());
+    // Clone the database first, then release the lock
+    let db_clone = {
+        let db = state.db.lock().await;
+        info!("Database lock acquired for comprehensive analysis");
+
+        // Test database connectivity before creating scoring engine
+        match db.health_check().await {
+            Ok(true) => {
+                info!("Database health check passed in comprehensive analysis");
+            }
+            Ok(false) => {
+                error!("Database health check failed in comprehensive analysis");
+                return Ok(CommandResult::error(
+                    "Database health check failed".to_string(),
+                ));
+            }
+            Err(e) => {
+                error!(
+                    "Database health check error in comprehensive analysis: {}",
+                    e
+                );
+                return Ok(CommandResult::error(format!(
+                    "Database health check error: {}",
+                    e
+                )));
+            }
+        }
+
+        // Test industry keywords access directly in comprehensive analysis
+        match db.get_industry_keywords(&target_industry).await {
+            Ok(keywords) => {
+                info!(
+                    "Successfully loaded {} keywords for industry '{}' in comprehensive analysis",
+                    keywords.len(),
+                    target_industry
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to load industry keywords directly in comprehensive analysis: {}",
+                    e
+                );
+                return Ok(CommandResult::error(format!(
+                    "Failed to load industry keywords in comprehensive analysis: {}",
+                    e
+                )));
+            }
+        }
+
+        // Clone the database before releasing the lock
+        db.clone()
+    }; // Lock is released here
+
+    info!("Database lock released, creating EnhancedScoringEngine");
+    let scoring_engine = EnhancedScoringEngine::new(db_clone);
+    info!("EnhancedScoringEngine created successfully");
 
     match scoring_engine
         .comprehensive_analysis(
@@ -1285,7 +1393,10 @@ pub async fn comprehensive_analysis(
         )
         .await
     {
-        Ok(result) => Ok(CommandResult::success(result)),
+        Ok(result) => {
+            info!("Comprehensive analysis completed successfully");
+            Ok(CommandResult::success(result))
+        }
         Err(e) => {
             error!("Failed to perform comprehensive analysis: {}", e);
             Ok(CommandResult::error(format!(

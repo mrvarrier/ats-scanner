@@ -73,12 +73,34 @@ impl SemanticAnalyzer {
     ) -> Result<SemanticAnalysisResult> {
         info!("Starting semantic analysis for industry: {}", industry);
 
-        // 1. Load industry-specific keywords
+        // 1. Check database health before proceeding
+        match self.database.health_check().await {
+            Ok(true) => info!("Database health check passed in semantic analyzer"),
+            Ok(false) => {
+                return Err(anyhow::anyhow!(
+                    "Database health check failed in semantic analyzer"
+                ));
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Database health check error in semantic analyzer: {}",
+                    e
+                ));
+            }
+        }
+
+        // 2. Load industry-specific keywords
         let industry_keywords = self
             .database
             .get_industry_keywords(industry)
             .await
-            .context("Failed to load industry keywords")?;
+            .context(format!("Failed to load industry keywords for industry '{}'. Please check if the database is accessible and the industry is supported.", industry))?;
+
+        info!(
+            "Loaded {} keywords for industry '{}'",
+            industry_keywords.len(),
+            industry
+        );
 
         // 2. Extract keywords from both resume and job description
         let resume_keywords = self.extract_keywords(resume_content);

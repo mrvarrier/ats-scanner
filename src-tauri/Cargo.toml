@@ -1,6 +1,6 @@
 [package]
 name = "ats-scanner"
-version = "1.0.0"
+version = "1.1.0"
 description = "Local ATS Scanner using Ollama models"
 authors = ["ATS Scanner Team"]
 license = "MIT"

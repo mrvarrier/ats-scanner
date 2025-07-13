@@ -876,7 +876,8 @@ impl CompetitiveAnalyzer {
         let technical_depth = self.assess_technical_depth(&extracted_skills, resume_content);
         let leadership_indicators = self.assess_leadership_indicators(resume_content);
         let job_requirements = self.extract_job_requirements(job_description);
-        let _market_alignment = self.calculate_market_alignment(&extracted_skills, &job_requirements);
+        let _market_alignment =
+            self.calculate_market_alignment(&extracted_skills, &job_requirements);
 
         // Calculate percentile based on actual content analysis
         let percentile_ranking = self.calculate_percentile_ranking(
@@ -887,8 +888,9 @@ impl CompetitiveAnalyzer {
         );
 
         // Generate strength areas based on extracted skills and content
-        let strength_areas = self.identify_strength_areas(&extracted_skills, resume_content, technical_depth);
-        
+        let strength_areas =
+            self.identify_strength_areas(&extracted_skills, resume_content, technical_depth);
+
         // Identify real improvement areas based on content gaps
         let improvement_areas = self.identify_improvement_areas(
             &extracted_skills,
@@ -901,7 +903,8 @@ impl CompetitiveAnalyzer {
         let market_demand_score = self.calculate_market_demand(&extracted_skills, experience_level);
 
         // Identify competitive advantages from actual content
-        let competitive_advantages = self.identify_competitive_advantages(&extracted_skills, resume_content);
+        let competitive_advantages =
+            self.identify_competitive_advantages(&extracted_skills, resume_content);
 
         // Generate positioning statement based on analysis
         let positioning_statement = self.generate_positioning_statement(
@@ -1185,60 +1188,115 @@ impl CompetitiveAnalyzer {
     }
 
     // Helper functions for market position analysis
-    
+
     fn extract_skills_from_content(&self, content: &str) -> Vec<String> {
         let mut skills = Vec::new();
         let content_lower = content.to_lowercase();
-        
+
         // Technical skills patterns
         let technical_skills = [
-            "python", "java", "javascript", "typescript", "react", "node.js", "vue", "angular",
-            "sql", "mysql", "postgresql", "mongodb", "redis", "aws", "azure", "gcp", "docker",
-            "kubernetes", "git", "jenkins", "ci/cd", "rest", "api", "microservices", "graphql",
-            "html", "css", "sass", "webpack", "npm", "yarn", "babel", "eslint", "machine learning",
-            "tensorflow", "pytorch", "pandas", "numpy", "scala", "kotlin", "swift", "rust",
-            "go", "c++", "c#", ".net", "spring", "django", "flask", "express", "laravel"
+            "python",
+            "java",
+            "javascript",
+            "typescript",
+            "react",
+            "node.js",
+            "vue",
+            "angular",
+            "sql",
+            "mysql",
+            "postgresql",
+            "mongodb",
+            "redis",
+            "aws",
+            "azure",
+            "gcp",
+            "docker",
+            "kubernetes",
+            "git",
+            "jenkins",
+            "ci/cd",
+            "rest",
+            "api",
+            "microservices",
+            "graphql",
+            "html",
+            "css",
+            "sass",
+            "webpack",
+            "npm",
+            "yarn",
+            "babel",
+            "eslint",
+            "machine learning",
+            "tensorflow",
+            "pytorch",
+            "pandas",
+            "numpy",
+            "scala",
+            "kotlin",
+            "swift",
+            "rust",
+            "go",
+            "c++",
+            "c#",
+            ".net",
+            "spring",
+            "django",
+            "flask",
+            "express",
+            "laravel",
         ];
-        
+
         for skill in technical_skills {
             if content_lower.contains(skill) {
                 skills.push(skill.to_string());
             }
         }
-        
+
         // Look for years of experience patterns (simple string matching)
         let experience_indicators = [
-            "years experience", "years of experience", "yrs experience",
-            "year experience", "year of experience", "yr experience"
+            "years experience",
+            "years of experience",
+            "yrs experience",
+            "year experience",
+            "year of experience",
+            "yr experience",
         ];
-        
+
         for indicator in experience_indicators {
             if content_lower.contains(indicator) {
                 skills.push("experienced".to_string());
                 break;
             }
         }
-        
+
         skills
     }
-    
+
     fn estimate_experience_level(&self, content: &str) -> f64 {
         let content_lower = content.to_lowercase();
         let mut experience_score = 0.0;
-        
+
         // Look for explicit experience mentions
         let experience_patterns: [(&str, f64); 9] = [
-            ("senior", 8.0), ("lead", 8.0), ("principal", 10.0), ("architect", 10.0),
-            ("junior", 2.0), ("entry level", 2.0), ("graduate", 2.0),
-            ("intern", 1.0), ("internship", 1.0),
+            ("senior", 8.0),
+            ("lead", 8.0),
+            ("principal", 10.0),
+            ("architect", 10.0),
+            ("junior", 2.0),
+            ("entry level", 2.0),
+            ("graduate", 2.0),
+            ("intern", 1.0),
+            ("internship", 1.0),
         ];
-        
+
         for (pattern, base_score) in experience_patterns {
             if content_lower.contains(pattern) {
                 experience_score = base_score.max(experience_score);
             }
         }
-        
+
         // Look for years of experience mentions with simple parsing
         let words: Vec<&str> = content_lower.split_whitespace().collect();
         for (i, word) in words.iter().enumerate() {
@@ -1252,158 +1310,249 @@ impl CompetitiveAnalyzer {
                 }
             }
         }
-        
+
         // If no explicit experience found, estimate from content complexity
         if experience_score == 0.0 {
             let complexity_indicators = [
-                "architecture", "system design", "scalability", "performance optimization",
-                "team lead", "mentoring", "project management", "stakeholder",
-                "technical debt", "refactoring", "code review"
+                "architecture",
+                "system design",
+                "scalability",
+                "performance optimization",
+                "team lead",
+                "mentoring",
+                "project management",
+                "stakeholder",
+                "technical debt",
+                "refactoring",
+                "code review",
             ];
-            
-            let complexity_count = complexity_indicators.iter()
+
+            let complexity_count = complexity_indicators
+                .iter()
                 .filter(|&indicator| content_lower.contains(indicator))
                 .count();
-                
+
             experience_score = (complexity_count as f64 * 1.5).clamp(2.0, 7.0);
         }
-        
+
         experience_score.clamp(0.5, 15.0) // Cap at 15 years, minimum 0.5
     }
-    
+
     fn assess_technical_depth(&self, skills: &[String], content: &str) -> f64 {
         let content_lower = content.to_lowercase();
         let mut depth_score = skills.len() as f64 * 5.0; // Base score from skill count
-        
+
         // Advanced technical indicators
         let advanced_indicators = [
-            "microservices", "distributed systems", "system architecture", "scalability",
-            "performance optimization", "security", "devops", "ci/cd", "containerization",
-            "orchestration", "monitoring", "logging", "testing", "tdd", "bdd",
-            "code review", "technical documentation", "api design", "database design"
+            "microservices",
+            "distributed systems",
+            "system architecture",
+            "scalability",
+            "performance optimization",
+            "security",
+            "devops",
+            "ci/cd",
+            "containerization",
+            "orchestration",
+            "monitoring",
+            "logging",
+            "testing",
+            "tdd",
+            "bdd",
+            "code review",
+            "technical documentation",
+            "api design",
+            "database design",
         ];
-        
+
         for indicator in advanced_indicators {
             if content_lower.contains(indicator) {
                 depth_score += 8.0;
             }
         }
-        
+
         // Project complexity indicators
         let project_indicators = [
-            "built", "developed", "implemented", "designed", "architected",
-            "optimized", "refactored", "migrated", "integrated"
+            "built",
+            "developed",
+            "implemented",
+            "designed",
+            "architected",
+            "optimized",
+            "refactored",
+            "migrated",
+            "integrated",
         ];
-        
-        let project_count = project_indicators.iter()
+
+        let project_count = project_indicators
+            .iter()
             .filter(|&indicator| content_lower.contains(indicator))
             .count();
-            
+
         depth_score += project_count as f64 * 3.0;
-        
+
         (depth_score / 10.0).clamp(0.0, 100.0)
     }
-    
+
     fn assess_leadership_indicators(&self, content: &str) -> f64 {
         let content_lower = content.to_lowercase();
         let mut leadership_score: f64 = 0.0;
-        
+
         let leadership_indicators: [(&str, f64); 27] = [
-            ("lead", 15.0), ("led", 15.0), ("manage", 20.0), ("managed", 20.0),
-            ("mentor", 18.0), ("mentored", 18.0), ("supervise", 16.0), ("supervised", 16.0),
-            ("coordinate", 12.0), ("coordinated", 12.0), ("organize", 10.0), ("organized", 10.0),
-            ("delegate", 14.0), ("delegated", 14.0), ("team", 8.0), ("collaboration", 8.0),
-            ("cross-functional", 12.0), ("stakeholder", 10.0), ("presentation", 6.0),
-            ("training", 8.0), ("onboarding", 10.0), ("code review", 6.0),
-            ("technical lead", 25.0), ("team lead", 22.0), ("project manager", 20.0),
-            ("scrum master", 16.0), ("tech lead", 25.0)
+            ("lead", 15.0),
+            ("led", 15.0),
+            ("manage", 20.0),
+            ("managed", 20.0),
+            ("mentor", 18.0),
+            ("mentored", 18.0),
+            ("supervise", 16.0),
+            ("supervised", 16.0),
+            ("coordinate", 12.0),
+            ("coordinated", 12.0),
+            ("organize", 10.0),
+            ("organized", 10.0),
+            ("delegate", 14.0),
+            ("delegated", 14.0),
+            ("team", 8.0),
+            ("collaboration", 8.0),
+            ("cross-functional", 12.0),
+            ("stakeholder", 10.0),
+            ("presentation", 6.0),
+            ("training", 8.0),
+            ("onboarding", 10.0),
+            ("code review", 6.0),
+            ("technical lead", 25.0),
+            ("team lead", 22.0),
+            ("project manager", 20.0),
+            ("scrum master", 16.0),
+            ("tech lead", 25.0),
         ];
-        
+
         for (indicator, score) in leadership_indicators {
             if content_lower.contains(indicator) {
                 leadership_score += score;
             }
         }
-        
+
         leadership_score.clamp(0.0, 100.0)
     }
-    
+
     fn extract_job_requirements(&self, job_description: &str) -> Vec<String> {
         let mut requirements = Vec::new();
         let content_lower = job_description.to_lowercase();
-        
+
         // Common requirement patterns
         let requirement_skills = [
-            "python", "java", "javascript", "typescript", "react", "node.js", "vue", "angular",
-            "sql", "aws", "azure", "docker", "kubernetes", "git", "agile", "scrum",
-            "rest", "api", "microservices", "bachelor", "degree", "years experience",
-            "team player", "communication", "problem solving", "analytical"
+            "python",
+            "java",
+            "javascript",
+            "typescript",
+            "react",
+            "node.js",
+            "vue",
+            "angular",
+            "sql",
+            "aws",
+            "azure",
+            "docker",
+            "kubernetes",
+            "git",
+            "agile",
+            "scrum",
+            "rest",
+            "api",
+            "microservices",
+            "bachelor",
+            "degree",
+            "years experience",
+            "team player",
+            "communication",
+            "problem solving",
+            "analytical",
         ];
-        
+
         for skill in requirement_skills {
             if content_lower.contains(skill) {
                 requirements.push(skill.to_string());
             }
         }
-        
+
         requirements
     }
-    
+
     fn calculate_market_alignment(&self, skills: &[String], requirements: &[String]) -> f64 {
         if requirements.is_empty() {
             return 50.0; // Default alignment
         }
-        
-        let matched_requirements = requirements.iter()
+
+        let matched_requirements = requirements
+            .iter()
             .filter(|req| {
                 skills.iter().any(|skill| {
-                    skill.to_lowercase().contains(&req.to_lowercase()) ||
-                    req.to_lowercase().contains(&skill.to_lowercase())
+                    skill.to_lowercase().contains(&req.to_lowercase())
+                        || req.to_lowercase().contains(&skill.to_lowercase())
                 })
             })
             .count();
-            
+
         (matched_requirements as f64 / requirements.len() as f64) * 100.0
     }
-    
-    fn calculate_percentile_ranking(&self, skills: &[String], experience: f64, technical_depth: f64, leadership: f64) -> f64 {
+
+    fn calculate_percentile_ranking(
+        &self,
+        skills: &[String],
+        experience: f64,
+        technical_depth: f64,
+        leadership: f64,
+    ) -> f64 {
         let skill_score = (skills.len() as f64 * 2.0).min(30.0);
         let experience_score = (experience * 4.0).min(40.0);
         let technical_score = (technical_depth * 0.15).min(15.0);
         let leadership_score = (leadership * 0.15).min(15.0);
-        
+
         let total_score = skill_score + experience_score + technical_score + leadership_score;
-        
+
         // Convert to percentile (max 100 points -> 95th percentile max)
         (total_score * 0.95).clamp(5.0, 95.0)
     }
-    
-    fn identify_strength_areas(&self, skills: &[String], content: &str, technical_depth: f64) -> Vec<StrengthArea> {
+
+    fn identify_strength_areas(
+        &self,
+        skills: &[String],
+        content: &str,
+        technical_depth: f64,
+    ) -> Vec<StrengthArea> {
         let mut strengths = Vec::new();
         let content_lower = content.to_lowercase();
-        
+
         // Technical skills strength
         if !skills.is_empty() {
-            let tech_evidence: Vec<String> = skills.iter()
+            let tech_evidence: Vec<String> = skills
+                .iter()
                 .take(5)
                 .map(|skill| format!("Proficient in {}", skill))
                 .collect();
-                
+
             strengths.push(StrengthArea {
                 area: "Technical Skills".to_string(),
                 score: (skills.len() as f64 * 8.0).clamp(60.0, 95.0),
                 market_percentile: (skills.len() as f64 * 10.0).clamp(50.0, 90.0),
-                relative_to_competition: if skills.len() > 8 { "significantly above" } 
-                                       else if skills.len() > 5 { "above" } 
-                                       else { "at par" }.to_string(),
+                relative_to_competition: if skills.len() > 8 {
+                    "significantly above"
+                } else if skills.len() > 5 {
+                    "above"
+                } else {
+                    "at par"
+                }
+                .to_string(),
                 supporting_evidence: tech_evidence,
                 leverage_opportunities: vec![
                     "Highlight diverse technical stack".to_string(),
-                    "Showcase technical projects".to_string()
+                    "Showcase technical projects".to_string(),
                 ],
             });
         }
-        
+
         // Experience strength
         if content_lower.contains("senior") || content_lower.contains("lead") {
             strengths.push(StrengthArea {
@@ -1414,11 +1563,11 @@ impl CompetitiveAnalyzer {
                 supporting_evidence: vec!["Senior-level experience indicated".to_string()],
                 leverage_opportunities: vec![
                     "Emphasize leadership experience".to_string(),
-                    "Highlight complex project involvement".to_string()
+                    "Highlight complex project involvement".to_string(),
                 ],
             });
         }
-        
+
         // Project complexity strength
         if technical_depth > 70.0 {
             strengths.push(StrengthArea {
@@ -1433,13 +1582,19 @@ impl CompetitiveAnalyzer {
                 ],
             });
         }
-        
+
         strengths
     }
-    
-    fn identify_improvement_areas(&self, skills: &[String], requirements: &[String], leadership: f64, experience: f64) -> Vec<ImprovementArea> {
+
+    fn identify_improvement_areas(
+        &self,
+        skills: &[String],
+        requirements: &[String],
+        leadership: f64,
+        experience: f64,
+    ) -> Vec<ImprovementArea> {
         let mut improvements = Vec::new();
-        
+
         // Leadership improvement if low
         if leadership < 40.0 {
             improvements.push(ImprovementArea {
@@ -1447,31 +1602,37 @@ impl CompetitiveAnalyzer {
                 current_score: leadership,
                 target_score: 70.0,
                 market_impact: 20.0,
-                improvement_timeline: if experience > 5.0 { "3-6 months" } else { "6-12 months" }.to_string(),
+                improvement_timeline: if experience > 5.0 {
+                    "3-6 months"
+                } else {
+                    "6-12 months"
+                }
+                .to_string(),
                 required_actions: vec![
                     "Take on team lead responsibilities".to_string(),
                     "Mentor junior team members".to_string(),
-                    "Lead cross-functional projects".to_string()
+                    "Lead cross-functional projects".to_string(),
                 ],
                 success_metrics: vec![
                     "Lead at least 2 projects".to_string(),
                     "Mentor 1-2 junior developers".to_string(),
-                    "Receive leadership feedback".to_string()
+                    "Receive leadership feedback".to_string(),
                 ],
             });
         }
-        
+
         // Skill gaps based on requirements
-        let missing_requirements: Vec<String> = requirements.iter()
+        let missing_requirements: Vec<String> = requirements
+            .iter()
             .filter(|req| {
                 !skills.iter().any(|skill| {
-                    skill.to_lowercase().contains(&req.to_lowercase()) ||
-                    req.to_lowercase().contains(&skill.to_lowercase())
+                    skill.to_lowercase().contains(&req.to_lowercase())
+                        || req.to_lowercase().contains(&skill.to_lowercase())
                 })
             })
             .cloned()
             .collect();
-            
+
         if !missing_requirements.is_empty() && missing_requirements.len() <= 3 {
             let missing_skills = missing_requirements.join(", ");
             improvements.push(ImprovementArea {
@@ -1483,54 +1644,77 @@ impl CompetitiveAnalyzer {
                 required_actions: vec![
                     format!("Develop expertise in: {}", missing_skills),
                     "Complete relevant online courses".to_string(),
-                    "Build practice projects".to_string()
+                    "Build practice projects".to_string(),
                 ],
                 success_metrics: vec![
                     "Complete 2-3 projects using new skills".to_string(),
-                    "Obtain relevant certifications".to_string()
+                    "Obtain relevant certifications".to_string(),
                 ],
             });
         }
-        
+
         improvements
     }
-    
+
     fn calculate_market_demand(&self, skills: &[String], experience: f64) -> f64 {
         let mut demand_score = 50.0; // Base demand
-        
+
         // High-demand skills
         let high_demand_skills = [
-            "python", "javascript", "typescript", "react", "node.js", "aws", "docker", 
-            "kubernetes", "machine learning", "devops", "microservices", "api"
+            "python",
+            "javascript",
+            "typescript",
+            "react",
+            "node.js",
+            "aws",
+            "docker",
+            "kubernetes",
+            "machine learning",
+            "devops",
+            "microservices",
+            "api",
         ];
-        
-        let high_demand_count = skills.iter()
+
+        let high_demand_count = skills
+            .iter()
             .filter(|skill| high_demand_skills.contains(&skill.as_str()))
             .count();
-            
+
         demand_score += high_demand_count as f64 * 8.0;
-        
+
         // Experience multiplier
         if experience > 5.0 {
             demand_score *= 1.2;
         } else if experience > 3.0 {
             demand_score *= 1.1;
         }
-        
+
         demand_score.clamp(20.0, 98.0)
     }
-    
-    fn identify_competitive_advantages(&self, skills: &[String], content: &str) -> Vec<CompetitiveAdvantage> {
+
+    fn identify_competitive_advantages(
+        &self,
+        skills: &[String],
+        content: &str,
+    ) -> Vec<CompetitiveAdvantage> {
         let mut advantages = Vec::new();
         let content_lower = content.to_lowercase();
-        
+
         // Full-stack advantage
-        let frontend_skills = ["react", "vue", "angular", "javascript", "typescript", "html", "css"];
+        let frontend_skills = [
+            "react",
+            "vue",
+            "angular",
+            "javascript",
+            "typescript",
+            "html",
+            "css",
+        ];
         let backend_skills = ["python", "java", "node.js", "sql", "api", "microservices"];
-        
+
         let has_frontend = skills.iter().any(|s| frontend_skills.contains(&s.as_str()));
         let has_backend = skills.iter().any(|s| backend_skills.contains(&s.as_str()));
-        
+
         if has_frontend && has_backend {
             advantages.push(CompetitiveAdvantage {
                 advantage: "Full-stack Development".to_string(),
@@ -1540,29 +1724,47 @@ impl CompetitiveAnalyzer {
                 sustainability: "2-3 years".to_string(),
                 amplification_strategies: vec![
                     "Showcase end-to-end project ownership".to_string(),
-                    "Highlight system integration experience".to_string()
+                    "Highlight system integration experience".to_string(),
                 ],
             });
         }
-        
+
         // Cloud/DevOps advantage
-        let cloud_skills = ["aws", "azure", "gcp", "docker", "kubernetes", "ci/cd", "devops"];
+        let cloud_skills = [
+            "aws",
+            "azure",
+            "gcp",
+            "docker",
+            "kubernetes",
+            "ci/cd",
+            "devops",
+        ];
         let has_cloud = skills.iter().any(|s| cloud_skills.contains(&s.as_str()));
-        
+
         if has_cloud {
             advantages.push(CompetitiveAdvantage {
                 advantage: "Cloud & DevOps Expertise".to_string(),
-                strength_level: if skills.iter().filter(|s| cloud_skills.contains(&s.as_str())).count() > 2 { "strong" } else { "moderate" }.to_string(),
+                strength_level: if skills
+                    .iter()
+                    .filter(|s| cloud_skills.contains(&s.as_str()))
+                    .count()
+                    > 2
+                {
+                    "strong"
+                } else {
+                    "moderate"
+                }
+                .to_string(),
                 market_rarity: 40.0,
                 value_to_employers: 85.0,
                 sustainability: "3-4 years".to_string(),
                 amplification_strategies: vec![
                     "Highlight infrastructure automation".to_string(),
-                    "Showcase deployment optimization results".to_string()
+                    "Showcase deployment optimization results".to_string(),
                 ],
             });
         }
-        
+
         // Leadership advantage
         if content_lower.contains("lead") || content_lower.contains("manage") {
             advantages.push(CompetitiveAdvantage {
@@ -1573,67 +1775,143 @@ impl CompetitiveAnalyzer {
                 sustainability: "long-term".to_string(),
                 amplification_strategies: vec![
                     "Quantify team impact and results".to_string(),
-                    "Highlight mentoring contributions".to_string()
+                    "Highlight mentoring contributions".to_string(),
                 ],
             });
         }
-        
+
         advantages
     }
-    
-    fn generate_positioning_statement(&self, skills: &[String], experience: f64, technical_depth: f64, strengths: &[StrengthArea]) -> String {
-        let experience_level = if experience > 8.0 { "Senior" }
-                             else if experience > 5.0 { "Mid-level" }
-                             else if experience > 2.0 { "Intermediate" }
-                             else { "Junior" };
-        
-        let primary_strength = strengths.first()
+
+    fn generate_positioning_statement(
+        &self,
+        skills: &[String],
+        experience: f64,
+        technical_depth: f64,
+        strengths: &[StrengthArea],
+    ) -> String {
+        let experience_level = if experience > 8.0 {
+            "Senior"
+        } else if experience > 5.0 {
+            "Mid-level"
+        } else if experience > 2.0 {
+            "Intermediate"
+        } else {
+            "Junior"
+        };
+
+        let primary_strength = strengths
+            .first()
             .map(|s| s.area.clone())
             .unwrap_or_else(|| "Technical".to_string());
-            
-        let skill_breadth = if skills.len() > 10 { "diverse technical expertise" }
-                          else if skills.len() > 6 { "solid technical foundation" }
-                          else { "focused technical skills" };
-                          
-        let growth_indicator = if technical_depth > 80.0 { "proven impact" }
-                             else if technical_depth > 60.0 { "strong growth potential" }
-                             else { "emerging capabilities" };
-        
-        format!("{} professional with {} and {}, specializing in {}", 
-                experience_level, skill_breadth, growth_indicator, primary_strength.to_lowercase())
+
+        let skill_breadth = if skills.len() > 10 {
+            "diverse technical expertise"
+        } else if skills.len() > 6 {
+            "solid technical foundation"
+        } else {
+            "focused technical skills"
+        };
+
+        let growth_indicator = if technical_depth > 80.0 {
+            "proven impact"
+        } else if technical_depth > 60.0 {
+            "strong growth potential"
+        } else {
+            "emerging capabilities"
+        };
+
+        format!(
+            "{} professional with {} and {}, specializing in {}",
+            experience_level,
+            skill_breadth,
+            growth_indicator,
+            primary_strength.to_lowercase()
+        )
     }
-    
+
     fn determine_market_segment(&self, skills: &[String], experience: f64) -> MarketSegment {
-        let tech_skills = skills.iter().filter(|s| {
-            ["python", "java", "javascript", "react", "node.js", "sql", "aws"].contains(&s.as_str())
-        }).count();
-        
+        let tech_skills = skills
+            .iter()
+            .filter(|s| {
+                [
+                    "python",
+                    "java",
+                    "javascript",
+                    "react",
+                    "node.js",
+                    "sql",
+                    "aws",
+                ]
+                .contains(&s.as_str())
+            })
+            .count();
+
         let target_companies = if experience > 8.0 && tech_skills > 6 {
-            vec!["Large tech companies".to_string(), "Enterprise organizations".to_string(), "Consulting firms".to_string()]
+            vec![
+                "Large tech companies".to_string(),
+                "Enterprise organizations".to_string(),
+                "Consulting firms".to_string(),
+            ]
         } else if experience > 3.0 && tech_skills > 4 {
-            vec!["Mid-size tech companies".to_string(), "Growing startups".to_string(), "Scale-ups".to_string()]
+            vec![
+                "Mid-size tech companies".to_string(),
+                "Growing startups".to_string(),
+                "Scale-ups".to_string(),
+            ]
         } else {
-            vec!["Startups".to_string(), "Small-medium companies".to_string(), "Early-stage ventures".to_string()]
+            vec![
+                "Startups".to_string(),
+                "Small-medium companies".to_string(),
+                "Early-stage ventures".to_string(),
+            ]
         };
-        
+
         let typical_requirements = if experience > 8.0 {
-            vec!["8+ years experience".to_string(), "Leadership experience".to_string(), "System design skills".to_string()]
+            vec![
+                "8+ years experience".to_string(),
+                "Leadership experience".to_string(),
+                "System design skills".to_string(),
+            ]
         } else if experience > 3.0 {
-            vec!["3-5 years experience".to_string(), "Full-stack capabilities".to_string(), "Team collaboration".to_string()]
+            vec![
+                "3-5 years experience".to_string(),
+                "Full-stack capabilities".to_string(),
+                "Team collaboration".to_string(),
+            ]
         } else {
-            vec!["1-3 years experience".to_string(), "Strong fundamentals".to_string(), "Learning agility".to_string()]
+            vec![
+                "1-3 years experience".to_string(),
+                "Strong fundamentals".to_string(),
+                "Learning agility".to_string(),
+            ]
         };
-        
+
         MarketSegment {
             segment_name: "Technology - Software Development".to_string(),
             target_companies,
             typical_requirements,
-            competitive_landscape: if experience > 5.0 { "Moderate competition" } else { "High competition" }.to_string(),
-            growth_potential: if tech_skills > 6 { 90.0 } else if tech_skills > 3 { 80.0 } else { 70.0 },
+            competitive_landscape: if experience > 5.0 {
+                "Moderate competition"
+            } else {
+                "High competition"
+            }
+            .to_string(),
+            growth_potential: if tech_skills > 6 {
+                90.0
+            } else if tech_skills > 3 {
+                80.0
+            } else {
+                70.0
+            },
             entry_barriers: vec![
                 "Technical interview process".to_string(),
                 "Portfolio demonstration".to_string(),
-                if experience > 3.0 { "System design assessment".to_string() } else { "Coding challenges".to_string() }
+                if experience > 3.0 {
+                    "System design assessment".to_string()
+                } else {
+                    "Coding challenges".to_string()
+                },
             ],
         }
     }

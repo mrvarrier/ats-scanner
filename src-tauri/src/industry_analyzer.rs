@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use log::info;
+use log::{error, info};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -297,11 +297,42 @@ impl IndustryAnalyzer {
         resume_content: &str,
         industry: &str,
     ) -> Result<Vec<IndustryKeywordMatch>> {
+        info!(
+            "IndustryAnalyzer: Starting analyze_industry_keywords for '{}'",
+            industry
+        );
+
+        // Test database health before query
+        match self.database.health_check().await {
+            Ok(true) => {
+                info!("IndustryAnalyzer: Database health check passed");
+            }
+            Ok(false) => {
+                error!("IndustryAnalyzer: Database health check failed");
+                return Err(anyhow::anyhow!(
+                    "Database health check failed in IndustryAnalyzer"
+                ));
+            }
+            Err(e) => {
+                error!("IndustryAnalyzer: Database health check error: {}", e);
+                return Err(anyhow::anyhow!(
+                    "Database health check error in IndustryAnalyzer: {}",
+                    e
+                ));
+            }
+        }
+
         let keywords = self
             .database
             .get_industry_keywords(industry)
             .await
-            .context("Failed to load industry keywords")?;
+            .context(format!("Failed to load industry keywords for industry '{}'. Please check if the database is accessible and the industry is supported.", industry))?;
+
+        info!(
+            "Loaded {} keywords for industry analysis of '{}'",
+            keywords.len(),
+            industry
+        );
 
         let content_lower = resume_content.to_lowercase();
         let mut keyword_matches = Vec::new();

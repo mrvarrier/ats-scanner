@@ -63,11 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize database with config
     let database_url = config_manager.get_database_url();
-    let database = if database_url == "sqlite::memory:" {
-        Database::new_with_url(database_url).await?
-    } else {
-        Database::new_with_url(database_url).await?
-    };
+    let database = Database::new_with_url(database_url).await?;
 
     // Perform initial health check
     match database.health_check().await {
