@@ -31,6 +31,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { BulletPointAnalyzer } from '@/components/ui/BulletPointAnalyzer';
 import { IndustryKeywordManager } from '@/components/ui/IndustryKeywordManager';
+import { FormatHealthDashboard } from '@/components/ui/FormatHealthDashboard';
 
 interface OptimizationChange {
   section: string;
@@ -976,6 +977,11 @@ export function OptimizationPage() {
           resumeContent={originalContent}
           jobDescription={jobDescription}
         />
+      )}
+
+      {/* Format Health Dashboard */}
+      {originalContent.trim() && (
+        <FormatHealthDashboard resumeContent={originalContent} />
       )}
 
       {/* Current Score Display */}
