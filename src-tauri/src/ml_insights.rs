@@ -653,7 +653,7 @@ impl MLInsightsEngine {
             PredictionModel {
                 model_type: "logistic_regression".to_string(),
                 // Weights derived from common resume success factors:
-                // High keyword density (0.35), experience relevance (0.28), readability (0.18), 
+                // High keyword density (0.35), experience relevance (0.28), readability (0.18),
                 // quantified achievements (0.12), proper formatting (0.07)
                 weights: vec![0.07, 0.18, 0.12, 0.35, 0.28],
                 bias: -0.2, // Slightly pessimistic bias requiring clear positive signals
@@ -678,7 +678,7 @@ impl MLInsightsEngine {
                 bias: -0.1, // Neutral bias with slight preference for clear positive signals
                 feature_names: vec![
                     "formatting_score".to_string(),
-                    "readability_score".to_string(), 
+                    "readability_score".to_string(),
                     "conciseness_score".to_string(),
                     "keyword_density".to_string(),
                     "structure_score".to_string(),

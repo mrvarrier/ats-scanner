@@ -2672,7 +2672,7 @@ mod tests {
         db.delete_resume(&resume.id).await?;
         let retrieved = db.get_resume(&resume.id).await?;
         assert!(retrieved.is_none());
-        
+
         Ok(())
     }
 

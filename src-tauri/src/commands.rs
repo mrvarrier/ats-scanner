@@ -811,7 +811,9 @@ pub async fn list_plugins(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+            return Ok(CommandResult::error(
+                "Failed to access plugins directory".to_string(),
+            ));
         }
     };
     let plugin_manager = PluginManager::new(plugins_dir);
@@ -834,7 +836,9 @@ pub async fn get_plugin_info(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+            return Ok(CommandResult::error(
+                "Failed to access plugins directory".to_string(),
+            ));
         }
     };
     let plugin_manager = PluginManager::new(plugins_dir);
@@ -860,7 +864,9 @@ pub async fn execute_plugin(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+            return Ok(CommandResult::error(
+                "Failed to access plugins directory".to_string(),
+            ));
         }
     };
     let plugin_manager = PluginManager::new(plugins_dir);
@@ -895,7 +901,9 @@ pub async fn update_plugin_config(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+            return Ok(CommandResult::error(
+                "Failed to access plugins directory".to_string(),
+            ));
         }
     };
     let plugin_manager = PluginManager::new(plugins_dir);

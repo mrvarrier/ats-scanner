@@ -1216,83 +1216,114 @@ Return ONLY the single most appropriate industry category from the list above.",
         rule: &crate::models::ATSCompatibilityRule,
     ) -> bool {
         let content_lower = resume_content.to_lowercase();
-        
+
         match rule.rule_type.as_str() {
             "required_section" => {
                 // Check if required section header is present
                 let section_variations = match rule.rule_description.as_str() {
-                    "experience" => vec!["experience", "work experience", "employment", "professional experience"],
+                    "experience" => vec![
+                        "experience",
+                        "work experience",
+                        "employment",
+                        "professional experience",
+                    ],
                     "education" => vec!["education", "academic background", "qualifications"],
-                    "skills" => vec!["skills", "technical skills", "core competencies", "expertise"],
+                    "skills" => vec![
+                        "skills",
+                        "technical skills",
+                        "core competencies",
+                        "expertise",
+                    ],
                     "contact" => vec!["contact", "contact information", "personal information"],
                     _ => vec![rule.rule_description.as_str()],
                 };
-                
-                !section_variations.iter().any(|&section| content_lower.contains(section))
-            },
+
+                !section_variations
+                    .iter()
+                    .any(|&section| content_lower.contains(section))
+            }
             "formatting_requirement" => {
                 match rule.rule_description.as_str() {
                     "consistent_dates" => {
                         // Check for inconsistent date formats
                         let date_patterns = vec![
-                            r"\d{1,2}/\d{1,2}/\d{4}",  // MM/DD/YYYY
-                            r"\d{4}-\d{1,2}-\d{1,2}",  // YYYY-MM-DD
-                            r"[A-Za-z]{3,9}\s+\d{4}",  // Month YYYY
-                            r"\d{1,2}/\d{4}",          // MM/YYYY
+                            r"\d{1,2}/\d{1,2}/\d{4}", // MM/DD/YYYY
+                            r"\d{4}-\d{1,2}-\d{1,2}", // YYYY-MM-DD
+                            r"[A-Za-z]{3,9}\s+\d{4}", // Month YYYY
+                            r"\d{1,2}/\d{4}",         // MM/YYYY
                         ];
-                        
+
                         let mut found_formats = 0;
                         for pattern in date_patterns {
                             if regex::Regex::new(pattern).unwrap().is_match(&content_lower) {
                                 found_formats += 1;
                             }
                         }
-                        found_formats > 1  // Violation if multiple date formats found
-                    },
+                        found_formats > 1 // Violation if multiple date formats found
+                    }
                     "standard_fonts" => {
                         // This would require document analysis beyond plain text
                         // For now, assume compliant unless we detect clear issues
                         false
-                    },
+                    }
                     _ => false,
                 }
-            },
+            }
             "content_requirement" => {
                 match rule.rule_description.as_str() {
                     "quantified_achievements" => {
                         // Check for numbers, percentages, or quantifiable metrics
                         let quantified_patterns = [
-                            r"\d+%",           // Percentages
-                            r"\$\d+",          // Dollar amounts
-                            r"\d+\s*years?",   // Years of experience
-                            r"\d+\s*million",  // Millions
-                            r"\d+k\b",         // Thousands (k notation)
-                            r"\d+\s*people",   // Team sizes
+                            r"\d+%",          // Percentages
+                            r"\$\d+",         // Dollar amounts
+                            r"\d+\s*years?",  // Years of experience
+                            r"\d+\s*million", // Millions
+                            r"\d+k\b",        // Thousands (k notation)
+                            r"\d+\s*people",  // Team sizes
                         ];
-                        
-                        let quantified_count = quantified_patterns.iter()
-                            .map(|pattern| regex::Regex::new(pattern).unwrap().find_iter(&content_lower).count())
+
+                        let quantified_count = quantified_patterns
+                            .iter()
+                            .map(|pattern| {
+                                regex::Regex::new(pattern)
+                                    .unwrap()
+                                    .find_iter(&content_lower)
+                                    .count()
+                            })
                             .sum::<usize>();
-                            
-                        quantified_count < 3  // Violation if fewer than 3 quantified achievements
-                    },
+
+                        quantified_count < 3 // Violation if fewer than 3 quantified achievements
+                    }
                     "action_verbs" => {
                         let action_verbs = vec![
-                            "managed", "developed", "created", "implemented", "improved",
-                            "increased", "decreased", "achieved", "delivered", "led",
-                            "coordinated", "designed", "built", "established", "optimized"
+                            "managed",
+                            "developed",
+                            "created",
+                            "implemented",
+                            "improved",
+                            "increased",
+                            "decreased",
+                            "achieved",
+                            "delivered",
+                            "led",
+                            "coordinated",
+                            "designed",
+                            "built",
+                            "established",
+                            "optimized",
                         ];
-                        
-                        let action_verb_count = action_verbs.iter()
+
+                        let action_verb_count = action_verbs
+                            .iter()
                             .map(|verb| content_lower.matches(verb).count())
                             .sum::<usize>();
-                            
-                        action_verb_count < 5  // Violation if fewer than 5 action verbs
-                    },
+
+                        action_verb_count < 5 // Violation if fewer than 5 action verbs
+                    }
                     _ => false,
                 }
-            },
-            _ => false,  // Unknown rule type, assume compliant
+            }
+            _ => false, // Unknown rule type, assume compliant
         }
     }
 
@@ -1302,46 +1333,58 @@ Return ONLY the single most appropriate industry category from the list above.",
 
     fn generate_ats_optimization_suggestions(&self, issues: &[FormatIssue]) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         for issue in issues {
             match issue.issue_type.as_str() {
                 "font_inconsistency" => {
                     suggestions.push("Ensure consistent font usage throughout the document. Use a standard font like Arial, Calibri, or Times New Roman.".to_string());
-                },
+                }
                 "complex_formatting" => {
                     suggestions.push("Simplify formatting to improve ATS compatibility. Avoid tables, text boxes, and complex layouts.".to_string());
-                },
+                }
                 "missing_sections" => {
-                    suggestions.push(format!("Add missing section: {}. Standard sections improve ATS parsing accuracy.", issue.description));
-                },
+                    suggestions.push(format!(
+                        "Add missing section: {}. Standard sections improve ATS parsing accuracy.",
+                        issue.description
+                    ));
+                }
                 "poor_section_headers" => {
                     suggestions.push("Use clear, standard section headers like 'Experience', 'Education', 'Skills' to help ATS systems categorize content.".to_string());
-                },
+                }
                 "inconsistent_formatting" => {
                     suggestions.push("Maintain consistent formatting for dates, job titles, and company names throughout the resume.".to_string());
-                },
+                }
                 "special_characters" => {
                     suggestions.push("Replace special characters and symbols with standard text. ATS systems may not parse symbols correctly.".to_string());
-                },
+                }
                 "multiple_columns" => {
                     suggestions.push("Consider using single-column layout. Multi-column formats can confuse ATS parsing logic.".to_string());
-                },
+                }
                 "embedded_objects" => {
                     suggestions.push("Remove embedded images, charts, or objects. Stick to text-based content for maximum ATS compatibility.".to_string());
-                },
+                }
                 _ => {
-                    suggestions.push(format!("Address formatting issue: {}. Ensure ATS-friendly document structure.", issue.description));
+                    suggestions.push(format!(
+                        "Address formatting issue: {}. Ensure ATS-friendly document structure.",
+                        issue.description
+                    ));
                 }
             }
         }
-        
+
         // Add general ATS optimization tips if no specific issues found
         if suggestions.is_empty() {
             suggestions.push("Use standard section headers and maintain consistent formatting throughout your resume.".to_string());
-            suggestions.push("Include relevant keywords naturally within your experience descriptions.".to_string());
-            suggestions.push("Save your resume in both PDF and Word formats for different ATS systems.".to_string());
+            suggestions.push(
+                "Include relevant keywords naturally within your experience descriptions."
+                    .to_string(),
+            );
+            suggestions.push(
+                "Save your resume in both PDF and Word formats for different ATS systems."
+                    .to_string(),
+            );
         }
-        
+
         suggestions
     }
 
