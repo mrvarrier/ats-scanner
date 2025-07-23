@@ -29,6 +29,8 @@ import {
   Brain,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { BulletPointAnalyzer } from '@/components/ui/BulletPointAnalyzer';
+import { IndustryKeywordManager } from '@/components/ui/IndustryKeywordManager';
 
 interface OptimizationChange {
   section: string;
@@ -583,6 +585,30 @@ export function OptimizationPage() {
               className="min-h-[400px] font-mono text-sm"
               spellCheck={false}
             />
+
+            {/* Real-time X-Y-Z Formula Analysis */}
+            {optimizedContent.trim() && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Real-time Bullet Point Analysis
+                </div>
+                {optimizedContent
+                  .split('\n')
+                  .filter(
+                    line =>
+                      line.trim().startsWith('•') ||
+                      line.trim().startsWith('-') ||
+                      line.trim().startsWith('*')
+                  )
+                  .slice(0, 3) // Analyze first 3 bullet points for performance
+                  .map((bullet, index) => (
+                    <BulletPointAnalyzer
+                      key={index}
+                      text={bullet.trim().replace(/^[•\-*]\s*/, '')}
+                    />
+                  ))}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {optimizedContent.length} characters
@@ -942,6 +968,14 @@ export function OptimizationPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Industry Keyword Analysis */}
+      {originalContent.trim() && jobDescription.trim() && (
+        <IndustryKeywordManager
+          resumeContent={originalContent}
+          jobDescription={jobDescription}
+        />
       )}
 
       {/* Current Score Display */}
