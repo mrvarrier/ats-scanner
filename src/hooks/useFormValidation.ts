@@ -77,7 +77,7 @@ export function useFormValidation<T extends Record<string, unknown>>(
 
       // Custom validation
       if (rules.custom) {
-        return rules.custom(value);
+        return rules.custom(value as T[keyof T]);
       }
 
       return null;

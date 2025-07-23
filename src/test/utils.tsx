@@ -75,7 +75,24 @@ const customRender = (
   options?: Omit<RenderOptions, 'wrapper'>
 ) => render(ui, { wrapper: AllTheProviders, ...options });
 
-export * from '@testing-library/react';
+export {
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+  getByRole,
+  getByText,
+  getByLabelText,
+  getByPlaceholderText,
+  queryByRole,
+  queryByText,
+  findByRole,
+  findByText,
+  act,
+  cleanup,
+  renderHook,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 export { customRender as render };
 
 // Helper to create a file for testing

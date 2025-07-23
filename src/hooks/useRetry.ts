@@ -321,6 +321,10 @@ export class CircuitBreaker {
     private _monitoringPeriod: number = 300000 // 5 minutes
   ) {}
 
+  get monitoringPeriod(): number {
+    return this._monitoringPeriod;
+  }
+
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === 'open') {
       if (Date.now() - this.lastFailureTime >= this._resetTimeout) {
@@ -348,7 +352,7 @@ export class CircuitBreaker {
     this.failures++;
     this.lastFailureTime = Date.now();
 
-    if (this.failures >= this.failureThreshold) {
+    if (this.failures >= this._failureThreshold) {
       this.state = 'open';
     }
   }

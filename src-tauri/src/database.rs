@@ -2606,8 +2606,8 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
 
-    async fn setup_test_db() -> Database {
-        Database::new_with_url("sqlite::memory:").await.unwrap()
+    async fn setup_test_db() -> Result<Database> {
+        Database::new_with_url("sqlite::memory:").await
     }
 
     fn create_test_resume() -> Resume {
@@ -2642,35 +2642,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_database_initialization() {
-        let db = setup_test_db().await;
-        assert!(db.health_check().await.unwrap());
+    async fn test_database_initialization() -> Result<()> {
+        let db = setup_test_db().await?;
+        assert!(db.health_check().await?);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_resume_crud_operations() {
-        let db = setup_test_db().await;
+    async fn test_resume_crud_operations() -> Result<()> {
+        let db = setup_test_db().await?;
         let resume = create_test_resume();
 
         // Test save
-        db.save_resume(&resume).await.unwrap();
+        db.save_resume(&resume).await?;
 
         // Test get
-        let retrieved = db.get_resume(&resume.id).await.unwrap();
+        let retrieved = db.get_resume(&resume.id).await?;
         assert!(retrieved.is_some());
-        let retrieved = retrieved.unwrap();
+        let retrieved = retrieved.context("Resume should exist after save")?;
         assert_eq!(retrieved.id, resume.id);
         assert_eq!(retrieved.filename, resume.filename);
         assert_eq!(retrieved.content, resume.content);
 
         // Test get all
-        let all_resumes = db.get_all_resumes().await.unwrap();
+        let all_resumes = db.get_all_resumes().await?;
         assert_eq!(all_resumes.len(), 1);
 
         // Test delete
-        db.delete_resume(&resume.id).await.unwrap();
-        let retrieved = db.get_resume(&resume.id).await.unwrap();
+        db.delete_resume(&resume.id).await?;
+        let retrieved = db.get_resume(&resume.id).await?;
         assert!(retrieved.is_none());
+        
+        Ok(())
     }
 
     #[tokio::test]

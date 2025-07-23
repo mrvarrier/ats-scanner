@@ -16,7 +16,7 @@ export interface CacheOptions {
 }
 
 export class MemoryCache {
-  private cache = new Map<string, CacheEntry<unknown>>();
+  protected cache = new Map<string, CacheEntry<unknown>>();
   private options: Required<CacheOptions>;
 
   constructor(options: CacheOptions = {}) {

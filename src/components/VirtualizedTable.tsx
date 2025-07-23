@@ -473,6 +473,7 @@ export interface AnalysisResult {
   createdAt: string;
   processingTime: number;
   recommendations: string[];
+  [key: string]: unknown;
 }
 
 export function AnalysisResultsTable({
@@ -491,7 +492,7 @@ export function AnalysisResultsTable({
       render: value => (
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-          <span className="font-medium">{value}</span>
+          <span className="font-medium">{String(value)}</span>
         </div>
       ),
     },
@@ -530,7 +531,7 @@ export function AnalysisResultsTable({
                 : 'bg-blue-100 text-blue-800'
           }`}
         >
-          {value}
+          {String(value)}
         </span>
       ),
     },
@@ -538,13 +539,13 @@ export function AnalysisResultsTable({
       key: 'processingTime',
       title: 'Processing Time',
       width: 150,
-      render: value => `${(value / 1000).toFixed(1)}s`,
+      render: value => `${(Number(value) / 1000).toFixed(1)}s`,
     },
     {
       key: 'createdAt',
       title: 'Created',
       width: 150,
-      render: value => new Date(value).toLocaleString(),
+      render: value => new Date(String(value)).toLocaleString(),
     },
   ];
 
@@ -553,7 +554,7 @@ export function AnalysisResultsTable({
       data={results}
       columns={columns}
       onRowClick={onResultClick}
-      getItemKey={item => item.id}
+      getItemKey={item => String(item.id)}
       {...props}
     />
   );

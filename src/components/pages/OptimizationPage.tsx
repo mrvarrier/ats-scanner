@@ -194,7 +194,7 @@ export function OptimizationPage() {
       void performAnalysis(optimizedContent);
     }, 1000);
 
-    setDebounceTimer(timer);
+    setDebounceTimer(timer as unknown as number);
 
     return () => {
       if (timer) clearTimeout(timer);
@@ -214,7 +214,7 @@ export function OptimizationPage() {
       void fetchLiveSuggestions(optimizedContent, jobDescription);
     }, 2000);
 
-    setSuggestionTimer(timer);
+    setSuggestionTimer(timer as unknown as number);
 
     return () => {
       if (timer) clearTimeout(timer);

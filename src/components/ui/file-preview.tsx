@@ -12,7 +12,7 @@ import {
   ZoomOut,
   Search,
   Eye,
-  Highlight,
+  Highlighter,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -253,7 +253,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
                 Content
               </TabsTrigger>
               <TabsTrigger value="keywords">
-                <Highlight className="mr-2 h-4 w-4" />
+                <Highlighter className="mr-2 h-4 w-4" />
                 Keywords ({keywords.length})
               </TabsTrigger>
               <TabsTrigger value="missing">

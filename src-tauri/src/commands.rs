@@ -807,7 +807,13 @@ pub async fn list_plugins(
 ) -> Result<CommandResult<Vec<PluginInfo>>, ()> {
     info!("Listing available plugins");
 
-    let plugins_dir = std::env::current_dir().unwrap().join("plugins");
+    let plugins_dir = match std::env::current_dir() {
+        Ok(dir) => dir.join("plugins"),
+        Err(e) => {
+            error!("Failed to get current directory: {}", e);
+            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+        }
+    };
     let plugin_manager = PluginManager::new(plugins_dir);
 
     let plugins = plugin_manager.list_plugins().await;
@@ -824,7 +830,13 @@ pub async fn get_plugin_info(
 ) -> Result<CommandResult<Option<PluginInfo>>, ()> {
     info!("Getting plugin info for: {}", plugin_id);
 
-    let plugins_dir = std::env::current_dir().unwrap().join("plugins");
+    let plugins_dir = match std::env::current_dir() {
+        Ok(dir) => dir.join("plugins"),
+        Err(e) => {
+            error!("Failed to get current directory: {}", e);
+            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+        }
+    };
     let plugin_manager = PluginManager::new(plugins_dir);
 
     let plugin_info = plugin_manager.get_plugin_info(&plugin_id).await;
@@ -844,7 +856,13 @@ pub async fn execute_plugin(
         plugin_id, operation
     );
 
-    let plugins_dir = std::env::current_dir().unwrap().join("plugins");
+    let plugins_dir = match std::env::current_dir() {
+        Ok(dir) => dir.join("plugins"),
+        Err(e) => {
+            error!("Failed to get current directory: {}", e);
+            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+        }
+    };
     let plugin_manager = PluginManager::new(plugins_dir);
 
     match plugin_manager
@@ -873,7 +891,13 @@ pub async fn update_plugin_config(
 ) -> Result<CommandResult<String>, ()> {
     info!("Updating config for plugin: {}", plugin_id);
 
-    let plugins_dir = std::env::current_dir().unwrap().join("plugins");
+    let plugins_dir = match std::env::current_dir() {
+        Ok(dir) => dir.join("plugins"),
+        Err(e) => {
+            error!("Failed to get current directory: {}", e);
+            return Ok(CommandResult::error("Failed to access plugins directory".to_string()));
+        }
+    };
     let plugin_manager = PluginManager::new(plugins_dir);
 
     match plugin_manager

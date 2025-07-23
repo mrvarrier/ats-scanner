@@ -44,9 +44,12 @@ export function Select({
       <div onClick={() => !disabled && setIsOpen(!isOpen)}>
         {React.Children.map(children, child =>
           React.isValidElement(child) && child.type === SelectTrigger
-            ? React.cloneElement(child, {
-                onClick: () => !disabled && setIsOpen(!isOpen),
-              })
+            ? React.cloneElement(
+                child as React.ReactElement<{ onClick?: () => void }>,
+                {
+                  onClick: () => !disabled && setIsOpen(!isOpen),
+                }
+              )
             : null
         )}
       </div>
@@ -54,12 +57,17 @@ export function Select({
         <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border bg-background shadow-lg">
           {React.Children.map(children, child =>
             React.isValidElement(child) && child.type === SelectContent
-              ? React.cloneElement(child, {
-                  onClick: (itemValue: string) => {
-                    onValueChange(itemValue);
-                    setIsOpen(false);
-                  },
-                })
+              ? React.cloneElement(
+                  child as React.ReactElement<{
+                    onClick?: (_value: string) => void;
+                  }>,
+                  {
+                    onClick: (itemValue: string) => {
+                      onValueChange(itemValue);
+                      setIsOpen(false);
+                    },
+                  }
+                )
               : null
           )}
         </div>
@@ -100,7 +108,12 @@ export function SelectContent({
     <div className={cn('p-1', className)}>
       {React.Children.map(children, child =>
         React.isValidElement(child) && child.type === SelectItem
-          ? React.cloneElement(child, { onClick })
+          ? React.cloneElement(
+              child as React.ReactElement<{
+                onClick?: (_value: string) => void;
+              }>,
+              { onClick }
+            )
           : null
       )}
     </div>

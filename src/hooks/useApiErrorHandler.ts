@@ -20,7 +20,7 @@ export function useApiErrorHandler() {
         title = `${context} error`;
       }
 
-      error({ title, message });
+      error(title, message);
     },
     [error]
   );

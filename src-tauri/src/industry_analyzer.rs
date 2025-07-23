@@ -795,10 +795,36 @@ impl IndustryAnalyzer {
     // Placeholder implementations for certification and trend analysis
     fn check_industry_certifications(
         &self,
-        _resume_content: &str,
-        _industry: &str,
+        resume_content: &str,
+        industry: &str,
     ) -> Vec<CertificationCheck> {
-        vec![] // Simplified implementation
+        let mut certification_checks = Vec::new();
+        let content_lower = resume_content.to_lowercase();
+        
+        if let Some(rules) = self._industry_rules.get(industry) {
+            for cert in &rules.certifications {
+                let cert_lower = cert.name.to_lowercase();
+                let is_mentioned = content_lower.contains(&cert_lower);
+                
+                // Generate recommendation reason
+                let recommendation_reason = if is_mentioned {
+                    format!("Certification '{}' found in resume", cert.name)
+                } else {
+                    format!("Consider obtaining '{}' certification - importance: {:.1}%", cert.name, cert.importance * 100.0)
+                };
+                
+                certification_checks.push(CertificationCheck {
+                    certification_name: cert.name.clone(),
+                    found: is_mentioned,
+                    importance: cert.importance,
+                    expiry_status: if is_mentioned { Some("Valid".to_string()) } else { None },
+                    alternatives: cert.alternatives.clone(),
+                    recommendation_reason,
+                });
+            }
+        }
+        
+        certification_checks
     }
 
     fn analyze_industry_trends(
@@ -835,17 +861,168 @@ impl IndustryAnalyzer {
 
     fn generate_industry_recommendations(
         &self,
-        _industry_keywords: &[IndustryKeywordMatch],
-        _certifications: &[CertificationCheck],
-        _trends: &[TrendAnalysis],
-        _industry: &str,
+        industry_keywords: &[IndustryKeywordMatch],
+        certifications: &[CertificationCheck],
+        trends: &[TrendAnalysis],
+        industry: &str,
     ) -> Vec<String> {
-        vec![] // Simplified implementation
+        let mut recommendations = Vec::new();
+        
+        // Analyze keyword coverage based on found field
+        let found_keywords = industry_keywords.iter().filter(|k| k.found).count();
+        let total_keywords = industry_keywords.len();
+        
+        if total_keywords > 0 {
+            let coverage = (found_keywords as f64 / total_keywords as f64) * 100.0;
+            
+            if coverage < 60.0 {
+                recommendations.push(format!(
+                    "Industry keyword coverage is low ({:.1}%). Consider adding more relevant industry terms.",
+                    coverage
+                ));
+                
+                // Suggest specific missing keywords
+                let missing_keywords: Vec<&str> = industry_keywords
+                    .iter()
+                    .filter(|k| !k.found && k.weight > 0.7)
+                    .map(|k| k.keyword.as_str())
+                    .take(5) // Limit to top 5 suggestions
+                    .collect();
+                    
+                if !missing_keywords.is_empty() {
+                    recommendations.push(format!(
+                        "Consider incorporating these high-impact terms: {}",
+                        missing_keywords.join(", ")
+                    ));
+                }
+            }
+        }
+        
+        // Analyze certifications
+        let present_certs = certifications.iter().filter(|c| c.found).count();
+        let total_certs = certifications.len();
+        
+        if present_certs == 0 && total_certs > 0 {
+            let high_value_certs: Vec<&str> = certifications
+                .iter()
+                .filter(|c| c.importance > 0.8)
+                .map(|c| c.certification_name.as_str())
+                .collect();
+                
+            if !high_value_certs.is_empty() {
+                recommendations.push(format!(
+                    "Consider pursuing industry certifications to strengthen your profile: {}",
+                    high_value_certs.join(", ")
+                ));
+            }
+        }
+        
+        // Industry-specific recommendations
+        match industry {
+            "technology" => {
+                recommendations.push("Highlight specific programming languages and frameworks you've used in projects.".to_string());
+                recommendations.push("Include quantifiable achievements (e.g., 'Improved system performance by 40%').".to_string());
+                
+                if !industry_keywords.iter().any(|k| k.keyword.contains("agile") && k.found) {
+                    recommendations.push("Consider mentioning experience with Agile/Scrum methodologies.".to_string());
+                }
+            },
+            "finance" => {
+                recommendations.push("Quantify your financial impact (e.g., 'Managed $2M budget', 'Reduced costs by 15%').".to_string());
+                recommendations.push("Emphasize regulatory compliance and risk management experience.".to_string());
+                
+                if !certifications.iter().any(|c| c.certification_name.contains("CPA") && c.found) {
+                    recommendations.push("CPA certification would significantly strengthen your finance profile.".to_string());
+                }
+            },
+            _ => {
+                recommendations.push("Tailor your resume to include more industry-specific terminology.".to_string());
+                recommendations.push("Research common skills and qualifications for your target roles.".to_string());
+            }
+        }
+        
+        // Add trend-based recommendations if available
+        for trend in trends {
+            if trend.relevance_score > 0.7 {
+                recommendations.push(format!(
+                    "Consider highlighting experience with trending topic: {}",
+                    trend.trend_name
+                ));
+            }
+        }
+        
+        recommendations
     }
 
     // Static data builders
     fn build_industry_rules() -> HashMap<String, IndustryRules> {
-        HashMap::new() // Simplified implementation
+        let mut rules = HashMap::new();
+        
+        // Technology Industry Rules
+        rules.insert("technology".to_string(), IndustryRules {
+            industry_name: "Technology".to_string(),
+            required_keywords: vec![
+                "software".to_string(), "programming".to_string(), "development".to_string(),
+                "code".to_string(), "technical".to_string(), "system".to_string()
+            ],
+            preferred_keywords: vec![
+                "agile".to_string(), "scrum".to_string(), "devops".to_string(),
+                "cloud".to_string(), "api".to_string(), "database".to_string()
+            ],
+            experience_levels: HashMap::new(), // Can be expanded later
+            certifications: vec![
+                IndustryCertification {
+                    name: "AWS Certified".to_string(),
+                    importance: 0.9,
+                    required_for_levels: vec!["Senior".to_string(), "Lead".to_string()],
+                    alternatives: vec!["Azure Certified".to_string(), "Google Cloud".to_string()],
+                    validity_years: Some(3),
+                },
+                IndustryCertification {
+                    name: "Kubernetes".to_string(),
+                    importance: 0.8,
+                    required_for_levels: vec!["DevOps".to_string()],
+                    alternatives: vec!["Docker Certified".to_string()],
+                    validity_years: Some(2),
+                },
+            ],
+            trends: Vec::new(), // Can be expanded later
+            role_hierarchies: HashMap::new(), // Can be expanded later
+        });
+        
+        // Finance Industry Rules
+        rules.insert("finance".to_string(), IndustryRules {
+            industry_name: "Finance".to_string(),
+            required_keywords: vec![
+                "financial".to_string(), "accounting".to_string(), "budget".to_string(),
+                "analysis".to_string(), "reporting".to_string(), "compliance".to_string()
+            ],
+            preferred_keywords: vec![
+                "risk management".to_string(), "audit".to_string(), "investment".to_string(),
+                "portfolio".to_string(), "regulatory".to_string(), "sox".to_string()
+            ],
+            experience_levels: HashMap::new(),
+            certifications: vec![
+                IndustryCertification {
+                    name: "CPA".to_string(),
+                    importance: 0.95,
+                    required_for_levels: vec!["Senior Accountant".to_string(), "Finance Manager".to_string()],
+                    alternatives: vec!["CMA".to_string()],
+                    validity_years: None, // Permanent with continuing education
+                },
+                IndustryCertification {
+                    name: "CFA".to_string(),
+                    importance: 0.9,
+                    required_for_levels: vec!["Investment Analyst".to_string()],
+                    alternatives: vec!["FRM".to_string()],
+                    validity_years: None,
+                },
+            ],
+            trends: Vec::new(),
+            role_hierarchies: HashMap::new(),
+        });
+        
+        rules
     }
 
     fn build_industry_patterns() -> HashMap<String, Vec<Regex>> {

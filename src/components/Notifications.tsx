@@ -1,50 +1,9 @@
 import React from 'react';
-import { createContext, useState, useCallback } from 'react';
-
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  message?: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  duration?: number;
-  persistent?: boolean;
-}
-
-interface NotificationContextType {
-  notifications: Notification[];
-  addNotification: (_notification: Omit<Notification, 'id'>) => void;
-  removeNotification: (_id: string) => void;
-  clearNotifications: () => void;
-  success: (
-    _title: string,
-    _message?: string,
-    _options?: Partial<Notification>
-  ) => void;
-  error: (
-    _title: string,
-    _message?: string,
-    _options?: Partial<Notification>
-  ) => void;
-  warning: (
-    _title: string,
-    _message?: string,
-    _options?: Partial<Notification>
-  ) => void;
-  info: (
-    _title: string,
-    _message?: string,
-    _options?: Partial<Notification>
-  ) => void;
-}
-
-export const NotificationContext =
-  createContext<NotificationContextType | null>(null);
+import { useState, useCallback } from 'react';
+import {
+  NotificationContext,
+  type Notification,
+} from '../contexts/NotificationContext';
 
 export function NotificationProvider({
   children,

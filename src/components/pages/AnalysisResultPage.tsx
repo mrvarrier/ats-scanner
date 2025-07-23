@@ -3188,7 +3188,7 @@ export function AnalysisResultPage({
                   <div className="text-2xl font-bold text-blue-600">
                     {(
                       salaryPredictionML.confidence_metrics
-                        ?.prediction_confidence * 100 || 0
+                        ?.prediction_reliability * 100 || 0
                     ).toFixed(1)}
                     %
                   </div>

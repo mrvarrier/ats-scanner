@@ -84,7 +84,7 @@ export function UpdateChecker() {
 
       if (status === 'PENDING') {
         setUpdateStatus(prev => ({ ...prev, downloading: true }));
-      } else if (status === 'DOWNLOADED') {
+      } else if (status === 'DONE') {
         setUpdateStatus(prev => ({
           ...prev,
           downloading: false,
