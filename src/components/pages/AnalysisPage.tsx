@@ -1,7 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
 import { invoke } from '@tauri-apps/api/tauri';
-import { open } from '@tauri-apps/api/dialog';
 import {
   Card,
   CardContent,
@@ -14,7 +12,6 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppStore } from '@/store/useAppStore';
 import {
-  Upload,
   Zap,
   AlertCircle,
   CheckCircle,
@@ -23,6 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { FileUpload } from '@/components/ui/FileUpload';
 import type {
   CommandResult,
   DocumentInfo,
@@ -44,11 +42,6 @@ import type {
   SalaryPredictionMLResponse,
   MLRecommendationsResponse,
 } from '@/types';
-
-// Extended File interface for drag-and-drop with path support
-interface FileWithPath extends File {
-  path?: string;
-}
 
 type AnalysisStep =
   | 'upload'
@@ -80,95 +73,20 @@ export function AnalysisPage() {
     useState<AnalysisResult | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<string>('');
 
-  // Drag and drop handler
-  const onDrop = useCallback(async (acceptedFiles: FileWithPath[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
-
-    try {
-      setUploadProgress(0);
-      setUploadedFile(null);
-
-      // Save file to temporary location and parse
-      const result = await invoke<CommandResult<DocumentInfo>>(
-        'parse_document',
-        {
-          filePath: file.path ?? file.name,
-        }
-      );
-
-      if (result.success && result.data) {
-        setUploadedFile(result.data);
-        setUploadProgress(100);
-        setCurrentStep('job-description');
-        toast({
-          title: 'File uploaded successfully',
-          description: `Parsed ${result.data.filename} (${result.data.word_count} words)`,
-        });
-      } else {
-        throw new Error(result.error ?? 'Failed to parse document');
-      }
-    } catch (error) {
-      toast({
-        title: 'Upload failed',
-        description: `Error: ${error}`,
-        variant: 'destructive',
-      });
-    }
+  // File upload handler
+  const handleFileUploaded = useCallback((document: DocumentInfo) => {
+    setUploadedFile(document);
+    setCurrentStep('job-description');
+    toast({
+      title: 'File uploaded successfully',
+      description: `Parsed ${document.filename} (${document.content.split(/\s+/).length} words)`,
+    });
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        ['.docx'],
-      'text/plain': ['.txt'],
-    },
-    multiple: false,
-    maxSize: 10 * 1024 * 1024, // 10MB
-  });
-
-  // File browser handler
-  const handleBrowseFiles = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [
-          {
-            name: 'Resume Files',
-            extensions: ['pdf', 'docx', 'txt'],
-          },
-        ],
-      });
-
-      if (selected && typeof selected === 'string') {
-        const result = await invoke<CommandResult<DocumentInfo>>(
-          'parse_document',
-          {
-            filePath: selected,
-          }
-        );
-
-        if (result.success && result.data) {
-          setUploadedFile(result.data);
-          setCurrentStep('job-description');
-          toast({
-            title: 'File loaded successfully',
-            description: `Parsed ${result.data.filename} (${result.data.word_count} words)`,
-          });
-        } else {
-          throw new Error(result.error ?? 'Failed to parse document');
-        }
-      }
-    } catch (error) {
-      toast({
-        title: 'File loading failed',
-        description: `Error: ${error}`,
-        variant: 'destructive',
-      });
-    }
-  };
+  const handleContentExtracted = useCallback((_content: string) => {
+    // Content is already handled in handleFileUploaded
+    // This callback is available for future use if needed
+  }, []);
 
   // Job description change handler
   const handleJobDescriptionChange = (value: string) => {
@@ -916,44 +834,13 @@ export function AnalysisPage() {
                   </div>
 
                   {!uploadedFile ? (
-                    <div
-                      {...getRootProps()}
-                      className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-all ${
-                        isDragActive
-                          ? 'scale-105 border-primary bg-primary/5'
-                          : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20'
-                      }`}
-                    >
-                      <input {...getInputProps()} />
-                      <Upload className="mx-auto mb-4 h-12 w-12 text-primary" />
-                      {isDragActive ? (
-                        <p className="text-lg font-medium text-primary">
-                          Drop your resume here...
-                        </p>
-                      ) : (
-                        <>
-                          <p className="mb-2 text-lg font-medium">
-                            Drag & drop your resume here
-                          </p>
-                          <p className="mb-4 text-sm text-muted-foreground">
-                            or click to browse files
-                          </p>
-                          <Button
-                            size="lg"
-                            onClick={e => {
-                              e.stopPropagation();
-                              void handleBrowseFiles();
-                            }}
-                          >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Choose File
-                          </Button>
-                        </>
-                      )}
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        Supports PDF, DOCX, TXT files up to 10MB
-                      </p>
-                    </div>
+                    <FileUpload
+                      onFileUploaded={handleFileUploaded}
+                      onContentExtracted={handleContentExtracted}
+                      accept={['.pdf', '.docx', '.doc', '.txt']}
+                      maxSize={10}
+                      className="border-0 shadow-none"
+                    />
                   ) : (
                     <div className="flex items-center gap-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
                       <CheckCircle className="h-6 w-6 flex-shrink-0 text-green-600" />
@@ -962,7 +849,7 @@ export function AnalysisPage() {
                           {uploadedFile.filename}
                         </p>
                         <p className="text-sm text-green-600 dark:text-green-400">
-                          {uploadedFile.word_count} words •{' '}
+                          {uploadedFile.content.split(/\s+/).length} words •{' '}
                           {uploadedFile.file_type.toUpperCase()}
                         </p>
                       </div>

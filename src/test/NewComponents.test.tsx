@@ -24,28 +24,34 @@ describe('New Components', () => {
 
   it('IndustryKeywordManager renders without crashing with empty content', () => {
     render(<IndustryKeywordManager resumeContent="" jobDescription="" />);
-    
+
     expect(screen.getByText('Industry Keyword Analysis')).toBeInTheDocument();
     expect(screen.getByLabelText('Target Industry')).toBeInTheDocument();
   });
 
   it('FormatHealthDashboard renders without crashing with empty content', () => {
     render(<FormatHealthDashboard resumeContent="" />);
-    
+
     expect(screen.getByText('Format Health Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Upload a resume to analyze format health')).toBeInTheDocument();
+    expect(
+      screen.getByText('Upload a resume to analyze format health')
+    ).toBeInTheDocument();
   });
 
   it('AchievementSuggestions renders without crashing with empty content', () => {
     render(<AchievementSuggestions resumeContent="" />);
-    
+
     expect(screen.getByText('Achievement Suggestions')).toBeInTheDocument();
-    expect(screen.getByText('Upload a resume to get contextual achievement suggestions')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Upload a resume to get contextual achievement suggestions'
+      )
+    ).toBeInTheDocument();
   });
 
   it('BulletPointAnalyzer renders with content and shows loading state', () => {
     render(<BulletPointAnalyzer text="Managed a team of 5 developers" />);
-    
+
     // Should show loading state initially
     expect(screen.getByText('Analyzing bullet point...')).toBeInTheDocument();
   });
@@ -57,7 +63,10 @@ describe('New Components', () => {
     render(
       <div>
         <BulletPointAnalyzer text="Some bullet point" />
-        <IndustryKeywordManager resumeContent="Some content" jobDescription="Some job" />
+        <IndustryKeywordManager
+          resumeContent="Some content"
+          jobDescription="Some job"
+        />
         <FormatHealthDashboard resumeContent="Some content" />
         <AchievementSuggestions resumeContent="Some content" />
       </div>
