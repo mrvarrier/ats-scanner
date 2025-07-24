@@ -6,6 +6,7 @@ import {
   CheckCircle,
   XCircle,
   FolderOpen,
+  History,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ const menuItems = [
   { id: 'analysis', label: 'Analysis', icon: FileText },
   { id: 'optimization', label: 'Optimization', icon: Wrench },
   { id: 'results', label: 'Results', icon: FolderOpen },
+  { id: 'history', label: 'History', icon: History },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

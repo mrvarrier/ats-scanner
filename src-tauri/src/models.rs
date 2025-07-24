@@ -73,6 +73,108 @@ pub struct DocumentInfo {
     pub file_type: String,
     pub size: usize,
     pub content: String,
+    pub word_count: usize,
+    pub character_count: usize,
+    pub metadata: DocumentMetadata,
+    pub structure: Option<DocumentStructure>,
+    pub quality_metrics: Option<DocumentQualityMetrics>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DocumentMetadata {
+    pub creation_date: Option<DateTime<Utc>>,
+    pub modification_date: Option<DateTime<Utc>>,
+    pub author: Option<String>,
+    pub title: Option<String>,
+    pub subject: Option<String>,
+    pub keywords: Option<String>,
+    pub producer: Option<String>,
+    pub creator: Option<String>,
+    pub pages: Option<u32>,
+    pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentStructure {
+    pub sections: Vec<DocumentSection>,
+    pub contact_info: DocumentContactInfo,
+    pub headings: Vec<DocumentHeading>,
+    pub total_sections: usize,
+    pub has_consistent_formatting: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DocumentContactInfo {
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub linkedin: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentSection {
+    pub name: String,
+    pub content: String,
+    pub start_position: usize,
+    pub end_position: usize,
+    pub confidence: f64,
+    pub bullet_points: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentHeading {
+    pub text: String,
+    pub level: u8,
+    pub position: usize,
+    pub formatting: HeadingFormatting,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HeadingFormatting {
+    pub is_bold: bool,
+    pub is_uppercase: bool,
+    pub font_size_relative: Option<f32>,
+    pub alignment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentQualityMetrics {
+    pub ats_compatibility_score: f64,
+    pub readability_score: f64,
+    pub formatting_consistency_score: f64,
+    pub keyword_density: f64,
+    pub section_completeness_score: f64,
+    pub contact_info_completeness: f64,
+    pub overall_quality_score: f64,
+    pub issues: Vec<DocumentIssue>,
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentIssue {
+    pub issue_type: DocumentIssueType,
+    pub description: String,
+    pub severity: IssueSeverity,
+    pub location: Option<String>,
+    pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DocumentIssueType {
+    Formatting,
+    Structure,
+    Content,
+    AtsCompatibility,
+    ContactInfo,
+    Spelling,
+    Grammar,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum IssueSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

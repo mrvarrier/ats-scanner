@@ -8,6 +8,7 @@ import { AnalysisPage } from './components/pages/AnalysisPage';
 import { OptimizationPage } from './components/pages/OptimizationPage';
 import { ResultsPage } from './components/pages/ResultsPage';
 import { AnalysisResultPage } from './components/pages/AnalysisResultPage';
+import { HistoryPage } from './components/pages/HistoryPage';
 import { SettingsPage } from './components/pages/SettingsPage';
 import { Toaster } from './components/ui/toaster';
 import { ErrorBoundary } from './components/ui/error-boundary';
@@ -106,6 +107,12 @@ function App() {
         return (
           <ErrorBoundary>
             <ResultsPage />
+          </ErrorBoundary>
+        );
+      case 'history':
+        return (
+          <ErrorBoundary>
+            <HistoryPage />
           </ErrorBoundary>
         );
       case 'settings':

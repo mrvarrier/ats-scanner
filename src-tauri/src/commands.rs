@@ -192,6 +192,118 @@ pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
 }
 
 #[tauri::command]
+pub async fn parse_document_with_metadata(file_path: String) -> CommandResult<DocumentInfo> {
+    info!("Parsing document with full metadata: {}", file_path);
+
+    if !Path::new(&file_path).exists() {
+        return CommandResult::error("File does not exist".to_string());
+    }
+
+    match DocumentParser::parse_file(&file_path).await {
+        Ok(document_info) => {
+            info!(
+                "Successfully parsed document with metadata: {} (Quality Score: {:.1})",
+                document_info.filename,
+                document_info
+                    .quality_metrics
+                    .as_ref()
+                    .map(|q| q.overall_quality_score)
+                    .unwrap_or(0.0)
+            );
+            CommandResult::success(document_info)
+        }
+        Err(e) => {
+            error!("Failed to parse document with metadata: {}", e);
+            CommandResult::error(format!("Failed to parse document with metadata: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn extract_document_structure(
+    file_path: String,
+) -> CommandResult<crate::models::DocumentStructure> {
+    info!("Extracting document structure: {}", file_path);
+
+    if !Path::new(&file_path).exists() {
+        return CommandResult::error("File does not exist".to_string());
+    }
+
+    match DocumentParser::parse_file(&file_path).await {
+        Ok(document_info) => {
+            if let Some(structure) = document_info.structure {
+                info!(
+                    "Successfully extracted structure: {} sections, {} headings",
+                    structure.total_sections,
+                    structure.headings.len()
+                );
+                CommandResult::success(structure)
+            } else {
+                CommandResult::error("No document structure could be extracted".to_string())
+            }
+        }
+        Err(e) => {
+            error!("Failed to extract document structure: {}", e);
+            CommandResult::error(format!("Failed to extract document structure: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn analyze_document_quality(
+    file_path: String,
+) -> CommandResult<crate::models::DocumentQualityMetrics> {
+    info!("Analyzing document quality: {}", file_path);
+
+    if !Path::new(&file_path).exists() {
+        return CommandResult::error("File does not exist".to_string());
+    }
+
+    match DocumentParser::parse_file(&file_path).await {
+        Ok(document_info) => {
+            if let Some(quality_metrics) = document_info.quality_metrics {
+                info!(
+                    "Document quality analysis completed - Overall Score: {:.1}, ATS Score: {:.1}",
+                    quality_metrics.overall_quality_score, quality_metrics.ats_compatibility_score
+                );
+                CommandResult::success(quality_metrics)
+            } else {
+                CommandResult::error("No quality metrics could be calculated".to_string())
+            }
+        }
+        Err(e) => {
+            error!("Failed to analyze document quality: {}", e);
+            CommandResult::error(format!("Failed to analyze document quality: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_document_metadata(
+    file_path: String,
+) -> CommandResult<crate::models::DocumentMetadata> {
+    info!("Extracting document metadata: {}", file_path);
+
+    if !Path::new(&file_path).exists() {
+        return CommandResult::error("File does not exist".to_string());
+    }
+
+    match DocumentParser::parse_file(&file_path).await {
+        Ok(document_info) => {
+            info!(
+                "Successfully extracted metadata for: {} (Created: {:?})",
+                document_info.filename, document_info.metadata.creation_date
+            );
+            CommandResult::success(document_info.metadata)
+        }
+        Err(e) => {
+            error!("Failed to extract document metadata: {}", e);
+            CommandResult::error(format!("Failed to extract document metadata: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn save_resume(
     state: State<'_, AppState>,
     filename: String,

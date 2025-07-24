@@ -74,12 +74,12 @@ export function AnalysisPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<string>('');
 
   // File upload handler
-  const handleFileUploaded = useCallback((document: DocumentInfo) => {
-    setUploadedFile(document);
+  const handleFileUploaded = useCallback((_document: DocumentInfo) => {
+    setUploadedFile(_document);
     setCurrentStep('job-description');
     toast({
       title: 'File uploaded successfully',
-      description: `Parsed ${document.filename} (${document.content.split(/\s+/).length} words)`,
+      description: `Parsed ${_document.filename} (${_document.content.split(/\s+/).length} words)`,
     });
   }, []);
 

@@ -12,15 +12,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
-import { CommandResult } from '@/types/api';
-
-interface DocumentInfo {
-  id: string;
-  filename: string;
-  file_type: string;
-  size: number;
-  content: string;
-}
+import { CommandResult, DocumentInfo } from '@/types/api';
 
 interface FileUploadProps {
   onFileUploaded?: (_document: DocumentInfo) => void;
@@ -132,8 +124,6 @@ export function FileUpload({
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
-
-    const _file = files[0];
 
     // For drag and drop, we need to save the file temporarily first
     // This is a limitation of Tauri - we can't directly process dropped files

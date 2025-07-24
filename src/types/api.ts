@@ -7,9 +7,11 @@ export interface CommandResult<T> {
 }
 
 export interface DocumentInfo {
+  id: string;
   filename: string;
   content: string;
   file_type: string;
+  size: number;
   word_count: number;
   character_count: number;
 }
