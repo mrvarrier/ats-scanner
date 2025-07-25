@@ -161,19 +161,22 @@ export function CareerDevelopmentPage() {
   // Load career path suggestions using ML insights
   const loadCareerPaths = async (analysis: Analysis) => {
     try {
-      const result = await invoke<CommandResult<{career_paths: CareerPathNode[]}>>(
-        'get_career_path_suggestions',
-        {
-          resume_content: analysis.resume_content || '',
-          current_role: analysis.parsed_info?.current_role || '',
-          experience_level: analysis.parsed_info?.experience_years || 0,
-        }
-      );
+      const result = await invoke<
+        CommandResult<{ career_paths: CareerPathNode[] }>
+      >('get_career_path_suggestions', {
+        resume_content: analysis.resume_content ?? '',
+        current_role:
+          (analysis.parsed_info as { current_role?: string })?.current_role ??
+          '',
+        experience_level:
+          (analysis.parsed_info as { experience_years?: number })
+            ?.experience_years ?? 0,
+      });
 
       if (result.success && result.data?.career_paths) {
         setCareerPaths(result.data.career_paths);
       }
-    } catch (_error) {
+    } catch {
       // Fallback career paths
       setCareerPaths([
         {
@@ -239,9 +242,11 @@ export function CareerDevelopmentPage() {
   // Load skill development plan
   const loadSkillDevelopmentPlan = async (analysis: Analysis) => {
     try {
-      const result = await invoke<CommandResult<any>>('generate_ml_insights', {
-        resume_content: analysis.resume_content || '',
-        job_description: analysis.job_description || '',
+      const result = await invoke<
+        CommandResult<{ skill_development_plan?: SkillDevelopmentPlan[] }>
+      >('generate_ml_insights', {
+        resume_content: analysis.resume_content ?? '',
+        job_description: analysis.job_description ?? '',
         analysis_result: analysis,
       });
 
@@ -249,7 +254,7 @@ export function CareerDevelopmentPage() {
         setSkillPlan(result.data.skill_development_plan);
         return;
       }
-    } catch (error) {
+    } catch {
       // Continue to fallback
     }
 
@@ -357,20 +362,19 @@ export function CareerDevelopmentPage() {
   // Load salary projections
   const loadSalaryProjections = async (analysis: Analysis) => {
     try {
-      const result = await invoke<CommandResult<any>>(
-        'get_salary_prediction_ml',
-        {
-          resume_content: analysis.resume_content || '',
-          job_description: analysis.job_description || '',
-          location: 'San Francisco, CA', // Could be made dynamic
-        }
-      );
+      const result = await invoke<
+        CommandResult<{ salary_projection?: SalaryProjection }>
+      >('get_salary_prediction_ml', {
+        resume_content: analysis.resume_content ?? '',
+        job_description: analysis.job_description ?? '',
+        location: 'San Francisco, CA', // Could be made dynamic
+      });
 
       if (result.success && result.data?.salary_projection) {
         setSalaryProjection(result.data.salary_projection);
         return;
       }
-    } catch (error) {
+    } catch {
       // Continue to fallback
     }
 
@@ -418,19 +422,18 @@ export function CareerDevelopmentPage() {
   // Load industry transition analysis
   const loadIndustryTransitions = async (analysis: Analysis) => {
     try {
-      const result = await invoke<CommandResult<any>>(
-        'generate_competitive_analysis',
-        {
-          resume_content: analysis.resume_content || '',
-          target_industries: ['fintech', 'healthcare', 'e-commerce'],
-        }
-      );
+      const result = await invoke<
+        CommandResult<{ industry_transitions?: IndustryTransition[] }>
+      >('generate_competitive_analysis', {
+        resume_content: analysis.resume_content ?? '',
+        target_industries: ['fintech', 'healthcare', 'e-commerce'],
+      });
 
       if (result.success && result.data?.industry_transitions) {
         setIndustryTransitions(result.data.industry_transitions);
         return;
       }
-    } catch (error) {
+    } catch {
       // Continue to fallback
     }
 

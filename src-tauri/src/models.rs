@@ -617,7 +617,7 @@ pub struct JobDescription {
     pub title: String,
     pub company: String,
     pub content: String,
-    pub requirements: String, // JSON array as string
+    pub requirements: String,                     // JSON array as string
     pub preferred_qualifications: Option<String>, // JSON array as string
     pub salary_range_min: Option<i64>,
     pub salary_range_max: Option<i64>,
@@ -729,7 +729,7 @@ pub enum JobSource {
     Referral,
     Recruiter,
     JobBoard,
-    URL,
+    Url,
 }
 
 impl JobDescription {
@@ -775,7 +775,7 @@ impl JobDescription {
     pub fn from_url(url: String, title: String, company: String, content: String) -> Self {
         let mut job = Self::new(title, company, content);
         job.job_url = Some(url);
-        job.source = JobSource::URL;
+        job.source = JobSource::Url;
         job
     }
 }

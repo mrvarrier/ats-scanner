@@ -243,26 +243,32 @@ export function PersonalAnalyticsPage() {
       const latestAnalysis = analyses[0];
 
       // Get ML insights for career development
-      const mlResult = await invoke<CommandResult<any>>(
-        'generate_ml_insights',
-        {
-          resume_content: latestAnalysis.resume_content || '',
-          job_description: latestAnalysis.job_description || '',
-          analysis_result: latestAnalysis,
-        }
-      );
+      const mlResult = await invoke<
+        CommandResult<{
+          skill_recommendations?: {
+            skill_name: string;
+            current_proficiency: number;
+            target_proficiency: number;
+            priority: string;
+          }[];
+        }>
+      >('generate_ml_insights', {
+        resume_content: latestAnalysis.resume_content ?? '',
+        job_description: latestAnalysis.job_description ?? '',
+        analysis_result: latestAnalysis,
+      });
 
       if (mlResult.success && mlResult.data?.skill_recommendations) {
-        return mlResult.data.skill_recommendations.map((skill: any) => ({
+        return mlResult.data.skill_recommendations.map(skill => ({
           skill: skill.skill_name,
-          currentLevel: skill.current_proficiency || 5,
-          targetLevel: skill.target_proficiency || 8,
+          currentLevel: skill.current_proficiency ?? 5,
+          targetLevel: skill.target_proficiency ?? 8,
           gap:
-            (skill.target_proficiency || 8) - (skill.current_proficiency || 5),
-          priority: skill.priority || ('Medium' as const),
+            (skill.target_proficiency ?? 8) - (skill.current_proficiency ?? 5),
+          priority: skill.priority ?? ('Medium' as const),
         }));
       }
-    } catch (error) {
+    } catch {
       // Fall back to static analysis if ML insights fail
     }
 

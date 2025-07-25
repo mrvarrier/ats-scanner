@@ -6,10 +6,10 @@ use tauri::State;
 
 use crate::models::{
     ATSCompatibilityRule, Analysis, AnalysisRequest, AnalysisResult, DocumentInfo, IndustryKeyword,
-    ModelPerformance, ModelPerformanceMetrics, OptimizationRequest, OptimizationResult, Resume,
-    ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
-    JobDescription, JobSearchRequest, JobSearchResult, JobAnalytics, JobUrlExtractionRequest,
-    JobUrlExtractionResult, JobComparisonRequest, JobComparisonResult,
+    JobAnalytics, JobComparisonRequest, JobComparisonResult, JobDescription, JobSearchRequest,
+    JobSearchResult, JobUrlExtractionRequest, JobUrlExtractionResult, ModelPerformance,
+    ModelPerformanceMetrics, OptimizationRequest, OptimizationResult, Resume, ScoringBenchmark,
+    UserFeedback, UserPreferences, UserPreferencesUpdate,
 };
 // Phase 2 imports
 use crate::ats_simulator::{ATSSimulationResult, ATSSimulator};
@@ -2636,7 +2636,9 @@ pub async fn delete_job_description(
     match db.delete_job_description(&id).await {
         Ok(_) => {
             info!("Job description deleted successfully");
-            Ok(CommandResult::success("Job description deleted".to_string()))
+            Ok(CommandResult::success(
+                "Job description deleted".to_string(),
+            ))
         }
         Err(e) => {
             error!("Failed to delete job description: {}", e);
@@ -2657,7 +2659,7 @@ pub async fn get_job_descriptions(
 
     let db = state.db.lock().await;
     let include_archived = include_archived.unwrap_or(false);
-    
+
     match db.get_all_job_descriptions(include_archived).await {
         Ok(jobs) => {
             info!("Retrieved {} job descriptions", jobs.len());
@@ -2754,7 +2756,7 @@ pub async fn compare_job_descriptions(
     info!("Comparing {} job descriptions", request.job_ids.len());
 
     let db = state.db.lock().await;
-    
+
     // Get all jobs to compare
     let mut jobs = Vec::new();
     for job_id in &request.job_ids {
@@ -2777,8 +2779,8 @@ pub async fn compare_job_descriptions(
 
     // Build comparison matrix (basic implementation)
     use crate::models::{
-        JobComparisonMatrix, SalaryComparison, LocationComparison, RequirementsComparison,
-        JobUniqueRequirements, BenefitsComparison, JobMatchScore, MatchFactor,
+        BenefitsComparison, JobComparisonMatrix, JobMatchScore, JobUniqueRequirements,
+        LocationComparison, MatchFactor, RequirementsComparison, SalaryComparison,
     };
 
     let salary_comparison: Vec<SalaryComparison> = jobs

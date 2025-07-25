@@ -5,11 +5,11 @@ use sqlx::{Row, SqlitePool};
 use std::path::PathBuf;
 
 use crate::models::{
-    ATSCompatibilityRule, Analysis, IndustryKeyword, ModelPerformanceMetrics, Resume,
-    ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
-    JobDescription, JobSearchRequest, JobSearchResult, JobSortOption, SortOrder,
-    JobAnalytics, JobStatusCount, JobPriorityCount, ApplicationStatusCount,
-    CompanyCount, LocationCount, JobStatus, JobPriority, ApplicationStatus,
+    ATSCompatibilityRule, Analysis, ApplicationStatus, ApplicationStatusCount, CompanyCount,
+    IndustryKeyword, JobAnalytics, JobDescription, JobPriority, JobPriorityCount, JobSearchRequest,
+    JobSearchResult, JobSortOption, JobStatus, JobStatusCount, LocationCount,
+    ModelPerformanceMetrics, Resume, ScoringBenchmark, SortOrder, UserFeedback, UserPreferences,
+    UserPreferencesUpdate,
 };
 
 /// Helper function to parse timestamps in multiple formats
@@ -570,20 +570,24 @@ impl Database {
 
         // Create indexes for job_descriptions table performance
         info!("Creating job_descriptions indexes");
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_company ON job_descriptions(company)")
-            .execute(&mut *tx)
-            .await
-            .context("Failed to create idx_job_descriptions_company index")?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_job_descriptions_company ON job_descriptions(company)",
+        )
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create idx_job_descriptions_company index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_location ON job_descriptions(location)")
             .execute(&mut *tx)
             .await
             .context("Failed to create idx_job_descriptions_location index")?;
 
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_status ON job_descriptions(status)")
-            .execute(&mut *tx)
-            .await
-            .context("Failed to create idx_job_descriptions_status index")?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_job_descriptions_status ON job_descriptions(status)",
+        )
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create idx_job_descriptions_status index")?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_priority ON job_descriptions(priority)")
             .execute(&mut *tx)
@@ -2771,7 +2775,7 @@ impl Database {
                    interview_date, response_deadline, contact_person, contact_email,
                    tags, source, is_archived, created_at, updated_at
             FROM job_descriptions WHERE id = ?
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -2789,22 +2793,39 @@ impl Database {
                 salary_range_max: row.get("salary_range_max"),
                 salary_currency: row.get("salary_currency"),
                 location: row.get("location"),
-                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
-                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
-                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
-                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
-                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options"))
+                    .unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type"))
+                    .unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level"))
+                    .unwrap_or_default(),
+                posted_date: row
+                    .get::<Option<String>, _>("posted_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row
+                    .get::<Option<String>, _>("application_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 job_url: row.get("job_url"),
                 keywords: row.get("keywords"),
                 industry: row.get("industry"),
                 department: row.get("department"),
                 status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
-                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority"))
+                    .unwrap_or_default(),
                 notes: row.get("notes"),
-                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
-                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
-                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
-                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                application_status: serde_json::from_str(
+                    &row.get::<String, _>("application_status"),
+                )
+                .unwrap_or_default(),
+                application_date: row
+                    .get::<Option<String>, _>("application_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row
+                    .get::<Option<String>, _>("interview_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row
+                    .get::<Option<String>, _>("response_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 contact_person: row.get("contact_person"),
                 contact_email: row.get("contact_email"),
                 tags: row.get("tags"),
@@ -2882,16 +2903,17 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_all_job_descriptions(&self, include_archived: bool) -> Result<Vec<JobDescription>> {
+    pub async fn get_all_job_descriptions(
+        &self,
+        include_archived: bool,
+    ) -> Result<Vec<JobDescription>> {
         let query = if include_archived {
             "SELECT * FROM job_descriptions ORDER BY updated_at DESC"
         } else {
             "SELECT * FROM job_descriptions WHERE is_archived = FALSE ORDER BY updated_at DESC"
         };
 
-        let rows = sqlx::query(query)
-            .fetch_all(&self.pool)
-            .await?;
+        let rows = sqlx::query(query).fetch_all(&self.pool).await?;
 
         let mut jobs = Vec::new();
         for row in rows {
@@ -2906,22 +2928,39 @@ impl Database {
                 salary_range_max: row.get("salary_range_max"),
                 salary_currency: row.get("salary_currency"),
                 location: row.get("location"),
-                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
-                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
-                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
-                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
-                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options"))
+                    .unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type"))
+                    .unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level"))
+                    .unwrap_or_default(),
+                posted_date: row
+                    .get::<Option<String>, _>("posted_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row
+                    .get::<Option<String>, _>("application_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 job_url: row.get("job_url"),
                 keywords: row.get("keywords"),
                 industry: row.get("industry"),
                 department: row.get("department"),
                 status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
-                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority"))
+                    .unwrap_or_default(),
                 notes: row.get("notes"),
-                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
-                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
-                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
-                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                application_status: serde_json::from_str(
+                    &row.get::<String, _>("application_status"),
+                )
+                .unwrap_or_default(),
+                application_date: row
+                    .get::<Option<String>, _>("application_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row
+                    .get::<Option<String>, _>("interview_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row
+                    .get::<Option<String>, _>("response_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 contact_person: row.get("contact_person"),
                 contact_email: row.get("contact_email"),
                 tags: row.get("tags"),
@@ -2936,9 +2975,13 @@ impl Database {
         Ok(jobs)
     }
 
-    pub async fn search_job_descriptions(&self, request: &JobSearchRequest) -> Result<JobSearchResult> {
+    pub async fn search_job_descriptions(
+        &self,
+        request: &JobSearchRequest,
+    ) -> Result<JobSearchResult> {
         let mut query = String::from("SELECT * FROM job_descriptions WHERE 1=1");
-        let mut count_query = String::from("SELECT COUNT(*) as total FROM job_descriptions WHERE 1=1");
+        let mut count_query =
+            String::from("SELECT COUNT(*) as total FROM job_descriptions WHERE 1=1");
         let mut params: Vec<String> = Vec::new();
 
         // Build WHERE conditions
@@ -2999,7 +3042,7 @@ impl Database {
                 SortOrder::Asc => "ASC",
                 SortOrder::Desc => "DESC",
             };
-            
+
             let column = match sort_by {
                 JobSortOption::CreatedAt => "created_at",
                 JobSortOption::UpdatedAt => "updated_at",
@@ -3011,7 +3054,7 @@ impl Database {
                 JobSortOption::SalaryMin => "salary_range_min",
                 JobSortOption::SalaryMax => "salary_range_max",
             };
-            
+
             query.push_str(&format!(" ORDER BY {} {}", column, order));
         } else {
             query.push_str(" ORDER BY updated_at DESC");
@@ -3033,16 +3076,15 @@ impl Database {
         // Get total count
         let mut count_sql_query = sqlx::query(&count_query);
         for (i, param) in params.iter().enumerate() {
-            if i < params.len() - 2 { // Exclude LIMIT and OFFSET params from count query
+            if i < params.len() - 2 {
+                // Exclude LIMIT and OFFSET params from count query
                 count_sql_query = count_sql_query.bind(param);
             } else {
                 break;
             }
         }
-        
-        let count_row = count_sql_query
-            .fetch_one(&self.pool)
-            .await?;
+
+        let count_row = count_sql_query.fetch_one(&self.pool).await?;
         let total_count: i64 = count_row.get("total");
 
         // Execute search query
@@ -3051,9 +3093,7 @@ impl Database {
             sql_query = sql_query.bind(param);
         }
 
-        let rows = sql_query
-            .fetch_all(&self.pool)
-            .await?;
+        let rows = sql_query.fetch_all(&self.pool).await?;
 
         let mut jobs = Vec::new();
         for row in rows {
@@ -3068,22 +3108,39 @@ impl Database {
                 salary_range_max: row.get("salary_range_max"),
                 salary_currency: row.get("salary_currency"),
                 location: row.get("location"),
-                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
-                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
-                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
-                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
-                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options"))
+                    .unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type"))
+                    .unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level"))
+                    .unwrap_or_default(),
+                posted_date: row
+                    .get::<Option<String>, _>("posted_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row
+                    .get::<Option<String>, _>("application_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 job_url: row.get("job_url"),
                 keywords: row.get("keywords"),
                 industry: row.get("industry"),
                 department: row.get("department"),
                 status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
-                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority"))
+                    .unwrap_or_default(),
                 notes: row.get("notes"),
-                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
-                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
-                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
-                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                application_status: serde_json::from_str(
+                    &row.get::<String, _>("application_status"),
+                )
+                .unwrap_or_default(),
+                application_date: row
+                    .get::<Option<String>, _>("application_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row
+                    .get::<Option<String>, _>("interview_date")
+                    .and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row
+                    .get::<Option<String>, _>("response_deadline")
+                    .and_then(|s| parse_timestamp(&s).ok()),
                 contact_person: row.get("contact_person"),
                 contact_email: row.get("contact_email"),
                 tags: row.get("tags"),
@@ -3110,10 +3167,11 @@ impl Database {
 
     pub async fn get_job_analytics(&self) -> Result<JobAnalytics> {
         // Get total jobs count
-        let total_jobs: i64 = sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE")
-            .fetch_one(&self.pool)
-            .await?
-            .get("count");
+        let total_jobs: i64 =
+            sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE")
+                .fetch_one(&self.pool)
+                .await?
+                .get("count");
 
         // Get jobs by status
         let status_rows = sqlx::query("SELECT status, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY status")
@@ -3129,14 +3187,15 @@ impl Database {
             });
         }
 
-        // Get jobs by priority  
+        // Get jobs by priority
         let priority_rows = sqlx::query("SELECT priority, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY priority")
             .fetch_all(&self.pool)
             .await?;
         let mut jobs_by_priority = Vec::new();
         for row in priority_rows {
             let priority_str: String = row.get("priority");
-            let priority: JobPriority = serde_json::from_str(&priority_str).unwrap_or(JobPriority::Medium);
+            let priority: JobPriority =
+                serde_json::from_str(&priority_str).unwrap_or(JobPriority::Medium);
             jobs_by_priority.push(JobPriorityCount {
                 priority,
                 count: row.get("count"),
@@ -3150,7 +3209,8 @@ impl Database {
         let mut jobs_by_application_status = Vec::new();
         for row in app_status_rows {
             let app_status_str: String = row.get("application_status");
-            let app_status: ApplicationStatus = serde_json::from_str(&app_status_str).unwrap_or(ApplicationStatus::NotApplied);
+            let app_status: ApplicationStatus =
+                serde_json::from_str(&app_status_str).unwrap_or(ApplicationStatus::NotApplied);
             jobs_by_application_status.push(ApplicationStatusCount {
                 status: app_status,
                 count: row.get("count"),

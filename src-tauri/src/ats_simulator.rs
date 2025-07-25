@@ -747,6 +747,554 @@ impl WorkdayParser {
     }
 }
 
+// Taleo ATS Parser
+pub struct TaleoParser {
+    parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for TaleoParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TaleoParser {
+    pub fn new() -> Self {
+        Self {
+            parsing_rules: vec![ParsingRule {
+                rule_type: "simple_text".to_string(),
+                pattern: r"[a-zA-Z0-9\s]".to_string(),
+                weight: 1.0,
+                description: "Basic text parsing".to_string(),
+            }],
+        }
+    }
+}
+
+impl ATSParser for TaleoParser {
+    fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
+        // Taleo is known for its very basic parsing capabilities
+        let mut extracted_sections = HashMap::new();
+        let mut parsing_errors = Vec::new();
+
+        // Taleo struggles with complex formatting - simplify expectations
+        for section in &["contact", "summary", "experience", "education", "skills"] {
+            let parsed_section = self.parse_section_taleo(content, section);
+            if parsed_section.confidence < 0.4 {
+                parsing_errors.push(format!(
+                    "Taleo failed to parse {} section reliably",
+                    section
+                ));
+            }
+            extracted_sections.insert(section.to_string(), parsed_section);
+        }
+
+        let success_rate = extracted_sections
+            .values()
+            .map(|s| if s.confidence > 0.4 { 1.0 } else { 0.0 })
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        let confidence_score = extracted_sections
+            .values()
+            .map(|s| s.confidence)
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        Ok(ParsedResume {
+            success_rate,
+            extracted_sections,
+            parsing_errors,
+            confidence_score,
+        })
+    }
+
+    fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
+        // Taleo has very basic keyword extraction
+        let mut keywords = Vec::new();
+
+        // Only extract the most obvious keywords
+        let basic_patterns = vec![
+            r"(?i)\b(manager|engineer|developer|analyst|specialist)\b",
+            r"(?i)\b(java|python|sql|excel|microsoft)\b",
+        ];
+
+        for pattern in basic_patterns {
+            if let Ok(regex) = Regex::new(pattern) {
+                for captures in regex.captures_iter(content) {
+                    if let Some(keyword) = captures.get(0) {
+                        keywords.push(keyword.as_str().to_lowercase());
+                    }
+                }
+            }
+        }
+
+        keywords.sort();
+        keywords.dedup();
+        Ok(keywords)
+    }
+
+    fn check_format_compatibility(&self, content: &str) -> Result<FormatCompatibilityScore> {
+        let mut score: f64 = 60.0; // Taleo starts with lower base score
+        let mut issues = Vec::new();
+        let mut recommendations = Vec::new();
+
+        // Taleo has many formatting restrictions
+        if content.contains("<") || content.contains(">") {
+            score -= 40.0;
+            issues.push("HTML tags detected - Taleo cannot parse HTML".to_string());
+            recommendations.push("Save as plain text or simple Word document".to_string());
+        }
+
+        if content.matches('|').count() > 5 {
+            score -= 30.0;
+            issues.push("Tables detected - Taleo has poor table support".to_string());
+            recommendations.push("Convert tables to simple lists".to_string());
+        }
+
+        if content.lines().any(|line| line.len() > 80) {
+            score -= 15.0;
+            issues.push("Long lines detected - may cause text wrapping issues".to_string());
+            recommendations.push("Keep lines under 80 characters".to_string());
+        }
+
+        Ok(FormatCompatibilityScore {
+            score: score.max(0.0),
+            issues,
+            recommendations,
+        })
+    }
+
+    fn get_system_name(&self) -> &str {
+        "Taleo"
+    }
+
+    fn get_parsing_rules(&self) -> &[ParsingRule] {
+        &self.parsing_rules
+    }
+}
+
+impl TaleoParser {
+    fn parse_section_taleo(&self, _content: &str, section: &str) -> ParsedSection {
+        // Taleo has notoriously poor parsing, especially for complex sections
+        let confidence = match section {
+            "contact" => 0.6,    // Decent at basic contact info
+            "experience" => 0.3, // Poor at parsing job descriptions
+            "education" => 0.5,  // Moderate at education
+            "skills" => 0.2,     // Very poor at skills
+            "summary" => 0.25,   // Poor at summaries
+            _ => 0.1,
+        };
+
+        let issues = if confidence < 0.4 {
+            vec![format!(
+                "Taleo struggles with {} parsing - expect missing information",
+                section
+            )]
+        } else {
+            vec![]
+        };
+
+        ParsedSection {
+            content: format!("Taleo parsed {} section (low confidence)", section),
+            confidence,
+            structure_preserved: confidence > 0.5,
+            issues,
+        }
+    }
+}
+
+// BambooHR ATS Parser
+pub struct BambooHRParser {
+    parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for BambooHRParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BambooHRParser {
+    pub fn new() -> Self {
+        Self {
+            parsing_rules: vec![ParsingRule {
+                rule_type: "hr_fields".to_string(),
+                pattern: r"(?i)(hire date|employee|department)".to_string(),
+                weight: 1.0,
+                description: "HR-specific field detection".to_string(),
+            }],
+        }
+    }
+}
+
+impl ATSParser for BambooHRParser {
+    fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
+        // BambooHR focuses heavily on structured data
+        let mut extracted_sections = HashMap::new();
+        let parsing_errors = Vec::new();
+
+        for section in &["contact", "summary", "experience", "education", "skills"] {
+            let parsed_section = self.parse_section_bamboo(content, section);
+            extracted_sections.insert(section.to_string(), parsed_section);
+        }
+
+        let success_rate = extracted_sections
+            .values()
+            .map(|s| if s.confidence > 0.6 { 1.0 } else { 0.0 })
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        let confidence_score = extracted_sections
+            .values()
+            .map(|s| s.confidence)
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        Ok(ParsedResume {
+            success_rate,
+            extracted_sections,
+            parsing_errors,
+            confidence_score,
+        })
+    }
+
+    fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
+        // BambooHR has decent keyword extraction but focuses on HR terms
+        let mut keywords = Vec::new();
+
+        let hr_patterns = vec![
+            r"(?i)\b(management|leadership|team|communication|training)\b",
+            r"(?i)\b(hr|human resources|recruiting|hiring|onboarding)\b",
+            r"(?i)\b(benefits|payroll|compliance|policy)\b",
+        ];
+
+        for pattern in hr_patterns {
+            if let Ok(regex) = Regex::new(pattern) {
+                for captures in regex.captures_iter(content) {
+                    if let Some(keyword) = captures.get(0) {
+                        keywords.push(keyword.as_str().to_lowercase());
+                    }
+                }
+            }
+        }
+
+        keywords.sort();
+        keywords.dedup();
+        Ok(keywords)
+    }
+
+    fn check_format_compatibility(&self, content: &str) -> Result<FormatCompatibilityScore> {
+        let mut score: f64 = 85.0;
+        let mut issues = Vec::new();
+        let mut recommendations = Vec::new();
+
+        // BambooHR handles most formats well but prefers structure
+        if !content.to_lowercase().contains("experience")
+            || !content.to_lowercase().contains("education")
+        {
+            score -= 20.0;
+            issues.push("Missing standard sections - BambooHR expects clear structure".to_string());
+            recommendations.push("Include standard resume sections".to_string());
+        }
+
+        Ok(FormatCompatibilityScore {
+            score: score.max(0.0),
+            issues,
+            recommendations,
+        })
+    }
+
+    fn get_system_name(&self) -> &str {
+        "BambooHR"
+    }
+
+    fn get_parsing_rules(&self) -> &[ParsingRule] {
+        &self.parsing_rules
+    }
+}
+
+impl BambooHRParser {
+    fn parse_section_bamboo(&self, _content: &str, section: &str) -> ParsedSection {
+        // BambooHR has good parsing for structured content
+        let confidence = match section {
+            "contact" => 0.9,
+            "experience" => 0.8,
+            "education" => 0.85,
+            "skills" => 0.75,
+            "summary" => 0.7,
+            _ => 0.6,
+        };
+
+        ParsedSection {
+            content: format!("BambooHR parsed {} section", section),
+            confidence,
+            structure_preserved: true,
+            issues: vec![],
+        }
+    }
+}
+
+// iCIMS ATS Parser
+pub struct ICIMSParser {
+    parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for ICIMSParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ICIMSParser {
+    pub fn new() -> Self {
+        Self {
+            parsing_rules: vec![ParsingRule {
+                rule_type: "keywords".to_string(),
+                pattern: r"(?i)\b[A-Z][a-z]+\b".to_string(),
+                weight: 1.0,
+                description: "Keyword extraction".to_string(),
+            }],
+        }
+    }
+}
+
+impl ATSParser for ICIMSParser {
+    fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
+        // iCIMS has advanced parsing but specific quirks
+        let mut extracted_sections = HashMap::new();
+        let parsing_errors = Vec::new();
+
+        for section in &["contact", "summary", "experience", "education", "skills"] {
+            let parsed_section = self.parse_section_icims(content, section);
+            extracted_sections.insert(section.to_string(), parsed_section);
+        }
+
+        let success_rate = extracted_sections
+            .values()
+            .map(|s| if s.confidence > 0.7 { 1.0 } else { 0.0 })
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        let confidence_score = extracted_sections
+            .values()
+            .map(|s| s.confidence)
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        Ok(ParsedResume {
+            success_rate,
+            extracted_sections,
+            parsing_errors,
+            confidence_score,
+        })
+    }
+
+    fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
+        // iCIMS has sophisticated keyword extraction
+        let mut keywords = Vec::new();
+
+        let patterns = vec![
+            r"(?i)\b(python|java|javascript|react|angular|node\.?js|sql|aws|azure)\b",
+            r"(?i)\b(manager|director|lead|senior|principal|architect)\b",
+            r"(?i)\b(agile|scrum|devops|ci/cd|microservices|api)\b",
+        ];
+
+        for pattern in patterns {
+            if let Ok(regex) = Regex::new(pattern) {
+                for captures in regex.captures_iter(content) {
+                    if let Some(keyword) = captures.get(0) {
+                        keywords.push(keyword.as_str().to_lowercase());
+                    }
+                }
+            }
+        }
+
+        keywords.sort();
+        keywords.dedup();
+        Ok(keywords)
+    }
+
+    fn check_format_compatibility(&self, content: &str) -> Result<FormatCompatibilityScore> {
+        let mut score: f64 = 90.0;
+        let mut issues = Vec::new();
+        let mut recommendations = Vec::new();
+
+        // iCIMS handles most formats well but has specific preferences
+        if content.contains("━") || content.contains("═") {
+            score -= 10.0;
+            issues.push("Special characters detected - may cause parsing issues".to_string());
+            recommendations.push("Use standard characters only".to_string());
+        }
+
+        Ok(FormatCompatibilityScore {
+            score: score.max(0.0),
+            issues,
+            recommendations,
+        })
+    }
+
+    fn get_system_name(&self) -> &str {
+        "iCIMS"
+    }
+
+    fn get_parsing_rules(&self) -> &[ParsingRule] {
+        &self.parsing_rules
+    }
+}
+
+impl ICIMSParser {
+    fn parse_section_icims(&self, _content: &str, section: &str) -> ParsedSection {
+        // iCIMS has good overall parsing capabilities
+        let confidence = match section {
+            "contact" => 0.9,
+            "experience" => 0.85,
+            "education" => 0.8,
+            "skills" => 0.9, // Very good at skills
+            "summary" => 0.8,
+            _ => 0.7,
+        };
+
+        ParsedSection {
+            content: format!("iCIMS parsed {} section", section),
+            confidence,
+            structure_preserved: true,
+            issues: vec![],
+        }
+    }
+}
+
+// SmartRecruiters ATS Parser
+pub struct SmartRecruitersParser {
+    parsing_rules: Vec<ParsingRule>,
+}
+
+impl Default for SmartRecruitersParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SmartRecruitersParser {
+    pub fn new() -> Self {
+        Self {
+            parsing_rules: vec![ParsingRule {
+                rule_type: "ai_parsing".to_string(),
+                pattern: r".*".to_string(),
+                weight: 1.0,
+                description: "AI-powered parsing".to_string(),
+            }],
+        }
+    }
+}
+
+impl ATSParser for SmartRecruitersParser {
+    fn parse_resume(&self, content: &str, _format: &str) -> Result<ParsedResume> {
+        // SmartRecruiters uses AI for parsing - generally good results
+        let mut extracted_sections = HashMap::new();
+        let parsing_errors = Vec::new();
+
+        for section in &["contact", "summary", "experience", "education", "skills"] {
+            let parsed_section = self.parse_section_smart(content, section);
+            extracted_sections.insert(section.to_string(), parsed_section);
+        }
+
+        let success_rate = extracted_sections
+            .values()
+            .map(|s| if s.confidence > 0.75 { 1.0 } else { 0.0 })
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        let confidence_score = extracted_sections
+            .values()
+            .map(|s| s.confidence)
+            .sum::<f64>()
+            / extracted_sections.len() as f64;
+
+        Ok(ParsedResume {
+            success_rate,
+            extracted_sections,
+            parsing_errors,
+            confidence_score,
+        })
+    }
+
+    fn extract_keywords(&self, content: &str) -> Result<Vec<String>> {
+        // SmartRecruiters has AI-powered keyword extraction
+        let mut keywords = Vec::new();
+
+        // More sophisticated patterns for AI-powered extraction
+        let patterns = vec![
+            r"(?i)\b(artificial intelligence|machine learning|deep learning|nlp|computer vision)\b",
+            r"(?i)\b(kubernetes|docker|terraform|jenkins|gitlab|github)\b",
+            r"(?i)\b(full.?stack|front.?end|back.?end|mobile|web|cloud)\b",
+            r"(?i)\b(startup|enterprise|saas|b2b|b2c|fintech|healthtech)\b",
+        ];
+
+        for pattern in patterns {
+            if let Ok(regex) = Regex::new(pattern) {
+                for captures in regex.captures_iter(content) {
+                    if let Some(keyword) = captures.get(0) {
+                        keywords.push(keyword.as_str().to_lowercase());
+                    }
+                }
+            }
+        }
+
+        keywords.sort();
+        keywords.dedup();
+        Ok(keywords)
+    }
+
+    fn check_format_compatibility(&self, content: &str) -> Result<FormatCompatibilityScore> {
+        let mut score: f64 = 95.0; // SmartRecruiters handles most formats well
+        let mut issues = Vec::new();
+        let mut recommendations = Vec::new();
+
+        // Very few compatibility issues due to AI parsing
+        if content.chars().count() > 10000 {
+            score -= 5.0;
+            issues.push("Very long resume - may impact parsing performance".to_string());
+            recommendations.push("Consider shortening resume to 2 pages".to_string());
+        }
+
+        Ok(FormatCompatibilityScore {
+            score: score.max(0.0),
+            issues,
+            recommendations,
+        })
+    }
+
+    fn get_system_name(&self) -> &str {
+        "SmartRecruiters"
+    }
+
+    fn get_parsing_rules(&self) -> &[ParsingRule] {
+        &self.parsing_rules
+    }
+}
+
+impl SmartRecruitersParser {
+    fn parse_section_smart(&self, _content: &str, section: &str) -> ParsedSection {
+        // SmartRecruiters has excellent AI-powered parsing
+        let confidence = match section {
+            "contact" => 0.95,
+            "experience" => 0.9,
+            "education" => 0.9,
+            "skills" => 0.95, // Excellent at skills extraction
+            "summary" => 0.85,
+            _ => 0.8,
+        };
+
+        ParsedSection {
+            content: format!("SmartRecruiters AI parsed {} section", section),
+            confidence,
+            structure_preserved: true,
+            issues: vec![],
+        }
+    }
+}
+
 pub struct ATSSimulator {
     _database: Database,
     ats_systems: HashMap<String, ATSSystemConfig>,
@@ -768,6 +1316,13 @@ impl ATSSimulator {
         parsers.insert("greenhouse".to_string(), Box::new(GreenhouseParser::new()));
         parsers.insert("lever".to_string(), Box::new(LeverParser::new()));
         parsers.insert("workday".to_string(), Box::new(WorkdayParser::new()));
+        parsers.insert("taleo".to_string(), Box::new(TaleoParser::new()));
+        parsers.insert("bamboohr".to_string(), Box::new(BambooHRParser::new()));
+        parsers.insert("icims".to_string(), Box::new(ICIMSParser::new()));
+        parsers.insert(
+            "smartrecruiters".to_string(),
+            Box::new(SmartRecruitersParser::new()),
+        );
 
         ATSSimulator {
             _database: database,
@@ -2317,7 +2872,265 @@ impl ATSSimulator {
             },
         );
 
-        // Add more ATS systems as needed...
+        // Taleo ATS (known for poor parsing)
+        systems.insert(
+            "taleo".to_string(),
+            ATSSystemConfig {
+                system_name: "Taleo".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: false,
+                    image_text_extraction: false,
+                    table_parsing: false,
+                    multi_column_support: false,
+                    header_footer_handling: false,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec!["Arial".to_string(), "Times New Roman".to_string()],
+                    max_pages: Some(2),
+                    preferred_margins: "1 inch".to_string(),
+                    bullet_point_style: vec!["-".to_string()],
+                    date_format_preferences: vec!["MM/YYYY".to_string()],
+                    section_header_style: "UPPERCASE".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 1.0,
+                    partial_match_weight: 0.3,
+                    synonym_support: false,
+                    case_sensitive: false,
+                    context_analysis: false,
+                    frequency_consideration: false,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "basic".to_string(),
+                    weights: [
+                        ("keywords".to_string(), 0.6),
+                        ("experience".to_string(), 0.2),
+                        ("education".to_string(), 0.15),
+                        ("skills".to_string(), 0.05),
+                        ("format".to_string(), 0.0),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.6,
+                    experience_importance: 0.2,
+                    education_importance: 0.15,
+                    skills_importance: 0.05,
+                    format_penalty_factor: 0.3,
+                },
+                known_limitations: vec![
+                    "Very poor table parsing".to_string(),
+                    "No image text extraction".to_string(),
+                    "Limited section detection".to_string(),
+                    "Poor at complex formatting".to_string(),
+                    "Basic keyword matching only".to_string(),
+                ],
+                optimization_tips: vec![
+                    "Use the simplest possible formatting".to_string(),
+                    "Avoid tables completely".to_string(),
+                    "Use UPPERCASE for section headers".to_string(),
+                    "Include exact keyword matches".to_string(),
+                ],
+            },
+        );
+
+        // BambooHR ATS
+        systems.insert(
+            "bamboohr".to_string(),
+            ATSSystemConfig {
+                system_name: "BambooHR".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: true,
+                    image_text_extraction: false,
+                    table_parsing: true,
+                    multi_column_support: true,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec![
+                        "Arial".to_string(),
+                        "Calibri".to_string(),
+                        "Helvetica".to_string(),
+                    ],
+                    max_pages: Some(3),
+                    preferred_margins: "0.75 inch".to_string(),
+                    bullet_point_style: vec!["•".to_string(), "-".to_string()],
+                    date_format_preferences: vec!["Month YYYY".to_string(), "MM/YYYY".to_string()],
+                    section_header_style: "Bold".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 0.9,
+                    partial_match_weight: 0.7,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: true,
+                    frequency_consideration: true,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "balanced".to_string(),
+                    weights: [
+                        ("experience".to_string(), 0.3),
+                        ("education".to_string(), 0.25),
+                        ("skills".to_string(), 0.25),
+                        ("keywords".to_string(), 0.15),
+                        ("format".to_string(), 0.05),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.15,
+                    experience_importance: 0.3,
+                    education_importance: 0.25,
+                    skills_importance: 0.25,
+                    format_penalty_factor: 0.05,
+                },
+                known_limitations: vec!["Limited advanced formatting support".to_string()],
+                optimization_tips: vec![
+                    "Use clear section structure".to_string(),
+                    "Focus on quantified achievements".to_string(),
+                    "Include education details".to_string(),
+                ],
+            },
+        );
+
+        // iCIMS ATS
+        systems.insert(
+            "icims".to_string(),
+            ATSSystemConfig {
+                system_name: "iCIMS".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: true,
+                    image_text_extraction: true,
+                    table_parsing: true,
+                    multi_column_support: true,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec![
+                        "Arial".to_string(),
+                        "Times New Roman".to_string(),
+                        "Calibri".to_string(),
+                    ],
+                    max_pages: Some(4),
+                    preferred_margins: "1 inch".to_string(),
+                    bullet_point_style: vec!["•".to_string(), "◦".to_string(), "-".to_string()],
+                    date_format_preferences: vec!["MM/YYYY".to_string(), "Month YYYY".to_string()],
+                    section_header_style: "Bold".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 1.0,
+                    partial_match_weight: 0.8,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: true,
+                    frequency_consideration: true,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "sophisticated".to_string(),
+                    weights: [
+                        ("skills".to_string(), 0.3),
+                        ("experience".to_string(), 0.25),
+                        ("keywords".to_string(), 0.25),
+                        ("education".to_string(), 0.15),
+                        ("format".to_string(), 0.05),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.25,
+                    experience_importance: 0.25,
+                    education_importance: 0.15,
+                    skills_importance: 0.3,
+                    format_penalty_factor: 0.05,
+                },
+                known_limitations: vec!["Sensitive to special characters".to_string()],
+                optimization_tips: vec![
+                    "Focus heavily on skills section".to_string(),
+                    "Use standard characters only".to_string(),
+                    "Include relevant technical keywords".to_string(),
+                ],
+            },
+        );
+
+        // SmartRecruiters ATS
+        systems.insert(
+            "smartrecruiters".to_string(),
+            ATSSystemConfig {
+                system_name: "SmartRecruiters".to_string(),
+                parsing_capabilities: ParsingCapabilities {
+                    pdf_support: true,
+                    docx_support: true,
+                    txt_support: true,
+                    html_support: true,
+                    image_text_extraction: true,
+                    table_parsing: true,
+                    multi_column_support: true,
+                    header_footer_handling: true,
+                },
+                format_preferences: FormatPreferences {
+                    preferred_fonts: vec![
+                        "Arial".to_string(),
+                        "Helvetica".to_string(),
+                        "Calibri".to_string(),
+                    ],
+                    max_pages: Some(5),
+                    preferred_margins: "0.5-1 inch".to_string(),
+                    bullet_point_style: vec![
+                        "•".to_string(),
+                        "◦".to_string(),
+                        "-".to_string(),
+                        "*".to_string(),
+                    ],
+                    date_format_preferences: vec!["Any standard format".to_string()],
+                    section_header_style: "Any clear format".to_string(),
+                },
+                keyword_matching: KeywordMatchingConfig {
+                    exact_match_weight: 1.0,
+                    partial_match_weight: 0.9,
+                    synonym_support: true,
+                    case_sensitive: false,
+                    context_analysis: true,
+                    frequency_consideration: true,
+                },
+                scoring_algorithm: ScoringAlgorithm {
+                    algorithm_type: "ai_powered".to_string(),
+                    weights: [
+                        ("skills".to_string(), 0.25),
+                        ("experience".to_string(), 0.25),
+                        ("keywords".to_string(), 0.25),
+                        ("education".to_string(), 0.15),
+                        ("format".to_string(), 0.1),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    keyword_importance: 0.25,
+                    experience_importance: 0.25,
+                    education_importance: 0.15,
+                    skills_importance: 0.25,
+                    format_penalty_factor: 0.02,
+                },
+                known_limitations: vec![
+                    "Performance may be slower with very long resumes".to_string()
+                ],
+                optimization_tips: vec![
+                    "Focus on relevant modern skills".to_string(),
+                    "Use industry-standard terminology".to_string(),
+                    "Include context around achievements".to_string(),
+                ],
+            },
+        );
+
+        // Workday ATS
         systems.insert(
             "workday".to_string(),
             ATSSystemConfig {
