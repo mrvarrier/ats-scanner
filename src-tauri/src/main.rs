@@ -162,6 +162,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::get_career_path_suggestions,
             commands::get_salary_prediction_ml,
             commands::get_ml_recommendations,
+            // Job Description Management Commands
+            commands::save_job_description,
+            commands::get_job_description,
+            commands::update_job_description,
+            commands::delete_job_description,
+            commands::get_job_descriptions,
+            commands::search_job_descriptions,
+            commands::get_job_analytics,
+            commands::extract_job_from_url,
+            commands::compare_job_descriptions,
         ])
         .setup(|_app| {
             info!("Application setup completed");

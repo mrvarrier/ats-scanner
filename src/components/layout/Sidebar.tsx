@@ -7,6 +7,7 @@ import {
   XCircle,
   FolderOpen,
   History,
+  Briefcase,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'analysis', label: 'Analysis', icon: FileText },
+  { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'optimization', label: 'Optimization', icon: Wrench },
   { id: 'results', label: 'Results', icon: FolderOpen },
   { id: 'history', label: 'History', icon: History },

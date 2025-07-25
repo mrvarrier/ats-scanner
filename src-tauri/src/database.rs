@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use crate::models::{
     ATSCompatibilityRule, Analysis, IndustryKeyword, ModelPerformanceMetrics, Resume,
     ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
+    JobDescription, JobSearchRequest, JobSearchResult, JobSortOption, SortOrder,
+    JobAnalytics, JobStatusCount, JobPriorityCount, ApplicationStatusCount,
+    CompanyCount, LocationCount, JobStatus, JobPriority, ApplicationStatus,
 };
 
 /// Helper function to parse timestamps in multiple formats
@@ -519,6 +522,108 @@ impl Database {
             .execute(&mut *tx)
             .await
             .context("Failed to create idx_model_performance_model_name index")?;
+
+        // Create job_descriptions table for job management
+        info!("Creating job_descriptions table");
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS job_descriptions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                company TEXT NOT NULL,
+                content TEXT NOT NULL,
+                requirements TEXT NOT NULL DEFAULT '[]', -- JSON array as string
+                preferred_qualifications TEXT, -- JSON array as string  
+                salary_range_min INTEGER,
+                salary_range_max INTEGER,
+                salary_currency TEXT DEFAULT 'USD',
+                location TEXT NOT NULL DEFAULT '',
+                remote_options TEXT NOT NULL DEFAULT 'OnSite', -- RemoteWorkType enum
+                employment_type TEXT NOT NULL DEFAULT 'FullTime', -- EmploymentType enum
+                experience_level TEXT NOT NULL DEFAULT 'MidLevel', -- ExperienceLevel enum
+                posted_date TEXT, -- DateTime<Utc> as string
+                application_deadline TEXT, -- DateTime<Utc> as string
+                job_url TEXT,
+                keywords TEXT NOT NULL DEFAULT '[]', -- JSON array as string
+                industry TEXT,
+                department TEXT,
+                status TEXT NOT NULL DEFAULT 'Draft', -- JobStatus enum
+                priority TEXT NOT NULL DEFAULT 'Medium', -- JobPriority enum
+                notes TEXT,
+                application_status TEXT NOT NULL DEFAULT 'NotApplied', -- ApplicationStatus enum
+                application_date TEXT, -- DateTime<Utc> as string
+                interview_date TEXT, -- DateTime<Utc> as string
+                response_deadline TEXT, -- DateTime<Utc> as string
+                contact_person TEXT,
+                contact_email TEXT,
+                tags TEXT NOT NULL DEFAULT '[]', -- JSON array as string
+                source TEXT NOT NULL DEFAULT 'Manual', -- JobSource enum
+                is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            "#,
+        )
+        .execute(&mut *tx)
+        .await
+        .context("Failed to create job_descriptions table")?;
+
+        // Create indexes for job_descriptions table performance
+        info!("Creating job_descriptions indexes");
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_company ON job_descriptions(company)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_company index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_location ON job_descriptions(location)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_location index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_status ON job_descriptions(status)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_status index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_priority ON job_descriptions(priority)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_priority index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_application_status ON job_descriptions(application_status)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_application_status index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_created_at ON job_descriptions(created_at)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_created_at index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_updated_at ON job_descriptions(updated_at)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_updated_at index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_posted_date ON job_descriptions(posted_date)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_posted_date index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_application_deadline ON job_descriptions(application_deadline)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_application_deadline index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_salary_range ON job_descriptions(salary_range_min, salary_range_max)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_salary_range index")?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_job_descriptions_is_archived ON job_descriptions(is_archived)")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to create idx_job_descriptions_is_archived index")?;
 
         // Commit transaction to ensure all migrations are successful
         tx.commit()
@@ -2597,6 +2702,525 @@ impl Database {
         }
 
         Ok(results)
+    }
+
+    // Job Description CRUD Operations
+    pub async fn save_job_description(&self, job: &JobDescription) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO job_descriptions (
+                id, title, company, content, requirements, preferred_qualifications,
+                salary_range_min, salary_range_max, salary_currency, location,
+                remote_options, employment_type, experience_level, posted_date,
+                application_deadline, job_url, keywords, industry, department,
+                status, priority, notes, application_status, application_date,
+                interview_date, response_deadline, contact_person, contact_email,
+                tags, source, is_archived, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&job.id)
+        .bind(&job.title)
+        .bind(&job.company)
+        .bind(&job.content)
+        .bind(&job.requirements)
+        .bind(&job.preferred_qualifications)
+        .bind(job.salary_range_min)
+        .bind(job.salary_range_max)
+        .bind(&job.salary_currency)
+        .bind(&job.location)
+        .bind(serde_json::to_string(&job.remote_options).unwrap_or_default())
+        .bind(serde_json::to_string(&job.employment_type).unwrap_or_default())
+        .bind(serde_json::to_string(&job.experience_level).unwrap_or_default())
+        .bind(job.posted_date.map(|d| d.to_rfc3339()))
+        .bind(job.application_deadline.map(|d| d.to_rfc3339()))
+        .bind(&job.job_url)
+        .bind(&job.keywords)
+        .bind(&job.industry)
+        .bind(&job.department)
+        .bind(serde_json::to_string(&job.status).unwrap_or_default())
+        .bind(serde_json::to_string(&job.priority).unwrap_or_default())
+        .bind(&job.notes)
+        .bind(serde_json::to_string(&job.application_status).unwrap_or_default())
+        .bind(job.application_date.map(|d| d.to_rfc3339()))
+        .bind(job.interview_date.map(|d| d.to_rfc3339()))
+        .bind(job.response_deadline.map(|d| d.to_rfc3339()))
+        .bind(&job.contact_person)
+        .bind(&job.contact_email)
+        .bind(&job.tags)
+        .bind(serde_json::to_string(&job.source).unwrap_or_default())
+        .bind(job.is_archived)
+        .bind(job.created_at.to_rfc3339())
+        .bind(job.updated_at.to_rfc3339())
+        .execute(&self.pool)
+        .await?;
+
+        info!("Job description saved with ID: {}", job.id);
+        Ok(())
+    }
+
+    pub async fn get_job_description(&self, id: &str) -> Result<Option<JobDescription>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, title, company, content, requirements, preferred_qualifications,
+                   salary_range_min, salary_range_max, salary_currency, location,
+                   remote_options, employment_type, experience_level, posted_date,
+                   application_deadline, job_url, keywords, industry, department,
+                   status, priority, notes, application_status, application_date,
+                   interview_date, response_deadline, contact_person, contact_email,
+                   tags, source, is_archived, created_at, updated_at
+            FROM job_descriptions WHERE id = ?
+            "#
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            let job = JobDescription {
+                id: row.get("id"),
+                title: row.get("title"),
+                company: row.get("company"),
+                content: row.get("content"),
+                requirements: row.get("requirements"),
+                preferred_qualifications: row.get("preferred_qualifications"),
+                salary_range_min: row.get("salary_range_min"),
+                salary_range_max: row.get("salary_range_max"),
+                salary_currency: row.get("salary_currency"),
+                location: row.get("location"),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
+                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                job_url: row.get("job_url"),
+                keywords: row.get("keywords"),
+                industry: row.get("industry"),
+                department: row.get("department"),
+                status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                notes: row.get("notes"),
+                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
+                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                contact_person: row.get("contact_person"),
+                contact_email: row.get("contact_email"),
+                tags: row.get("tags"),
+                source: serde_json::from_str(&row.get::<String, _>("source")).unwrap_or_default(),
+                is_archived: row.get("is_archived"),
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
+            };
+            Ok(Some(job))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn update_job_description(&self, job: &JobDescription) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE job_descriptions SET
+                title = ?, company = ?, content = ?, requirements = ?, preferred_qualifications = ?,
+                salary_range_min = ?, salary_range_max = ?, salary_currency = ?, location = ?,
+                remote_options = ?, employment_type = ?, experience_level = ?, posted_date = ?,
+                application_deadline = ?, job_url = ?, keywords = ?, industry = ?, department = ?,
+                status = ?, priority = ?, notes = ?, application_status = ?, application_date = ?,
+                interview_date = ?, response_deadline = ?, contact_person = ?, contact_email = ?,
+                tags = ?, source = ?, is_archived = ?, updated_at = ?
+            WHERE id = ?
+            "#,
+        )
+        .bind(&job.title)
+        .bind(&job.company)
+        .bind(&job.content)
+        .bind(&job.requirements)
+        .bind(&job.preferred_qualifications)
+        .bind(job.salary_range_min)
+        .bind(job.salary_range_max)
+        .bind(&job.salary_currency)
+        .bind(&job.location)
+        .bind(serde_json::to_string(&job.remote_options).unwrap_or_default())
+        .bind(serde_json::to_string(&job.employment_type).unwrap_or_default())
+        .bind(serde_json::to_string(&job.experience_level).unwrap_or_default())
+        .bind(job.posted_date.map(|d| d.to_rfc3339()))
+        .bind(job.application_deadline.map(|d| d.to_rfc3339()))
+        .bind(&job.job_url)
+        .bind(&job.keywords)
+        .bind(&job.industry)
+        .bind(&job.department)
+        .bind(serde_json::to_string(&job.status).unwrap_or_default())
+        .bind(serde_json::to_string(&job.priority).unwrap_or_default())
+        .bind(&job.notes)
+        .bind(serde_json::to_string(&job.application_status).unwrap_or_default())
+        .bind(job.application_date.map(|d| d.to_rfc3339()))
+        .bind(job.interview_date.map(|d| d.to_rfc3339()))
+        .bind(job.response_deadline.map(|d| d.to_rfc3339()))
+        .bind(&job.contact_person)
+        .bind(&job.contact_email)
+        .bind(&job.tags)
+        .bind(serde_json::to_string(&job.source).unwrap_or_default())
+        .bind(job.is_archived)
+        .bind(job.updated_at.to_rfc3339())
+        .bind(&job.id)
+        .execute(&self.pool)
+        .await?;
+
+        info!("Job description updated with ID: {}", job.id);
+        Ok(())
+    }
+
+    pub async fn delete_job_description(&self, id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM job_descriptions WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        info!("Job description deleted with ID: {}", id);
+        Ok(())
+    }
+
+    pub async fn get_all_job_descriptions(&self, include_archived: bool) -> Result<Vec<JobDescription>> {
+        let query = if include_archived {
+            "SELECT * FROM job_descriptions ORDER BY updated_at DESC"
+        } else {
+            "SELECT * FROM job_descriptions WHERE is_archived = FALSE ORDER BY updated_at DESC"
+        };
+
+        let rows = sqlx::query(query)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut jobs = Vec::new();
+        for row in rows {
+            let job = JobDescription {
+                id: row.get("id"),
+                title: row.get("title"),
+                company: row.get("company"),
+                content: row.get("content"),
+                requirements: row.get("requirements"),
+                preferred_qualifications: row.get("preferred_qualifications"),
+                salary_range_min: row.get("salary_range_min"),
+                salary_range_max: row.get("salary_range_max"),
+                salary_currency: row.get("salary_currency"),
+                location: row.get("location"),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
+                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                job_url: row.get("job_url"),
+                keywords: row.get("keywords"),
+                industry: row.get("industry"),
+                department: row.get("department"),
+                status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                notes: row.get("notes"),
+                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
+                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                contact_person: row.get("contact_person"),
+                contact_email: row.get("contact_email"),
+                tags: row.get("tags"),
+                source: serde_json::from_str(&row.get::<String, _>("source")).unwrap_or_default(),
+                is_archived: row.get("is_archived"),
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
+            };
+            jobs.push(job);
+        }
+
+        Ok(jobs)
+    }
+
+    pub async fn search_job_descriptions(&self, request: &JobSearchRequest) -> Result<JobSearchResult> {
+        let mut query = String::from("SELECT * FROM job_descriptions WHERE 1=1");
+        let mut count_query = String::from("SELECT COUNT(*) as total FROM job_descriptions WHERE 1=1");
+        let mut params: Vec<String> = Vec::new();
+
+        // Build WHERE conditions
+        if let Some(query_text) = &request.query {
+            query.push_str(" AND (title LIKE ?1 OR company LIKE ?1 OR content LIKE ?1)");
+            count_query.push_str(" AND (title LIKE ?1 OR company LIKE ?1 OR content LIKE ?1)");
+            params.push(format!("%{}%", query_text));
+        }
+
+        if let Some(company) = &request.company {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" AND company LIKE ?{}", param_idx));
+            count_query.push_str(&format!(" AND company LIKE ?{}", param_idx));
+            params.push(format!("%{}%", company));
+        }
+
+        if let Some(location) = &request.location {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" AND location LIKE ?{}", param_idx));
+            count_query.push_str(&format!(" AND location LIKE ?{}", param_idx));
+            params.push(format!("%{}%", location));
+        }
+
+        if let Some(salary_min) = request.salary_min {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" AND salary_range_max >= ?{}", param_idx));
+            count_query.push_str(&format!(" AND salary_range_max >= ?{}", param_idx));
+            params.push(salary_min.to_string());
+        }
+
+        if let Some(salary_max) = request.salary_max {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" AND salary_range_min <= ?{}", param_idx));
+            count_query.push_str(&format!(" AND salary_range_min <= ?{}", param_idx));
+            params.push(salary_max.to_string());
+        }
+
+        if let Some(industry) = &request.industry {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" AND industry LIKE ?{}", param_idx));
+            count_query.push_str(&format!(" AND industry LIKE ?{}", param_idx));
+            params.push(format!("%{}%", industry));
+        }
+
+        if let Some(include_archived) = request.include_archived {
+            if !include_archived {
+                query.push_str(" AND is_archived = FALSE");
+                count_query.push_str(" AND is_archived = FALSE");
+            }
+        } else {
+            query.push_str(" AND is_archived = FALSE");
+            count_query.push_str(" AND is_archived = FALSE");
+        }
+
+        // Add ORDER BY clause
+        if let Some(sort_by) = &request.sort_by {
+            let order = match request.sort_order.as_ref().unwrap_or(&SortOrder::Desc) {
+                SortOrder::Asc => "ASC",
+                SortOrder::Desc => "DESC",
+            };
+            
+            let column = match sort_by {
+                JobSortOption::CreatedAt => "created_at",
+                JobSortOption::UpdatedAt => "updated_at",
+                JobSortOption::PostedDate => "posted_date",
+                JobSortOption::ApplicationDeadline => "application_deadline",
+                JobSortOption::Priority => "priority",
+                JobSortOption::Title => "title",
+                JobSortOption::Company => "company",
+                JobSortOption::SalaryMin => "salary_range_min",
+                JobSortOption::SalaryMax => "salary_range_max",
+            };
+            
+            query.push_str(&format!(" ORDER BY {} {}", column, order));
+        } else {
+            query.push_str(" ORDER BY updated_at DESC");
+        }
+
+        // Add LIMIT and OFFSET
+        if let Some(limit) = request.limit {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" LIMIT ?{}", param_idx));
+            params.push(limit.to_string());
+        }
+
+        if let Some(offset) = request.offset {
+            let param_idx = params.len() + 1;
+            query.push_str(&format!(" OFFSET ?{}", param_idx));
+            params.push(offset.to_string());
+        }
+
+        // Get total count
+        let mut count_sql_query = sqlx::query(&count_query);
+        for (i, param) in params.iter().enumerate() {
+            if i < params.len() - 2 { // Exclude LIMIT and OFFSET params from count query
+                count_sql_query = count_sql_query.bind(param);
+            } else {
+                break;
+            }
+        }
+        
+        let count_row = count_sql_query
+            .fetch_one(&self.pool)
+            .await?;
+        let total_count: i64 = count_row.get("total");
+
+        // Execute search query
+        let mut sql_query = sqlx::query(&query);
+        for param in &params {
+            sql_query = sql_query.bind(param);
+        }
+
+        let rows = sql_query
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut jobs = Vec::new();
+        for row in rows {
+            let job = JobDescription {
+                id: row.get("id"),
+                title: row.get("title"),
+                company: row.get("company"),
+                content: row.get("content"),
+                requirements: row.get("requirements"),
+                preferred_qualifications: row.get("preferred_qualifications"),
+                salary_range_min: row.get("salary_range_min"),
+                salary_range_max: row.get("salary_range_max"),
+                salary_currency: row.get("salary_currency"),
+                location: row.get("location"),
+                remote_options: serde_json::from_str(&row.get::<String, _>("remote_options")).unwrap_or_default(),
+                employment_type: serde_json::from_str(&row.get::<String, _>("employment_type")).unwrap_or_default(),
+                experience_level: serde_json::from_str(&row.get::<String, _>("experience_level")).unwrap_or_default(),
+                posted_date: row.get::<Option<String>, _>("posted_date").and_then(|s| parse_timestamp(&s).ok()),
+                application_deadline: row.get::<Option<String>, _>("application_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                job_url: row.get("job_url"),
+                keywords: row.get("keywords"),
+                industry: row.get("industry"),
+                department: row.get("department"),
+                status: serde_json::from_str(&row.get::<String, _>("status")).unwrap_or_default(),
+                priority: serde_json::from_str(&row.get::<String, _>("priority")).unwrap_or_default(),
+                notes: row.get("notes"),
+                application_status: serde_json::from_str(&row.get::<String, _>("application_status")).unwrap_or_default(),
+                application_date: row.get::<Option<String>, _>("application_date").and_then(|s| parse_timestamp(&s).ok()),
+                interview_date: row.get::<Option<String>, _>("interview_date").and_then(|s| parse_timestamp(&s).ok()),
+                response_deadline: row.get::<Option<String>, _>("response_deadline").and_then(|s| parse_timestamp(&s).ok()),
+                contact_person: row.get("contact_person"),
+                contact_email: row.get("contact_email"),
+                tags: row.get("tags"),
+                source: serde_json::from_str(&row.get::<String, _>("source")).unwrap_or_default(),
+                is_archived: row.get("is_archived"),
+                created_at: parse_timestamp(&row.get::<String, _>("created_at"))?,
+                updated_at: parse_timestamp(&row.get::<String, _>("updated_at"))?,
+            };
+            jobs.push(job);
+        }
+
+        let has_more = if let Some(limit) = request.limit {
+            jobs.len() as i64 == limit
+        } else {
+            false
+        };
+
+        Ok(JobSearchResult {
+            jobs,
+            total_count,
+            has_more,
+        })
+    }
+
+    pub async fn get_job_analytics(&self) -> Result<JobAnalytics> {
+        // Get total jobs count
+        let total_jobs: i64 = sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE")
+            .fetch_one(&self.pool)
+            .await?
+            .get("count");
+
+        // Get jobs by status
+        let status_rows = sqlx::query("SELECT status, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY status")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut jobs_by_status = Vec::new();
+        for row in status_rows {
+            let status_str: String = row.get("status");
+            let status: JobStatus = serde_json::from_str(&status_str).unwrap_or(JobStatus::Draft);
+            jobs_by_status.push(JobStatusCount {
+                status,
+                count: row.get("count"),
+            });
+        }
+
+        // Get jobs by priority  
+        let priority_rows = sqlx::query("SELECT priority, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY priority")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut jobs_by_priority = Vec::new();
+        for row in priority_rows {
+            let priority_str: String = row.get("priority");
+            let priority: JobPriority = serde_json::from_str(&priority_str).unwrap_or(JobPriority::Medium);
+            jobs_by_priority.push(JobPriorityCount {
+                priority,
+                count: row.get("count"),
+            });
+        }
+
+        // Get jobs by application status
+        let app_status_rows = sqlx::query("SELECT application_status, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY application_status")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut jobs_by_application_status = Vec::new();
+        for row in app_status_rows {
+            let app_status_str: String = row.get("application_status");
+            let app_status: ApplicationStatus = serde_json::from_str(&app_status_str).unwrap_or(ApplicationStatus::NotApplied);
+            jobs_by_application_status.push(ApplicationStatusCount {
+                status: app_status,
+                count: row.get("count"),
+            });
+        }
+
+        // Get top companies
+        let company_rows = sqlx::query("SELECT company, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE GROUP BY company ORDER BY count DESC LIMIT 10")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut top_companies = Vec::new();
+        for row in company_rows {
+            top_companies.push(CompanyCount {
+                company: row.get("company"),
+                count: row.get("count"),
+            });
+        }
+
+        // Get top locations
+        let location_rows = sqlx::query("SELECT location, COUNT(*) as count FROM job_descriptions WHERE is_archived = FALSE AND location != '' GROUP BY location ORDER BY count DESC LIMIT 10")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut top_locations = Vec::new();
+        for row in location_rows {
+            top_locations.push(LocationCount {
+                location: row.get("location"),
+                count: row.get("count"),
+            });
+        }
+
+        // Calculate success and response rates (basic implementation)
+        let applied_count: i64 = sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE application_status NOT IN ('\"NotApplied\"') AND is_archived = FALSE")
+            .fetch_one(&self.pool)
+            .await?
+            .get("count");
+
+        let responded_count: i64 = sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE application_status IN ('\"PhoneScreen\"', '\"TechnicalInterview\"', '\"OnSiteInterview\"', '\"FinalRound\"', '\"OfferReceived\"', '\"OfferAccepted\"') AND is_archived = FALSE")
+            .fetch_one(&self.pool)
+            .await?
+            .get("count");
+
+        let success_count: i64 = sqlx::query("SELECT COUNT(*) as count FROM job_descriptions WHERE application_status IN ('\"OfferReceived\"', '\"OfferAccepted\"') AND is_archived = FALSE")
+            .fetch_one(&self.pool)
+            .await?
+            .get("count");
+
+        let success_rate = if applied_count > 0 {
+            success_count as f64 / applied_count as f64 * 100.0
+        } else {
+            0.0
+        };
+
+        let response_rate = if applied_count > 0 {
+            responded_count as f64 / applied_count as f64 * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(JobAnalytics {
+            total_jobs,
+            jobs_by_status,
+            jobs_by_priority,
+            jobs_by_application_status,
+            average_salary_range: None, // TODO: Implement salary calculations
+            top_companies,
+            top_locations,
+            application_timeline: Vec::new(), // TODO: Implement timeline
+            success_rate,
+            response_rate,
+        })
     }
 }
 

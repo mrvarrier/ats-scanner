@@ -1477,3 +1477,267 @@ export interface HiringProbabilityResponse {
   success_scenarios: SuccessScenario[];
   improvement_impact: ImprovementImpact[];
 }
+
+// Job Description Management Types
+export interface JobDescription {
+  id: string;
+  title: string;
+  company: string;
+  content: string;
+  requirements: string; // JSON string array
+  preferred_qualifications?: string; // JSON string array
+  salary_range_min?: number;
+  salary_range_max?: number;
+  salary_currency?: string;
+  location: string;
+  remote_options: RemoteWorkType;
+  employment_type: EmploymentType;
+  experience_level: ExperienceLevel;
+  posted_date?: string; // ISO string
+  application_deadline?: string; // ISO string
+  job_url?: string;
+  keywords: string; // JSON string array
+  industry?: string;
+  department?: string;
+  status: JobStatus;
+  priority: JobPriority;
+  notes?: string;
+  application_status: ApplicationStatus;
+  application_date?: string; // ISO string
+  interview_date?: string; // ISO string
+  response_deadline?: string; // ISO string
+  contact_person?: string;
+  contact_email?: string;
+  tags: string; // JSON string array
+  source: JobSource;
+  is_archived: boolean;
+  created_at: string; // ISO string
+  updated_at: string; // ISO string
+}
+
+export type RemoteWorkType = 'OnSite' | 'Remote' | 'Hybrid' | 'Flexible';
+
+export type EmploymentType =
+  | 'FullTime'
+  | 'PartTime'
+  | 'Contract'
+  | 'Temporary'
+  | 'Internship'
+  | 'Freelance';
+
+export type ExperienceLevel =
+  | 'EntryLevel'
+  | 'Junior'
+  | 'MidLevel'
+  | 'Senior'
+  | 'Lead'
+  | 'Principal'
+  | 'Executive';
+
+export type JobStatus =
+  | 'Draft'
+  | 'Active'
+  | 'Applied'
+  | 'Interviewing'
+  | 'Offered'
+  | 'Rejected'
+  | 'Withdrawn'
+  | 'Closed';
+
+export type JobPriority = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export type ApplicationStatus =
+  | 'NotApplied'
+  | 'Applied'
+  | 'ApplicationReviewed'
+  | 'PhoneScreen'
+  | 'TechnicalInterview'
+  | 'OnSiteInterview'
+  | 'FinalRound'
+  | 'OfferReceived'
+  | 'OfferAccepted'
+  | 'OfferDeclined'
+  | 'Rejected'
+  | 'Withdrawn';
+
+export type JobSource =
+  | 'Manual'
+  | 'LinkedIn'
+  | 'Indeed'
+  | 'CompanyWebsite'
+  | 'Referral'
+  | 'Recruiter'
+  | 'JobBoard'
+  | 'URL';
+
+export interface JobSearchRequest {
+  query?: string;
+  company?: string;
+  location?: string;
+  remote_options?: RemoteWorkType[];
+  employment_type?: EmploymentType[];
+  experience_level?: ExperienceLevel[];
+  salary_min?: number;
+  salary_max?: number;
+  status?: JobStatus[];
+  priority?: JobPriority[];
+  application_status?: ApplicationStatus[];
+  industry?: string;
+  tags?: string[];
+  posted_after?: string; // ISO string
+  posted_before?: string; // ISO string
+  include_archived?: boolean;
+  limit?: number;
+  offset?: number;
+  sort_by?: JobSortOption;
+  sort_order?: SortOrder;
+}
+
+export type JobSortOption =
+  | 'CreatedAt'
+  | 'UpdatedAt'
+  | 'PostedDate'
+  | 'ApplicationDeadline'
+  | 'Priority'
+  | 'Title'
+  | 'Company'
+  | 'SalaryMin'
+  | 'SalaryMax';
+
+export type SortOrder = 'Asc' | 'Desc';
+
+export interface JobSearchResult {
+  jobs: JobDescription[];
+  total_count: number;
+  has_more: boolean;
+}
+
+export interface JobAnalytics {
+  total_jobs: number;
+  jobs_by_status: JobStatusCount[];
+  jobs_by_priority: JobPriorityCount[];
+  jobs_by_application_status: ApplicationStatusCount[];
+  average_salary_range?: SalaryRangeStats;
+  top_companies: CompanyCount[];
+  top_locations: LocationCount[];
+  application_timeline: ApplicationTimelineEntry[];
+  success_rate: number;
+  response_rate: number;
+}
+
+export interface JobStatusCount {
+  status: JobStatus;
+  count: number;
+}
+
+export interface JobPriorityCount {
+  priority: JobPriority;
+  count: number;
+}
+
+export interface ApplicationStatusCount {
+  status: ApplicationStatus;
+  count: number;
+}
+
+export interface SalaryRangeStats {
+  min_avg: number;
+  max_avg: number;
+  median_min: number;
+  median_max: number;
+}
+
+export interface CompanyCount {
+  company: string;
+  count: number;
+}
+
+export interface LocationCount {
+  location: string;
+  count: number;
+}
+
+export interface ApplicationTimelineEntry {
+  date: string; // ISO string
+  applications_count: number;
+  responses_count: number;
+}
+
+export interface JobUrlExtractionRequest {
+  url: string;
+}
+
+export interface JobUrlExtractionResult {
+  title?: string;
+  company?: string;
+  content: string;
+  location?: string;
+  salary_range?: string;
+  employment_type?: string;
+  remote_options?: string;
+  requirements: string[];
+  posted_date?: string;
+  application_deadline?: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface JobComparisonRequest {
+  job_ids: string[];
+}
+
+export interface JobComparisonResult {
+  jobs: JobDescription[];
+  comparison_matrix: JobComparisonMatrix;
+}
+
+export interface JobComparisonMatrix {
+  salary_comparison: SalaryComparison[];
+  location_comparison: LocationComparison[];
+  requirements_comparison: RequirementsComparison;
+  benefits_comparison: BenefitsComparison[];
+  match_scores: JobMatchScore[];
+}
+
+export interface SalaryComparison {
+  job_id: string;
+  min_salary?: number;
+  max_salary?: number;
+  currency?: string;
+  vs_average?: number;
+}
+
+export interface LocationComparison {
+  job_id: string;
+  location: string;
+  remote_options: RemoteWorkType;
+  commute_score?: number;
+}
+
+export interface RequirementsComparison {
+  common_requirements: string[];
+  unique_requirements: JobUniqueRequirements[];
+}
+
+export interface JobUniqueRequirements {
+  job_id: string;
+  requirements: string[];
+}
+
+export interface BenefitsComparison {
+  job_id: string;
+  benefits: string[];
+}
+
+export interface JobMatchScore {
+  job_id: string;
+  match_score: number;
+  match_factors: MatchFactor[];
+}
+
+export interface MatchFactor {
+  factor: string;
+  score: number;
+  weight: number;
+  explanation: string;
+}

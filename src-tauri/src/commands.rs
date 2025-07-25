@@ -8,6 +8,8 @@ use crate::models::{
     ATSCompatibilityRule, Analysis, AnalysisRequest, AnalysisResult, DocumentInfo, IndustryKeyword,
     ModelPerformance, ModelPerformanceMetrics, OptimizationRequest, OptimizationResult, Resume,
     ScoringBenchmark, UserFeedback, UserPreferences, UserPreferencesUpdate,
+    JobDescription, JobSearchRequest, JobSearchResult, JobAnalytics, JobUrlExtractionRequest,
+    JobUrlExtractionResult, JobComparisonRequest, JobComparisonResult,
 };
 // Phase 2 imports
 use crate::ats_simulator::{ATSSimulationResult, ATSSimulator};
@@ -2550,4 +2552,302 @@ pub async fn get_optimization_suggestions_prioritized(
             )))
         }
     }
+}
+
+// Job Description Management Commands
+
+#[tauri::command]
+pub async fn save_job_description(
+    state: State<'_, AppState>,
+    job: JobDescription,
+) -> Result<CommandResult<String>, ()> {
+    info!("Saving job description: {}", job.title);
+
+    let db = state.db.lock().await;
+    match db.save_job_description(&job).await {
+        Ok(_) => {
+            info!("Job description saved successfully with ID: {}", job.id);
+            Ok(CommandResult::success(job.id))
+        }
+        Err(e) => {
+            error!("Failed to save job description: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to save job description: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_job_description(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<CommandResult<Option<JobDescription>>, ()> {
+    info!("Getting job description with ID: {}", id);
+
+    let db = state.db.lock().await;
+    match db.get_job_description(&id).await {
+        Ok(job) => {
+            info!("Job description retrieved successfully");
+            Ok(CommandResult::success(job))
+        }
+        Err(e) => {
+            error!("Failed to get job description: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to get job description: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn update_job_description(
+    state: State<'_, AppState>,
+    job: JobDescription,
+) -> Result<CommandResult<String>, ()> {
+    info!("Updating job description: {}", job.title);
+
+    let db = state.db.lock().await;
+    match db.update_job_description(&job).await {
+        Ok(_) => {
+            info!("Job description updated successfully with ID: {}", job.id);
+            Ok(CommandResult::success(job.id))
+        }
+        Err(e) => {
+            error!("Failed to update job description: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to update job description: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn delete_job_description(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<CommandResult<String>, ()> {
+    info!("Deleting job description with ID: {}", id);
+
+    let db = state.db.lock().await;
+    match db.delete_job_description(&id).await {
+        Ok(_) => {
+            info!("Job description deleted successfully");
+            Ok(CommandResult::success("Job description deleted".to_string()))
+        }
+        Err(e) => {
+            error!("Failed to delete job description: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to delete job description: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_job_descriptions(
+    state: State<'_, AppState>,
+    include_archived: Option<bool>,
+) -> Result<CommandResult<Vec<JobDescription>>, ()> {
+    info!("Getting all job descriptions");
+
+    let db = state.db.lock().await;
+    let include_archived = include_archived.unwrap_or(false);
+    
+    match db.get_all_job_descriptions(include_archived).await {
+        Ok(jobs) => {
+            info!("Retrieved {} job descriptions", jobs.len());
+            Ok(CommandResult::success(jobs))
+        }
+        Err(e) => {
+            error!("Failed to get job descriptions: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to get job descriptions: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn search_job_descriptions(
+    state: State<'_, AppState>,
+    request: JobSearchRequest,
+) -> Result<CommandResult<JobSearchResult>, ()> {
+    info!("Searching job descriptions with filters");
+
+    let db = state.db.lock().await;
+    match db.search_job_descriptions(&request).await {
+        Ok(result) => {
+            info!("Found {} job descriptions", result.jobs.len());
+            Ok(CommandResult::success(result))
+        }
+        Err(e) => {
+            error!("Failed to search job descriptions: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to search job descriptions: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_job_analytics(
+    state: State<'_, AppState>,
+) -> Result<CommandResult<JobAnalytics>, ()> {
+    info!("Getting job analytics");
+
+    let db = state.db.lock().await;
+    match db.get_job_analytics().await {
+        Ok(analytics) => {
+            info!("Job analytics retrieved successfully");
+            Ok(CommandResult::success(analytics))
+        }
+        Err(e) => {
+            error!("Failed to get job analytics: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to get job analytics: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn extract_job_from_url(
+    _state: State<'_, AppState>,
+    request: JobUrlExtractionRequest,
+) -> Result<CommandResult<JobUrlExtractionResult>, ()> {
+    info!("Extracting job details from URL: {}", request.url);
+
+    // Basic implementation - in a real application, you would implement proper web scraping
+    // For now, return a basic structure that indicates the feature is not fully implemented
+    let result = JobUrlExtractionResult {
+        title: Some("Job Title (Extracted from URL)".to_string()),
+        company: Some("Company Name".to_string()),
+        content: format!("Job description extracted from: {}\n\nThis is a placeholder implementation. Full URL extraction would require web scraping capabilities.", request.url),
+        location: Some("Location TBD".to_string()),
+        salary_range: None,
+        employment_type: Some("Full-time".to_string()),
+        remote_options: None,
+        requirements: vec!["Requirements extraction not implemented".to_string()],
+        posted_date: None,
+        application_deadline: None,
+        success: true,
+        error: None,
+    };
+
+    info!("Job URL extraction completed (basic implementation)");
+    Ok(CommandResult::success(result))
+}
+
+#[tauri::command]
+pub async fn compare_job_descriptions(
+    state: State<'_, AppState>,
+    request: JobComparisonRequest,
+) -> Result<CommandResult<JobComparisonResult>, ()> {
+    info!("Comparing {} job descriptions", request.job_ids.len());
+
+    let db = state.db.lock().await;
+    
+    // Get all jobs to compare
+    let mut jobs = Vec::new();
+    for job_id in &request.job_ids {
+        match db.get_job_description(job_id).await {
+            Ok(Some(job)) => jobs.push(job),
+            Ok(None) => {
+                return Ok(CommandResult::error(format!(
+                    "Job description not found: {}",
+                    job_id
+                )));
+            }
+            Err(e) => {
+                return Ok(CommandResult::error(format!(
+                    "Failed to get job description {}: {}",
+                    job_id, e
+                )));
+            }
+        }
+    }
+
+    // Build comparison matrix (basic implementation)
+    use crate::models::{
+        JobComparisonMatrix, SalaryComparison, LocationComparison, RequirementsComparison,
+        JobUniqueRequirements, BenefitsComparison, JobMatchScore, MatchFactor,
+    };
+
+    let salary_comparison: Vec<SalaryComparison> = jobs
+        .iter()
+        .map(|job| SalaryComparison {
+            job_id: job.id.clone(),
+            min_salary: job.salary_range_min,
+            max_salary: job.salary_range_max,
+            currency: job.salary_currency.clone(),
+            vs_average: None, // Could calculate vs average
+        })
+        .collect();
+
+    let location_comparison: Vec<LocationComparison> = jobs
+        .iter()
+        .map(|job| LocationComparison {
+            job_id: job.id.clone(),
+            location: job.location.clone(),
+            remote_options: job.remote_options.clone(),
+            commute_score: None, // Could calculate based on user location
+        })
+        .collect();
+
+    let requirements_comparison = RequirementsComparison {
+        common_requirements: vec!["Common requirement analysis not implemented".to_string()],
+        unique_requirements: jobs
+            .iter()
+            .map(|job| JobUniqueRequirements {
+                job_id: job.id.clone(),
+                requirements: vec!["Requirements parsing not implemented".to_string()],
+            })
+            .collect(),
+    };
+
+    let benefits_comparison: Vec<BenefitsComparison> = jobs
+        .iter()
+        .map(|job| BenefitsComparison {
+            job_id: job.id.clone(),
+            benefits: vec!["Benefits parsing not implemented".to_string()],
+        })
+        .collect();
+
+    let match_scores: Vec<JobMatchScore> = jobs
+        .iter()
+        .map(|job| JobMatchScore {
+            job_id: job.id.clone(),
+            match_score: 75.0, // Placeholder score
+            match_factors: vec![MatchFactor {
+                factor: "Overall compatibility".to_string(),
+                score: 75.0,
+                weight: 1.0,
+                explanation: "Basic compatibility assessment".to_string(),
+            }],
+        })
+        .collect();
+
+    let comparison_matrix = JobComparisonMatrix {
+        salary_comparison,
+        location_comparison,
+        requirements_comparison,
+        benefits_comparison,
+        match_scores,
+    };
+
+    let result = JobComparisonResult {
+        jobs,
+        comparison_matrix,
+    };
+
+    info!("Job comparison completed");
+    Ok(CommandResult::success(result))
 }

@@ -609,3 +609,377 @@ pub struct LoggingConfig {
     pub enable_telemetry: bool,
     pub enable_performance_metrics: bool,
 }
+
+// Job Description Management Models
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct JobDescription {
+    pub id: String,
+    pub title: String,
+    pub company: String,
+    pub content: String,
+    pub requirements: String, // JSON array as string
+    pub preferred_qualifications: Option<String>, // JSON array as string
+    pub salary_range_min: Option<i64>,
+    pub salary_range_max: Option<i64>,
+    pub salary_currency: Option<String>,
+    pub location: String,
+    pub remote_options: RemoteWorkType,
+    pub employment_type: EmploymentType,
+    pub experience_level: ExperienceLevel,
+    pub posted_date: Option<DateTime<Utc>>,
+    pub application_deadline: Option<DateTime<Utc>>,
+    pub job_url: Option<String>,
+    pub keywords: String, // JSON array as string
+    pub industry: Option<String>,
+    pub department: Option<String>,
+    pub status: JobStatus,
+    pub priority: JobPriority,
+    pub notes: Option<String>,
+    pub application_status: ApplicationStatus,
+    pub application_date: Option<DateTime<Utc>>,
+    pub interview_date: Option<DateTime<Utc>>,
+    pub response_deadline: Option<DateTime<Utc>>,
+    pub contact_person: Option<String>,
+    pub contact_email: Option<String>,
+    pub tags: String, // JSON array as string
+    pub source: JobSource,
+    pub is_archived: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum RemoteWorkType {
+    #[default]
+    OnSite,
+    Remote,
+    Hybrid,
+    Flexible,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum EmploymentType {
+    #[default]
+    FullTime,
+    PartTime,
+    Contract,
+    Temporary,
+    Internship,
+    Freelance,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum ExperienceLevel {
+    EntryLevel,
+    Junior,
+    #[default]
+    MidLevel,
+    Senior,
+    Lead,
+    Principal,
+    Executive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum JobStatus {
+    #[default]
+    Draft,
+    Active,
+    Applied,
+    Interviewing,
+    Offered,
+    Rejected,
+    Withdrawn,
+    Closed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum JobPriority {
+    Low,
+    #[default]
+    Medium,
+    High,
+    Critical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum ApplicationStatus {
+    #[default]
+    NotApplied,
+    Applied,
+    ApplicationReviewed,
+    PhoneScreen,
+    TechnicalInterview,
+    OnSiteInterview,
+    FinalRound,
+    OfferReceived,
+    OfferAccepted,
+    OfferDeclined,
+    Rejected,
+    Withdrawn,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum JobSource {
+    #[default]
+    Manual,
+    LinkedIn,
+    Indeed,
+    CompanyWebsite,
+    Referral,
+    Recruiter,
+    JobBoard,
+    URL,
+}
+
+impl JobDescription {
+    pub fn new(title: String, company: String, content: String) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            title,
+            company,
+            content,
+            requirements: "[]".to_string(),
+            preferred_qualifications: None,
+            salary_range_min: None,
+            salary_range_max: None,
+            salary_currency: Some("USD".to_string()),
+            location: "".to_string(),
+            remote_options: RemoteWorkType::OnSite,
+            employment_type: EmploymentType::FullTime,
+            experience_level: ExperienceLevel::MidLevel,
+            posted_date: None,
+            application_deadline: None,
+            job_url: None,
+            keywords: "[]".to_string(),
+            industry: None,
+            department: None,
+            status: JobStatus::Draft,
+            priority: JobPriority::Medium,
+            notes: None,
+            application_status: ApplicationStatus::NotApplied,
+            application_date: None,
+            interview_date: None,
+            response_deadline: None,
+            contact_person: None,
+            contact_email: None,
+            tags: "[]".to_string(),
+            source: JobSource::Manual,
+            is_archived: false,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn from_url(url: String, title: String, company: String, content: String) -> Self {
+        let mut job = Self::new(title, company, content);
+        job.job_url = Some(url);
+        job.source = JobSource::URL;
+        job
+    }
+}
+
+// Job search and filter models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobSearchRequest {
+    pub query: Option<String>,
+    pub company: Option<String>,
+    pub location: Option<String>,
+    pub remote_options: Option<Vec<RemoteWorkType>>,
+    pub employment_type: Option<Vec<EmploymentType>>,
+    pub experience_level: Option<Vec<ExperienceLevel>>,
+    pub salary_min: Option<i64>,
+    pub salary_max: Option<i64>,
+    pub status: Option<Vec<JobStatus>>,
+    pub priority: Option<Vec<JobPriority>>,
+    pub application_status: Option<Vec<ApplicationStatus>>,
+    pub industry: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub posted_after: Option<DateTime<Utc>>,
+    pub posted_before: Option<DateTime<Utc>>,
+    pub include_archived: Option<bool>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+    pub sort_by: Option<JobSortOption>,
+    pub sort_order: Option<SortOrder>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum JobSortOption {
+    CreatedAt,
+    UpdatedAt,
+    PostedDate,
+    ApplicationDeadline,
+    Priority,
+    Title,
+    Company,
+    SalaryMin,
+    SalaryMax,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SortOrder {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobSearchResult {
+    pub jobs: Vec<JobDescription>,
+    pub total_count: i64,
+    pub has_more: bool,
+}
+
+// Job URL extraction models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobUrlExtractionRequest {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobUrlExtractionResult {
+    pub title: Option<String>,
+    pub company: Option<String>,
+    pub content: String,
+    pub location: Option<String>,
+    pub salary_range: Option<String>,
+    pub employment_type: Option<String>,
+    pub remote_options: Option<String>,
+    pub requirements: Vec<String>,
+    pub posted_date: Option<String>,
+    pub application_deadline: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+// Job analytics and insights models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobAnalytics {
+    pub total_jobs: i64,
+    pub jobs_by_status: Vec<JobStatusCount>,
+    pub jobs_by_priority: Vec<JobPriorityCount>,
+    pub jobs_by_application_status: Vec<ApplicationStatusCount>,
+    pub average_salary_range: Option<SalaryRangeStats>,
+    pub top_companies: Vec<CompanyCount>,
+    pub top_locations: Vec<LocationCount>,
+    pub application_timeline: Vec<ApplicationTimelineEntry>,
+    pub success_rate: f64,
+    pub response_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobStatusCount {
+    pub status: JobStatus,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobPriorityCount {
+    pub priority: JobPriority,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApplicationStatusCount {
+    pub status: ApplicationStatus,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SalaryRangeStats {
+    pub min_avg: f64,
+    pub max_avg: f64,
+    pub median_min: f64,
+    pub median_max: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompanyCount {
+    pub company: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationCount {
+    pub location: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApplicationTimelineEntry {
+    pub date: DateTime<Utc>,
+    pub applications_count: i64,
+    pub responses_count: i64,
+}
+
+// Job comparison models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobComparisonRequest {
+    pub job_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobComparisonResult {
+    pub jobs: Vec<JobDescription>,
+    pub comparison_matrix: JobComparisonMatrix,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobComparisonMatrix {
+    pub salary_comparison: Vec<SalaryComparison>,
+    pub location_comparison: Vec<LocationComparison>,
+    pub requirements_comparison: RequirementsComparison,
+    pub benefits_comparison: Vec<BenefitsComparison>,
+    pub match_scores: Vec<JobMatchScore>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SalaryComparison {
+    pub job_id: String,
+    pub min_salary: Option<i64>,
+    pub max_salary: Option<i64>,
+    pub currency: Option<String>,
+    pub vs_average: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationComparison {
+    pub job_id: String,
+    pub location: String,
+    pub remote_options: RemoteWorkType,
+    pub commute_score: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequirementsComparison {
+    pub common_requirements: Vec<String>,
+    pub unique_requirements: Vec<JobUniqueRequirements>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobUniqueRequirements {
+    pub job_id: String,
+    pub requirements: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenefitsComparison {
+    pub job_id: String,
+    pub benefits: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobMatchScore {
+    pub job_id: String,
+    pub match_score: f64,
+    pub match_factors: Vec<MatchFactor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MatchFactor {
+    pub factor: String,
+    pub score: f64,
+    pub weight: f64,
+    pub explanation: String,
+}
