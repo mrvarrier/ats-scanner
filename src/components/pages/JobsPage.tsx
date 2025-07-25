@@ -115,8 +115,8 @@ export function JobsPage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Error loading jobs:', error);
+    } catch (_error) {
+      // Error loading jobs
       toast({
         title: 'Error loading jobs',
         description: 'An unexpected error occurred',
@@ -295,8 +295,8 @@ export function JobsPage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Error deleting job:', error);
+    } catch (_error) {
+      // Error deleting job
       toast({
         title: 'Error deleting job',
         description: 'An unexpected error occurred',
@@ -350,8 +350,8 @@ export function JobsPage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Error updating job:', error);
+    } catch (_error) {
+      // Error updating job
       toast({
         title: 'Error updating job',
         description: 'An unexpected error occurred',
@@ -692,8 +692,8 @@ interface JobCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onArchive: () => void;
-  formatSalary: (min?: number, max?: number, currency?: string) => string;
-  formatDate: (dateString?: string) => string;
+  formatSalary: (_min?: number, _max?: number, _currency?: string) => string;
+  formatDate: (_dateString?: string) => string;
 }
 
 function JobCard({
@@ -904,4 +904,3 @@ function JobDetails({
     </Card>
   );
 }
-

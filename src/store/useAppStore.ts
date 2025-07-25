@@ -106,7 +106,16 @@ interface AppState {
   isLoadingPreferences: boolean;
 
   // UI state
-  activeTab: string;
+  activeTab:
+    | 'dashboard'
+    | 'analysis'
+    | 'jobs'
+    | 'personal-analytics'
+    | 'optimization'
+    | 'results'
+    | 'history'
+    | 'settings'
+    | 'analysis-result';
   isDarkMode: boolean;
 
   // Actions
@@ -121,7 +130,18 @@ interface AppState {
   ) => void;
   setUserPreferences: (_preferences: UserPreferences | null) => void;
   setIsLoadingPreferences: (_loading: boolean) => void;
-  setActiveTab: (_tab: string) => void;
+  setActiveTab: (
+    _tab:
+      | 'dashboard'
+      | 'analysis'
+      | 'jobs'
+      | 'personal-analytics'
+      | 'optimization'
+      | 'results'
+      | 'history'
+      | 'settings'
+      | 'analysis-result'
+  ) => void;
   toggleDarkMode: () => void;
 
   // Connection monitoring actions
