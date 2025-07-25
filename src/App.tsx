@@ -7,6 +7,7 @@ import { Dashboard } from './components/pages/Dashboard';
 import { AnalysisPage } from './components/pages/AnalysisPage';
 import { JobsPage } from './components/pages/JobsPage';
 import { PersonalAnalyticsPage } from './components/pages/PersonalAnalyticsPage';
+import { CareerDevelopmentPage } from './components/pages/CareerDevelopmentPage';
 import { ResumeWritingAssistant } from './components/pages/ResumeWritingAssistant';
 import { OptimizationPage } from './components/pages/OptimizationPage';
 import { ResultsPage } from './components/pages/ResultsPage';
@@ -110,6 +111,12 @@ function App() {
         return (
           <ErrorBoundary>
             <PersonalAnalyticsPage />
+          </ErrorBoundary>
+        );
+      case 'career-development':
+        return (
+          <ErrorBoundary>
+            <CareerDevelopmentPage />
           </ErrorBoundary>
         );
       case 'optimization':

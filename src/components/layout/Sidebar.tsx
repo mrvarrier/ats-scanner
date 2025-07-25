@@ -10,6 +10,7 @@ import {
   Briefcase,
   User,
   PenTool,
+  TreePine,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,7 @@ const menuItems = [
   { id: 'analysis' as const, label: 'Analysis', icon: FileText },
   { id: 'jobs' as const, label: 'Jobs', icon: Briefcase },
   { id: 'personal-analytics' as const, label: 'My Progress', icon: User },
+  { id: 'career-development' as const, label: 'Career Growth', icon: TreePine },
   { id: 'optimization' as const, label: 'Optimization', icon: Wrench },
   { id: 'writing-assistant' as const, label: 'AI Writer', icon: PenTool },
   { id: 'results' as const, label: 'Results', icon: FolderOpen },

@@ -122,7 +122,7 @@ export function PersonalAnalyticsPage() {
         setApplicationFunnel(funnelData);
 
         // Generate skill gap analysis
-        const skillGapData = generateSkillGaps(analyses);
+        const skillGapData = await generateSkillGaps(analyses);
         setSkillGaps(skillGapData);
       }
     } catch (error) {
@@ -232,10 +232,42 @@ export function PersonalAnalyticsPage() {
     ];
   };
 
-  // Generate skill gap analysis based on job requirements vs resume content
-  const generateSkillGaps = (_analyses: Analysis[]): SkillGapData[] => {
-    // This would analyze missing keywords and skill recommendations
-    const commonGaps = [
+  // Generate skill gap analysis using ML insights
+  const generateSkillGaps = async (
+    analyses: Analysis[]
+  ): Promise<SkillGapData[]> => {
+    try {
+      if (analyses.length === 0) return [];
+
+      // Use the latest resume analysis
+      const latestAnalysis = analyses[0];
+
+      // Get ML insights for career development
+      const mlResult = await invoke<CommandResult<any>>(
+        'generate_ml_insights',
+        {
+          resume_content: latestAnalysis.resume_content || '',
+          job_description: latestAnalysis.job_description || '',
+          analysis_result: latestAnalysis,
+        }
+      );
+
+      if (mlResult.success && mlResult.data?.skill_recommendations) {
+        return mlResult.data.skill_recommendations.map((skill: any) => ({
+          skill: skill.skill_name,
+          currentLevel: skill.current_proficiency || 5,
+          targetLevel: skill.target_proficiency || 8,
+          gap:
+            (skill.target_proficiency || 8) - (skill.current_proficiency || 5),
+          priority: skill.priority || ('Medium' as const),
+        }));
+      }
+    } catch (error) {
+      // Fall back to static analysis if ML insights fail
+    }
+
+    // Fallback skill gaps based on common job requirements
+    const fallbackGaps = [
       {
         skill: 'React',
         currentLevel: 7,
@@ -273,7 +305,7 @@ export function PersonalAnalyticsPage() {
       },
     ];
 
-    return commonGaps;
+    return fallbackGaps;
   };
 
   // Refresh analytics data
