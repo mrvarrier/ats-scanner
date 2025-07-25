@@ -9,19 +9,21 @@ import {
   History,
   Briefcase,
   User,
+  PenTool,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-  { id: 'analysis', label: 'Analysis', icon: FileText },
-  { id: 'jobs', label: 'Jobs', icon: Briefcase },
-  { id: 'personal-analytics', label: 'My Progress', icon: User },
-  { id: 'optimization', label: 'Optimization', icon: Wrench },
-  { id: 'results', label: 'Results', icon: FolderOpen },
-  { id: 'history', label: 'History', icon: History },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
+  { id: 'analysis' as const, label: 'Analysis', icon: FileText },
+  { id: 'jobs' as const, label: 'Jobs', icon: Briefcase },
+  { id: 'personal-analytics' as const, label: 'My Progress', icon: User },
+  { id: 'optimization' as const, label: 'Optimization', icon: Wrench },
+  { id: 'writing-assistant' as const, label: 'AI Writer', icon: PenTool },
+  { id: 'results' as const, label: 'Results', icon: FolderOpen },
+  { id: 'history' as const, label: 'History', icon: History },
+  { id: 'settings' as const, label: 'Settings', icon: Settings },
 ];
 
 export function Sidebar() {
