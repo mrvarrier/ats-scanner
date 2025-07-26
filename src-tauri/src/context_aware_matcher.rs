@@ -17,13 +17,13 @@ pub struct ContextAwareMatcher {
     database: Database,
     dynamic_db: Option<DynamicKeywordDatabase>,
     ollama_client: OllamaClient,
-    
+
     // Context analysis components
     requirement_analyzer: RequirementAnalyzer,
     qualification_mapper: QualificationMapper,
     semantic_scorer: SemanticScorer,
     intent_classifier: IntentClassifier,
-    
+
     // Configuration
     context_window_size: usize,
     semantic_threshold: f64,
@@ -57,13 +57,13 @@ pub struct ContextualMatch {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(clippy::enum_variant_names)]
 pub enum ContextMatchType {
-    DirectMatch,     // Exact keyword/skill match
-    SemanticMatch,   // Conceptually similar
-    ExperienceMatch, // Relevant experience
+    DirectMatch,       // Exact keyword/skill match
+    SemanticMatch,     // Conceptually similar
+    ExperienceMatch,   // Relevant experience
     TransferableMatch, // Transferable skills
-    PartialMatch,    // Partially meets requirement
-    PotentialMatch,  // Could develop this skill
-    NoMatch,         // No relevant qualification
+    PartialMatch,      // Partially meets requirement
+    PotentialMatch,    // Could develop this skill
+    NoMatch,           // No relevant qualification
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +155,7 @@ pub struct SemanticInsight {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InsightType {
-    StrengthAlignment,  // Candidate strength aligns well
+    StrengthAlignment, // Candidate strength aligns well
     SkillGap,          // Missing critical skill
     ExperienceGap,     // Experience level mismatch
     CulturalFit,       // Values/culture alignment
@@ -300,7 +300,7 @@ pub struct IntentClassifier {
 impl ContextAwareMatcher {
     pub async fn new(database: Database) -> Result<Self> {
         let ollama_client = OllamaClient::new(None)?;
-        
+
         // Initialize dynamic keyword database
         let dynamic_db = match DynamicKeywordDatabase::new(database.clone()).await {
             Ok(db) => Some(db),
@@ -337,59 +337,66 @@ impl ContextAwareMatcher {
         info!("Starting context-aware matching analysis");
 
         // Step 1: Parse job requirements with context
-        let requirements = self.requirement_analyzer
-            .parse_requirements(job_description, target_industry).await?;
+        let requirements = self
+            .requirement_analyzer
+            .parse_requirements(job_description, target_industry)
+            .await?;
 
         // Step 2: Extract and map candidate qualifications
-        let qualifications = self.qualification_mapper
-            .extract_qualifications(resume_content, extraction_result).await?;
+        let qualifications = self
+            .qualification_mapper
+            .extract_qualifications(resume_content, extraction_result)
+            .await?;
 
         // Step 3: Perform contextual matching
-        let contextual_matches = self.perform_contextual_matching(
-            &requirements, 
-            &qualifications, 
-            job_description, 
-            resume_content
-        ).await?;
+        let contextual_matches = self
+            .perform_contextual_matching(
+                &requirements,
+                &qualifications,
+                job_description,
+                resume_content,
+            )
+            .await?;
 
         // Step 4: Analyze requirement coverage
-        let requirement_coverage = self.analyze_requirement_coverage(
-            &requirements, 
-            &contextual_matches
-        )?;
+        let requirement_coverage =
+            self.analyze_requirement_coverage(&requirements, &contextual_matches)?;
 
         // Step 5: Generate semantic insights
-        let semantic_insights = self.generate_semantic_insights(
-            &contextual_matches,
-            &requirements,
-            &qualifications,
-            job_description,
-            resume_content,
-        ).await?;
+        let semantic_insights = self
+            .generate_semantic_insights(
+                &contextual_matches,
+                &requirements,
+                &qualifications,
+                job_description,
+                resume_content,
+            )
+            .await?;
 
         // Step 6: Perform intent analysis
-        let intent_analysis = self.analyze_intent(
-            job_description,
-            resume_content,
-            &requirements,
-            &qualifications,
-        ).await?;
+        let intent_analysis = self
+            .analyze_intent(
+                job_description,
+                resume_content,
+                &requirements,
+                &qualifications,
+            )
+            .await?;
 
         // Step 7: Generate improvement suggestions
-        let improvement_suggestions = self.generate_improvement_suggestions(
-            &requirement_coverage,
-            &contextual_matches,
-            &intent_analysis,
-            target_industry,
-        ).await?;
+        let improvement_suggestions = self
+            .generate_improvement_suggestions(
+                &requirement_coverage,
+                &contextual_matches,
+                &intent_analysis,
+                target_industry,
+            )
+            .await?;
 
         // Step 8: Calculate overall match score and confidence
         let overall_match_score = self.calculate_overall_match_score(&contextual_matches)?;
-        let confidence_metrics = self.calculate_confidence_metrics(
-            &requirements,
-            &qualifications,
-            &contextual_matches,
-        )?;
+        let confidence_metrics =
+            self.calculate_confidence_metrics(&requirements, &qualifications, &contextual_matches)?;
 
         let result = ContextAwareMatchResult {
             overall_match_score,
@@ -420,19 +427,22 @@ impl ContextAwareMatcher {
         let mut contextual_matches = Vec::new();
 
         for requirement in requirements {
-            let best_match = self.find_best_qualification_match(
-                requirement,
-                qualifications,
-                job_description,
-                resume_content,
-            ).await?;
+            let best_match = self
+                .find_best_qualification_match(
+                    requirement,
+                    qualifications,
+                    job_description,
+                    resume_content,
+                )
+                .await?;
 
             contextual_matches.push(best_match);
         }
 
         // Enhance matches with dynamic keyword database insights
         if let Some(ref dynamic_db) = self.dynamic_db {
-            self.enhance_matches_with_market_data(&mut contextual_matches, dynamic_db).await?;
+            self.enhance_matches_with_market_data(&mut contextual_matches, dynamic_db)
+                .await?;
         }
 
         Ok(contextual_matches)
@@ -458,18 +468,20 @@ impl ContextAwareMatcher {
 
         // Check direct matches first
         for qual in &qualifications.relevant_qualifications {
-            let similarity = self.semantic_scorer.calculate_similarity(
-                &requirement.text,
-                &qual.qualification,
-            ).await?;
+            let similarity = self
+                .semantic_scorer
+                .calculate_similarity(&requirement.text, &qual.qualification)
+                .await?;
 
             if similarity > self.semantic_threshold {
-                let context_relevance = self.calculate_context_relevance(
-                    &requirement.text,
-                    &qual.qualification,
-                    job_description,
-                    resume_content,
-                ).await?;
+                let context_relevance = self
+                    .calculate_context_relevance(
+                        &requirement.text,
+                        &qual.qualification,
+                        job_description,
+                        resume_content,
+                    )
+                    .await?;
 
                 let confidence = (similarity + context_relevance) / 2.0;
 
@@ -496,8 +508,7 @@ impl ContextAwareMatcher {
                         requirement_text: requirement.text.clone(),
                         matched_qualification: format!(
                             "{} (transferable from {})",
-                            transferable.skill,
-                            transferable.origin_domain
+                            transferable.skill, transferable.origin_domain
                         ),
                         match_type: ContextMatchType::TransferableMatch,
                         confidence_score: transferable.transferability_score,
@@ -506,8 +517,7 @@ impl ContextAwareMatcher {
                         supporting_evidence: transferable.adaptation_requirements.clone(),
                         gap_analysis: Some(format!(
                             "Requires adaptation from {} to {}",
-                            transferable.origin_domain,
-                            transferable.target_domain
+                            transferable.origin_domain, transferable.target_domain
                         )),
                     };
                     break;
@@ -559,7 +569,11 @@ Return only a number between 0.0 and 1.0."#,
             &resume_content[..resume_content.len().min(500)]
         );
 
-        match self.ollama_client.generate_response("qwen2.5:14b", &prompt, None).await {
+        match self
+            .ollama_client
+            .generate_response("qwen2.5:14b", &prompt, None)
+            .await
+        {
             Ok((response, _)) => {
                 // Extract relevance score from response
                 let score_str = response.trim();
@@ -582,7 +596,8 @@ Return only a number between 0.0 and 1.0."#,
     ) -> Result<()> {
         for contextual_match in matches.iter_mut() {
             // Extract key skill from matched qualification
-            let skill_keywords: Vec<&str> = contextual_match.matched_qualification
+            let skill_keywords: Vec<&str> = contextual_match
+                .matched_qualification
                 .split_whitespace()
                 .collect();
 
@@ -590,7 +605,7 @@ Return only a number between 0.0 and 1.0."#,
                 if let Ok(Some(market_data)) = dynamic_db.get_market_demand(skill).await {
                     // Boost confidence for high-demand skills
                     let demand_boost = market_data.demand_score * 0.1;
-                    contextual_match.confidence_score = 
+                    contextual_match.confidence_score =
                         (contextual_match.confidence_score + demand_boost).min(1.0);
 
                     // Add market insights to supporting evidence
@@ -629,8 +644,8 @@ Return only a number between 0.0 and 1.0."#,
                     ContextMatchType::DirectMatch | ContextMatchType::SemanticMatch => {
                         fully_covered += 1;
                     }
-                    ContextMatchType::ExperienceMatch 
-                    | ContextMatchType::TransferableMatch 
+                    ContextMatchType::ExperienceMatch
+                    | ContextMatchType::TransferableMatch
                     | ContextMatchType::PartialMatch => {
                         partially_covered += 1;
                     }
@@ -647,7 +662,8 @@ Return only a number between 0.0 and 1.0."#,
         }
 
         let coverage_percentage = if total_requirements > 0 {
-            ((fully_covered as f64 + partially_covered as f64 * 0.5) / total_requirements as f64) * 100.0
+            ((fully_covered as f64 + partially_covered as f64 * 0.5) / total_requirements as f64)
+                * 100.0
         } else {
             0.0
         };
@@ -680,12 +696,13 @@ Return only a number between 0.0 and 1.0."#,
                     insight_type: InsightType::StrengthAlignment,
                     description: format!(
                         "Strong alignment: {} matches well with {}",
-                        contextual_match.matched_qualification,
-                        contextual_match.requirement_text
+                        contextual_match.matched_qualification, contextual_match.requirement_text
                     ),
                     confidence: contextual_match.confidence_score,
                     supporting_context: contextual_match.supporting_evidence.clone(),
-                    actionable_advice: Some("Highlight this strength prominently in your application".to_string()),
+                    actionable_advice: Some(
+                        "Highlight this strength prominently in your application".to_string(),
+                    ),
                 });
             }
         }
@@ -693,10 +710,10 @@ Return only a number between 0.0 and 1.0."#,
         // Identify critical skill gaps
         for requirement in requirements {
             if requirement.is_critical {
-                let has_match = matches.iter().any(|m| 
-                    m.requirement_text == requirement.text && 
-                    !matches!(m.match_type, ContextMatchType::NoMatch)
-                );
+                let has_match = matches.iter().any(|m| {
+                    m.requirement_text == requirement.text
+                        && !matches!(m.match_type, ContextMatchType::NoMatch)
+                });
 
                 if !has_match {
                     insights.push(SemanticInsight {
@@ -716,10 +733,10 @@ Return only a number between 0.0 and 1.0."#,
         // Check for hidden gems (undervalued qualifications)
         for qual in &qualifications.relevant_qualifications {
             if qual.relevance_score > 0.7 {
-                let is_highlighted = matches.iter().any(|m|
-                    m.matched_qualification.contains(&qual.qualification) && 
-                    m.confidence_score > 0.7
-                );
+                let is_highlighted = matches.iter().any(|m| {
+                    m.matched_qualification.contains(&qual.qualification)
+                        && m.confidence_score > 0.7
+                });
 
                 if !is_highlighted {
                     insights.push(SemanticInsight {
@@ -747,23 +764,32 @@ Return only a number between 0.0 and 1.0."#,
         _qualifications: &QualificationAnalysis,
     ) -> Result<IntentAnalysis> {
         // Analyze job intent
-        let job_intent = self.intent_classifier.analyze_job_intent(job_description).await?;
-        
+        let job_intent = self
+            .intent_classifier
+            .analyze_job_intent(job_description)
+            .await?;
+
         // Analyze candidate intent
-        let candidate_intent = self.intent_classifier.analyze_candidate_intent(resume_content).await?;
+        let candidate_intent = self
+            .intent_classifier
+            .analyze_candidate_intent(resume_content)
+            .await?;
 
         // Calculate intent alignment
-        let intent_alignment_score = self.calculate_intent_alignment(&job_intent, &candidate_intent)?;
+        let intent_alignment_score =
+            self.calculate_intent_alignment(&job_intent, &candidate_intent)?;
 
         // Extract motivational and commitment indicators
         let motivational_indicators = self.extract_motivational_indicators(resume_content).await?;
         let commitment_signals = self.extract_commitment_signals(resume_content).await?;
-        let risk_factors = self.identify_risk_factors(
-            job_description, 
-            resume_content, 
-            &job_intent, 
-            &candidate_intent
-        ).await?;
+        let risk_factors = self
+            .identify_risk_factors(
+                job_description,
+                resume_content,
+                &job_intent,
+                &candidate_intent,
+            )
+            .await?;
 
         Ok(IntentAnalysis {
             job_intent,
@@ -775,11 +801,18 @@ Return only a number between 0.0 and 1.0."#,
         })
     }
 
-    fn calculate_intent_alignment(&self, job_intent: &JobIntent, candidate_intent: &CandidateIntent) -> Result<f64> {
+    fn calculate_intent_alignment(
+        &self,
+        job_intent: &JobIntent,
+        candidate_intent: &CandidateIntent,
+    ) -> Result<f64> {
         let mut alignment_factors = Vec::new();
 
         // Seniority alignment
-        let seniority_alignment = match (&job_intent.seniority_expectations, &candidate_intent.career_stage) {
+        let seniority_alignment = match (
+            &job_intent.seniority_expectations,
+            &candidate_intent.career_stage,
+        ) {
             (ExperienceLevel::Entry, ExperienceLevel::Entry) => 1.0,
             (ExperienceLevel::Junior, ExperienceLevel::Entry) => 0.8,
             (ExperienceLevel::Junior, ExperienceLevel::Junior) => 1.0,
@@ -792,7 +825,9 @@ Return only a number between 0.0 and 1.0."#,
         alignment_factors.push(seniority_alignment);
 
         // Technical focus alignment
-        let technical_overlap = job_intent.technical_focus.iter()
+        let technical_overlap = job_intent
+            .technical_focus
+            .iter()
             .filter(|skill| candidate_intent.technical_interests.contains(skill))
             .count() as f64;
         let technical_alignment = if !job_intent.technical_focus.is_empty() {
@@ -805,18 +840,27 @@ Return only a number between 0.0 and 1.0."#,
         // Leadership alignment
         let leadership_alignment = match job_intent.role_type {
             RoleType::Management | RoleType::TeamLead => {
-                if candidate_intent.leadership_indicators.is_empty() { 0.3 } else { 0.9 }
+                if candidate_intent.leadership_indicators.is_empty() {
+                    0.3
+                } else {
+                    0.9
+                }
             }
             RoleType::Individual => {
-                if candidate_intent.leadership_indicators.len() > 3 { 0.7 } else { 1.0 }
+                if candidate_intent.leadership_indicators.len() > 3 {
+                    0.7
+                } else {
+                    1.0
+                }
             }
             _ => 0.7,
         };
         alignment_factors.push(leadership_alignment);
 
         // Calculate weighted average
-        let overall_alignment = alignment_factors.iter().sum::<f64>() / alignment_factors.len() as f64;
-        
+        let overall_alignment =
+            alignment_factors.iter().sum::<f64>() / alignment_factors.len() as f64;
+
         Ok(overall_alignment)
     }
 
@@ -840,7 +884,11 @@ Return a JSON array of motivational indicators found.
             &resume_content[..resume_content.len().min(2000)]
         );
 
-        match self.ollama_client.generate_response("qwen2.5:14b", &prompt, None).await {
+        match self
+            .ollama_client
+            .generate_response("qwen2.5:14b", &prompt, None)
+            .await
+        {
             Ok((response, _)) => {
                 if let Some(json_start) = response.find('[') {
                     if let Some(json_end) = response.rfind(']') {
@@ -870,14 +918,16 @@ Return a JSON array of motivational indicators found.
         }
 
         // Look for continuous learning
-        if resume_content.to_lowercase().contains("certification") 
-           || resume_content.to_lowercase().contains("training") {
+        if resume_content.to_lowercase().contains("certification")
+            || resume_content.to_lowercase().contains("training")
+        {
             signals.push("Commitment to continuous learning".to_string());
         }
 
         // Look for leadership development
-        if resume_content.to_lowercase().contains("led") 
-           || resume_content.to_lowercase().contains("managed") {
+        if resume_content.to_lowercase().contains("led")
+            || resume_content.to_lowercase().contains("managed")
+        {
             signals.push("Leadership experience and growth".to_string());
         }
 
@@ -894,14 +944,26 @@ Return a JSON array of motivational indicators found.
         let mut risk_factors = Vec::new();
 
         // Over-qualification risk
-        if matches!(candidate_intent.career_stage, ExperienceLevel::Senior | ExperienceLevel::Lead | ExperienceLevel::Principal)
-           && matches!(job_intent.seniority_expectations, ExperienceLevel::Entry | ExperienceLevel::Junior) {
-            risk_factors.push("Potential over-qualification - may seek more challenging role quickly".to_string());
+        if matches!(
+            candidate_intent.career_stage,
+            ExperienceLevel::Senior | ExperienceLevel::Lead | ExperienceLevel::Principal
+        ) && matches!(
+            job_intent.seniority_expectations,
+            ExperienceLevel::Entry | ExperienceLevel::Junior
+        ) {
+            risk_factors.push(
+                "Potential over-qualification - may seek more challenging role quickly".to_string(),
+            );
         }
 
         // Under-qualification risk
-        if matches!(candidate_intent.career_stage, ExperienceLevel::Entry | ExperienceLevel::Junior)
-           && matches!(job_intent.seniority_expectations, ExperienceLevel::Senior | ExperienceLevel::Lead) {
+        if matches!(
+            candidate_intent.career_stage,
+            ExperienceLevel::Entry | ExperienceLevel::Junior
+        ) && matches!(
+            job_intent.seniority_expectations,
+            ExperienceLevel::Senior | ExperienceLevel::Lead
+        ) {
             risk_factors.push("May require significant mentoring and development time".to_string());
         }
 
@@ -966,7 +1028,8 @@ Return a JSON array of motivational indicators found.
         }
 
         // Resume optimization for strong matches
-        let strong_matches: Vec<_> = matches.iter()
+        let strong_matches: Vec<_> = matches
+            .iter()
             .filter(|m| m.confidence_score > 0.7)
             .collect();
 
@@ -1033,29 +1096,28 @@ Return a JSON array of motivational indicators found.
         matches: &[ContextualMatch],
     ) -> Result<ConfidenceMetrics> {
         // Calculate various confidence metrics
-        let overall_confidence = matches.iter()
-            .map(|m| m.confidence_score)
-            .sum::<f64>() / matches.len().max(1) as f64;
+        let overall_confidence =
+            matches.iter().map(|m| m.confidence_score).sum::<f64>() / matches.len().max(1) as f64;
 
         let context_analysis_confidence = if requirements.is_empty() { 0.0 } else { 0.8 };
-        
-        let semantic_matching_confidence = matches.iter()
-            .map(|m| m.semantic_similarity)
-            .sum::<f64>() / matches.len().max(1) as f64;
+
+        let semantic_matching_confidence =
+            matches.iter().map(|m| m.semantic_similarity).sum::<f64>()
+                / matches.len().max(1) as f64;
 
         let requirement_parsing_confidence = 0.85; // Based on parsing success rate
-        
-        let qualification_extraction_confidence = if qualifications.relevant_qualifications.is_empty() {
-            0.3
-        } else {
-            0.9
-        };
 
-        let data_quality_score = (
-            context_analysis_confidence + 
-            requirement_parsing_confidence + 
-            qualification_extraction_confidence
-        ) / 3.0;
+        let qualification_extraction_confidence =
+            if qualifications.relevant_qualifications.is_empty() {
+                0.3
+            } else {
+                0.9
+            };
+
+        let data_quality_score = (context_analysis_confidence
+            + requirement_parsing_confidence
+            + qualification_extraction_confidence)
+            / 3.0;
 
         Ok(ConfidenceMetrics {
             overall_confidence,
@@ -1083,13 +1145,20 @@ impl RequirementAnalyzer {
     pub fn new() -> Result<Self> {
         // Initialize requirement parsing patterns
         let mut requirement_patterns = HashMap::new();
-        
+
         // Technical skills patterns
-        requirement_patterns.insert("technical_skills".to_string(), vec![
-            regex::Regex::new(r"(?i)\b(?:experience with|proficiency in|knowledge of|skilled in)\s+([^.;,]+)")?,
-            regex::Regex::new(r"(?i)\b(programming languages?|technologies?|frameworks?|tools?):\s*([^.;]+)")?,
-            regex::Regex::new(r"(?i)\b(?:must|should) (?:have|know|understand)\s+([^.;,]+)")?,
-        ]);
+        requirement_patterns.insert(
+            "technical_skills".to_string(),
+            vec![
+                regex::Regex::new(
+                    r"(?i)\b(?:experience with|proficiency in|knowledge of|skilled in)\s+([^.;,]+)",
+                )?,
+                regex::Regex::new(
+                    r"(?i)\b(programming languages?|technologies?|frameworks?|tools?):\s*([^.;]+)",
+                )?,
+                regex::Regex::new(r"(?i)\b(?:must|should) (?:have|know|understand)\s+([^.;,]+)")?,
+            ],
+        );
 
         // Experience patterns
         requirement_patterns.insert("experience".to_string(), vec![
@@ -1098,19 +1167,22 @@ impl RequirementAnalyzer {
         ]);
 
         // Education patterns
-        requirement_patterns.insert("education".to_string(), vec![
-            regex::Regex::new(r"(?i)\b(?:bachelor|master|phd|degree)\s*(?:in|of)\s*([^.;,]+)")?,
-            regex::Regex::new(r"(?i)\b(?:certification|certified)\s*(?:in)?\s*([^.;,]+)")?,
-        ]);
+        requirement_patterns.insert(
+            "education".to_string(),
+            vec![
+                regex::Regex::new(r"(?i)\b(?:bachelor|master|phd|degree)\s*(?:in|of)\s*([^.;,]+)")?,
+                regex::Regex::new(r"(?i)\b(?:certification|certified)\s*(?:in)?\s*([^.;,]+)")?,
+            ],
+        );
 
         let priority_indicators = vec![
             regex::Regex::new(r"(?i)\b(?:required|must|essential|critical|mandatory)\b")?,
             regex::Regex::new(r"(?i)\b(?:preferred|nice to have|desired|plus|bonus)\b")?,
         ];
 
-        let qualification_extractors = vec![
-            regex::Regex::new(r"(?i)\b(?:qualifications?|requirements?|skills?):\s*")?,
-        ];
+        let qualification_extractors = vec![regex::Regex::new(
+            r"(?i)\b(?:qualifications?|requirements?|skills?):\s*",
+        )?];
 
         Ok(Self {
             requirement_patterns,
@@ -1120,12 +1192,12 @@ impl RequirementAnalyzer {
     }
 
     pub async fn parse_requirements(
-        &self, 
-        job_description: &str, 
-        _target_industry: &str
+        &self,
+        job_description: &str,
+        _target_industry: &str,
     ) -> Result<Vec<ParsedRequirement>> {
         let mut requirements = Vec::new();
-        
+
         // Split job description into sentences for better parsing
         let sentences: Vec<&str> = job_description
             .split(['.', ';', '\n'])
@@ -1162,36 +1234,49 @@ impl QualificationMapper {
     pub fn new() -> Result<Self> {
         // Initialize skill taxonomies for different domains
         let mut skill_taxonomies = HashMap::new();
-        
+
         // Technology taxonomy
         let mut tech_skills = HashMap::new();
-        tech_skills.insert("python".to_string(), SkillInfo {
-            canonical_name: "Python".to_string(),
-            aliases: vec!["py".to_string(), "python3".to_string()],
-            category: "programming_language".to_string(),
-            difficulty_level: 0.6,
-            market_demand: 0.9,
-            related_skills: vec!["django".to_string(), "flask".to_string(), "pandas".to_string()],
-        });
+        tech_skills.insert(
+            "python".to_string(),
+            SkillInfo {
+                canonical_name: "Python".to_string(),
+                aliases: vec!["py".to_string(), "python3".to_string()],
+                category: "programming_language".to_string(),
+                difficulty_level: 0.6,
+                market_demand: 0.9,
+                related_skills: vec![
+                    "django".to_string(),
+                    "flask".to_string(),
+                    "pandas".to_string(),
+                ],
+            },
+        );
 
-        skill_taxonomies.insert("technology".to_string(), SkillTaxonomy {
-            domain: "technology".to_string(),
-            skills: tech_skills,
-            relationships: HashMap::new(),
-        });
+        skill_taxonomies.insert(
+            "technology".to_string(),
+            SkillTaxonomy {
+                domain: "technology".to_string(),
+                skills: tech_skills,
+                relationships: HashMap::new(),
+            },
+        );
 
-        let experience_patterns = vec![
-            regex::Regex::new(r"(?i)(\d+)(?:\+)?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)(?:\s*(?:in|with))?\s*([^.;,]+)")?,
-        ];
+        let experience_patterns = vec![regex::Regex::new(
+            r"(?i)(\d+)(?:\+)?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)(?:\s*(?:in|with))?\s*([^.;,]+)",
+        )?];
 
         let mut certification_database = HashMap::new();
-        certification_database.insert("aws certified".to_string(), CertificationInfo {
-            name: "AWS Certified".to_string(),
-            issuer: "Amazon Web Services".to_string(),
-            industry_recognition: 0.9,
-            skills_validated: vec!["cloud computing".to_string(), "aws".to_string()],
-            validity_period: Some(36), // 3 years
-        });
+        certification_database.insert(
+            "aws certified".to_string(),
+            CertificationInfo {
+                name: "AWS Certified".to_string(),
+                issuer: "Amazon Web Services".to_string(),
+                industry_recognition: 0.9,
+                skills_validated: vec!["cloud computing".to_string(), "aws".to_string()],
+                validity_period: Some(36), // 3 years
+            },
+        );
 
         Ok(Self {
             skill_taxonomies,
@@ -1207,7 +1292,7 @@ impl QualificationMapper {
     ) -> Result<QualificationAnalysis> {
         // Use modern extraction results as base
         let mut relevant_qualifications = Vec::new();
-        
+
         for keyword_match in &extraction_result.keyword_matches {
             relevant_qualifications.push(QualificationMatch {
                 qualification: keyword_match.keyword.clone(),
@@ -1242,7 +1327,7 @@ impl QualificationMapper {
     fn identify_transferable_skills(&self, resume_content: &str) -> Result<Vec<TransferableSkill>> {
         // Simplified transferable skills identification
         let mut transferable_skills = Vec::new();
-        
+
         // Example: Project management skills from different domains
         if resume_content.to_lowercase().contains("project management") {
             transferable_skills.push(TransferableSkill {
@@ -1294,9 +1379,12 @@ impl QualificationMapper {
 
     fn extract_certifications(&self, resume_content: &str) -> Result<Vec<CertificationMatch>> {
         let mut certifications = Vec::new();
-        
+
         for (cert_name, cert_info) in &self.certification_database {
-            if resume_content.to_lowercase().contains(&cert_name.to_lowercase()) {
+            if resume_content
+                .to_lowercase()
+                .contains(&cert_name.to_lowercase())
+            {
                 certifications.push(CertificationMatch {
                     certification: cert_info.name.clone(),
                     relevance_score: cert_info.industry_recognition,
@@ -1317,7 +1405,7 @@ impl QualificationMapper {
     fn extract_project_relevance(&self, resume_content: &str) -> Result<Vec<ProjectMatch>> {
         // Simplified project extraction
         let mut projects = Vec::new();
-        
+
         // Look for project indicators
         if resume_content.to_lowercase().contains("project") {
             projects.push(ProjectMatch {
@@ -1354,7 +1442,7 @@ impl SemanticScorer {
             .split_whitespace()
             .map(|s| s.to_string())
             .collect();
-        
+
         let words2: HashSet<String> = text2
             .to_lowercase()
             .split_whitespace()
@@ -1377,25 +1465,34 @@ impl SemanticScorer {
 impl IntentClassifier {
     pub fn new() -> Result<Self> {
         let mut job_role_patterns = HashMap::new();
-        
-        job_role_patterns.insert(RoleType::Individual, vec![
-            regex::Regex::new(r"(?i)\b(?:individual contributor|ic|developer|engineer|analyst)\b")?,
-        ]);
-        
-        job_role_patterns.insert(RoleType::Management, vec![
-            regex::Regex::new(r"(?i)\b(?:manager|director|vp|head of|chief)\b")?,
-        ]);
+
+        job_role_patterns.insert(
+            RoleType::Individual,
+            vec![regex::Regex::new(
+                r"(?i)\b(?:individual contributor|ic|developer|engineer|analyst)\b",
+            )?],
+        );
+
+        job_role_patterns.insert(
+            RoleType::Management,
+            vec![regex::Regex::new(
+                r"(?i)\b(?:manager|director|vp|head of|chief)\b",
+            )?],
+        );
 
         let mut seniority_indicators = HashMap::new();
-        seniority_indicators.insert(ExperienceLevel::Entry, vec![
-            "entry level".to_string(),
-            "junior".to_string(),
-            "graduate".to_string(),
-        ]);
+        seniority_indicators.insert(
+            ExperienceLevel::Entry,
+            vec![
+                "entry level".to_string(),
+                "junior".to_string(),
+                "graduate".to_string(),
+            ],
+        );
 
-        let motivation_extractors = vec![
-            regex::Regex::new(r"(?i)\b(?:passionate|driven|motivated|enthusiastic)\b")?,
-        ];
+        let motivation_extractors = vec![regex::Regex::new(
+            r"(?i)\b(?:passionate|driven|motivated|enthusiastic)\b",
+        )?];
 
         Ok(Self {
             job_role_patterns,

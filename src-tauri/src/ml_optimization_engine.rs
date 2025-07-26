@@ -24,7 +24,7 @@ pub struct MLOptimizationEngine {
     matching_accuracy_model: MatchingAccuracyModel,
     prediction_models: HashMap<String, PredictionModel>,
     feature_importance_weights: HashMap<String, f64>,
-    
+
     // Training data buffers
     training_buffer: VecDeque<TrainingDataPoint>,
     validation_buffer: VecDeque<ValidationDataPoint>,
@@ -163,10 +163,10 @@ pub enum ImprovementType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ImplementationEffort {
-    Low,        // < 1 week
-    Medium,     // 1-2 weeks
-    High,       // 2-4 weeks
-    Complex,    // 1+ months
+    Low,     // < 1 week
+    Medium,  // 1-2 weeks
+    High,    // 2-4 weeks
+    Complex, // 1+ months
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -240,11 +240,11 @@ pub struct FeatureInteraction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InteractionType {
-    Synergistic,    // Features enhance each other
-    Competitive,    // Features compete for influence
-    Conditional,    // Effect depends on other feature
-    Redundant,      // Features provide similar information
-    Complementary,  // Features complete each other's info
+    Synergistic,   // Features enhance each other
+    Competitive,   // Features compete for influence
+    Conditional,   // Effect depends on other feature
+    Redundant,     // Features provide similar information
+    Complementary, // Features complete each other's info
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -472,7 +472,7 @@ pub struct PerformanceSnapshot {
 impl MLOptimizationEngine {
     pub async fn new(database: Database) -> Result<Self> {
         let ollama_client = OllamaClient::new(None)?;
-        
+
         // Initialize dynamic keyword database
         let dynamic_db = match DynamicKeywordDatabase::new(database.clone()).await {
             Ok(db) => Some(db),
@@ -625,14 +625,23 @@ impl MLOptimizationEngine {
         .await?;
 
         // Create indexes for performance
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_ml_training_timestamp ON ml_training_data(timestamp);")
-            .execute(self.database.get_pool()).await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_ml_training_timestamp ON ml_training_data(timestamp);",
+        )
+        .execute(self.database.get_pool())
+        .await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_ml_performance_model ON ml_model_performance(model_name, model_version);")
             .execute(self.database.get_pool()).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_ml_feedback_timestamp ON ml_user_feedback(timestamp);")
-            .execute(self.database.get_pool()).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_ml_ab_test ON ml_ab_tests(test_name, variant_name);")
-            .execute(self.database.get_pool()).await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_ml_feedback_timestamp ON ml_user_feedback(timestamp);",
+        )
+        .execute(self.database.get_pool())
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_ml_ab_test ON ml_ab_tests(test_name, variant_name);",
+        )
+        .execute(self.database.get_pool())
+        .await?;
 
         info!("ML optimization database schema initialized");
         Ok(())
@@ -659,14 +668,20 @@ impl MLOptimizationEngine {
             let model_name: String = row.get("model_name");
             let _performance_metrics: String = row.get("performance_metrics");
             let feature_importance: String = row.get("feature_importance");
-            
-            if let Ok(importance_map) = serde_json::from_str::<HashMap<String, f64>>(&feature_importance) {
+
+            if let Ok(importance_map) =
+                serde_json::from_str::<HashMap<String, f64>>(&feature_importance)
+            {
                 for (feature, importance) in importance_map {
                     self.feature_importance_weights.insert(feature, importance);
                 }
             }
 
-            info!("Loaded model: {} with {} features", model_name, self.feature_importance_weights.len());
+            info!(
+                "Loaded model: {} with {} features",
+                model_name,
+                self.feature_importance_weights.len()
+            );
         }
 
         // Load recent training data for incremental learning
@@ -685,7 +700,8 @@ impl MLOptimizationEngine {
 
         for row in training_rows {
             let feature_vector_str: String = row.get("feature_vector");
-            if let Ok(features) = serde_json::from_str::<HashMap<String, f64>>(&feature_vector_str) {
+            if let Ok(features) = serde_json::from_str::<HashMap<String, f64>>(&feature_vector_str)
+            {
                 let training_point = TrainingDataPoint {
                     features,
                     target: row.get("target_value"),
@@ -773,7 +789,10 @@ impl MLOptimizationEngine {
         .await?;
 
         if new_samples_count < 50 {
-            info!("Insufficient new training data ({}), skipping retraining", new_samples_count);
+            info!(
+                "Insufficient new training data ({}), skipping retraining",
+                new_samples_count
+            );
             return Ok(());
         }
 
@@ -812,8 +831,13 @@ Consider factors like data quality, distribution shift, performance degradation,
 
                         if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(json_str) {
                             if analysis["should_retrain"].as_bool().unwrap_or(false) {
-                                info!("AI recommends retraining: {}", analysis["reasoning"].as_str().unwrap_or("No reason provided"));
-                                
+                                info!(
+                                    "AI recommends retraining: {}",
+                                    analysis["reasoning"]
+                                        .as_str()
+                                        .unwrap_or("No reason provided")
+                                );
+
                                 // Perform incremental model update
                                 Self::perform_incremental_training(database).await?;
                             } else {
@@ -840,7 +864,7 @@ Consider factors like data quality, distribution shift, performance degradation,
 
         // Simplified incremental training simulation
         // In a real implementation, this would use actual ML libraries
-        
+
         // Update model performance metrics
         sqlx::query(
             r#"
@@ -853,27 +877,39 @@ Consider factors like data quality, distribution shift, performance degradation,
         .bind(uuid::Uuid::new_v4().to_string())
         .bind("keyword_matching_model")
         .bind(format!("v{}", Utc::now().timestamp()))
-        .bind(serde_json::json!({
-            "accuracy": 0.87,
-            "precision": 0.85,
-            "recall": 0.89,
-            "f1_score": 0.87
-        }).to_string())
-        .bind(serde_json::json!({
-            "cross_validation_mean": 0.86,
-            "cross_validation_std": 0.02
-        }).to_string())
-        .bind(serde_json::json!({
-            "keyword_frequency": 0.23,
-            "semantic_similarity": 0.31,
-            "context_relevance": 0.28,
-            "industry_match": 0.18
-        }).to_string())
-        .bind(serde_json::json!({
-            "learning_rate": 0.001,
-            "regularization": 0.01,
-            "batch_size": 32
-        }).to_string())
+        .bind(
+            serde_json::json!({
+                "accuracy": 0.87,
+                "precision": 0.85,
+                "recall": 0.89,
+                "f1_score": 0.87
+            })
+            .to_string(),
+        )
+        .bind(
+            serde_json::json!({
+                "cross_validation_mean": 0.86,
+                "cross_validation_std": 0.02
+            })
+            .to_string(),
+        )
+        .bind(
+            serde_json::json!({
+                "keyword_frequency": 0.23,
+                "semantic_similarity": 0.31,
+                "context_relevance": 0.28,
+                "industry_match": 0.18
+            })
+            .to_string(),
+        )
+        .bind(
+            serde_json::json!({
+                "learning_rate": 0.001,
+                "regularization": 0.01,
+                "batch_size": 32
+            })
+            .to_string(),
+        )
         .bind(Utc::now().to_rfc3339())
         .bind(true)
         .execute(database.get_pool())
@@ -940,10 +976,16 @@ Consider factors like data quality, distribution shift, performance degradation,
 
         if let Some(error) = prediction_error {
             if error > 0.15 {
-                warn!("Model drift detected! Average prediction error: {:.3}", error);
+                warn!(
+                    "Model drift detected! Average prediction error: {:.3}",
+                    error
+                );
                 // Trigger retraining or model update
             } else {
-                info!("Model performance stable. Error: {:.3} on {} samples", error, sample_count);
+                info!(
+                    "Model performance stable. Error: {:.3} on {} samples",
+                    error, sample_count
+                );
             }
         }
 
@@ -967,7 +1009,9 @@ Consider factors like data quality, distribution shift, performance degradation,
         let performance_metrics = self.analyze_model_performance().await?;
 
         // Generate predictive insights
-        let predictive_insights = self.generate_predictive_insights(optimization_context).await?;
+        let predictive_insights = self
+            .generate_predictive_insights(optimization_context)
+            .await?;
 
         // Identify recommendation improvements
         let recommendation_improvements = self.identify_recommendation_improvements().await?;
@@ -1119,7 +1163,10 @@ Consider factors like data quality, distribution shift, performance degradation,
     }
 
     #[allow(clippy::vec_init_then_push)]
-    async fn generate_predictive_insights(&self, _context: &OptimizationContext) -> Result<Vec<PredictiveInsight>> {
+    async fn generate_predictive_insights(
+        &self,
+        _context: &OptimizationContext,
+    ) -> Result<Vec<PredictiveInsight>> {
         let mut insights = Vec::new();
 
         insights.push(PredictiveInsight {
@@ -1180,7 +1227,8 @@ Consider factors like data quality, distribution shift, performance degradation,
         improvements.push(RecommendationImprovement {
             improvement_type: ImprovementType::AlgorithmOptimization,
             current_approach: "Simple keyword frequency matching".to_string(),
-            improved_approach: "Context-aware semantic matching with user feedback loop".to_string(),
+            improved_approach: "Context-aware semantic matching with user feedback loop"
+                .to_string(),
             expected_improvement: 0.15,
             implementation_effort: ImplementationEffort::Medium,
             affected_features: vec![
@@ -1253,7 +1301,10 @@ Consider factors like data quality, distribution shift, performance degradation,
 
         let mut feature_interactions = Vec::new();
         feature_interactions.push(FeatureInteraction {
-            feature_pair: ("semantic_similarity".to_string(), "context_relevance".to_string()),
+            feature_pair: (
+                "semantic_similarity".to_string(),
+                "context_relevance".to_string(),
+            ),
             interaction_strength: 0.65,
             interaction_type: InteractionType::Synergistic,
             impact_on_prediction: 0.12,
@@ -1267,7 +1318,10 @@ Consider factors like data quality, distribution shift, performance degradation,
             local_importance: HashMap::new(),
             feature_interactions,
             redundant_features: vec!["deprecated_skill_weight".to_string()],
-            missing_features: vec!["user_career_goals".to_string(), "learning_preferences".to_string()],
+            missing_features: vec![
+                "user_career_goals".to_string(),
+                "learning_preferences".to_string(),
+            ],
             feature_stability: HashMap::new(),
             shap_values: HashMap::new(),
         })
@@ -1303,7 +1357,9 @@ Consider factors like data quality, distribution shift, performance degradation,
         suggestions.push(OptimizationSuggestion {
             suggestion_type: OptimizationSuggestionType::HyperparameterTuning,
             title: "Optimize Learning Rate Schedule".to_string(),
-            description: "Implement adaptive learning rate with warm restarts to improve convergence".to_string(),
+            description:
+                "Implement adaptive learning rate with warm restarts to improve convergence"
+                    .to_string(),
             expected_impact: 0.08,
             implementation_complexity: ImplementationEffort::Low,
             resource_requirements: ResourceRequirements {
@@ -1328,16 +1384,17 @@ Consider factors like data quality, distribution shift, performance degradation,
             success_probability: 0.85,
             dependencies: vec!["Model training pipeline".to_string()],
             risk_assessment: RiskAssessment {
-                technical_risks: vec![
-                    Risk {
-                        risk_type: "Performance".to_string(),
-                        description: "Learning rate changes may cause training instability".to_string(),
-                        probability: 0.2,
-                        impact: 0.3,
-                        risk_score: 0.06,
-                        mitigation_options: vec!["Gradual rollout".to_string(), "Fallback to current settings".to_string()],
-                    },
-                ],
+                technical_risks: vec![Risk {
+                    risk_type: "Performance".to_string(),
+                    description: "Learning rate changes may cause training instability".to_string(),
+                    probability: 0.2,
+                    impact: 0.3,
+                    risk_score: 0.06,
+                    mitigation_options: vec![
+                        "Gradual rollout".to_string(),
+                        "Fallback to current settings".to_string(),
+                    ],
+                }],
                 business_risks: vec![],
                 mitigation_strategies: vec!["A/B test the changes".to_string()],
                 contingency_plans: vec!["Revert to previous configuration".to_string()],

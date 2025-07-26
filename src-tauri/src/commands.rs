@@ -38,7 +38,7 @@ use crate::modern_keyword_extractor::ExtractionResult;
 use crate::ollama::OllamaClient;
 use crate::plugin_system::{PluginExecutionResult, PluginInfo, PluginManager};
 use crate::scoring::AnalysisEngine;
-use crate::utils::export_data;
+use crate::utils::{export_data, security};
 use crate::AppState;
 // Advanced Scoring Engine
 use crate::advanced_scoring::{
@@ -178,6 +178,15 @@ pub async fn ollama_health_check() -> CommandResult<bool> {
 pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
     info!("Parsing document: {}", file_path);
 
+    // SECURITY: Validate file path to prevent path traversal attacks
+    if let Err(e) = security::validate_file_path(&file_path, None) {
+        error!(
+            "Security violation: Invalid file path '{}': {}",
+            file_path, e
+        );
+        return CommandResult::error("Invalid file path".to_string());
+    }
+
     if !Path::new(&file_path).exists() {
         return CommandResult::error("File does not exist".to_string());
     }
@@ -197,6 +206,15 @@ pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
 #[tauri::command]
 pub async fn parse_document_with_metadata(file_path: String) -> CommandResult<DocumentInfo> {
     info!("Parsing document with full metadata: {}", file_path);
+
+    // SECURITY: Validate file path to prevent path traversal attacks
+    if let Err(e) = security::validate_file_path(&file_path, None) {
+        error!(
+            "Security violation: Invalid file path '{}': {}",
+            file_path, e
+        );
+        return CommandResult::error("Invalid file path".to_string());
+    }
 
     if !Path::new(&file_path).exists() {
         return CommandResult::error("File does not exist".to_string());
@@ -228,6 +246,15 @@ pub async fn extract_document_structure(
 ) -> CommandResult<crate::models::DocumentStructure> {
     info!("Extracting document structure: {}", file_path);
 
+    // SECURITY: Validate file path to prevent path traversal attacks
+    if let Err(e) = security::validate_file_path(&file_path, None) {
+        error!(
+            "Security violation: Invalid file path '{}': {}",
+            file_path, e
+        );
+        return CommandResult::error("Invalid file path".to_string());
+    }
+
     if !Path::new(&file_path).exists() {
         return CommandResult::error("File does not exist".to_string());
     }
@@ -258,6 +285,15 @@ pub async fn analyze_document_quality(
 ) -> CommandResult<crate::models::DocumentQualityMetrics> {
     info!("Analyzing document quality: {}", file_path);
 
+    // SECURITY: Validate file path to prevent path traversal attacks
+    if let Err(e) = security::validate_file_path(&file_path, None) {
+        error!(
+            "Security violation: Invalid file path '{}': {}",
+            file_path, e
+        );
+        return CommandResult::error("Invalid file path".to_string());
+    }
+
     if !Path::new(&file_path).exists() {
         return CommandResult::error("File does not exist".to_string());
     }
@@ -286,6 +322,15 @@ pub async fn get_document_metadata(
     file_path: String,
 ) -> CommandResult<crate::models::DocumentMetadata> {
     info!("Extracting document metadata: {}", file_path);
+
+    // SECURITY: Validate file path to prevent path traversal attacks
+    if let Err(e) = security::validate_file_path(&file_path, None) {
+        error!(
+            "Security violation: Invalid file path '{}': {}",
+            file_path, e
+        );
+        return CommandResult::error("Invalid file path".to_string());
+    }
 
     if !Path::new(&file_path).exists() {
         return CommandResult::error("File does not exist".to_string());
@@ -2925,7 +2970,10 @@ pub async fn analyze_context_aware_match(
     job_description: String,
     target_industry: String,
 ) -> Result<CommandResult<crate::context_aware_matcher::ContextAwareMatchResult>, String> {
-    info!("Starting context-aware match analysis for industry: {}", target_industry);
+    info!(
+        "Starting context-aware match analysis for industry: {}",
+        target_industry
+    );
 
     let state = app.state::<AppState>();
     let db_guard = state.db.lock().await;
@@ -2944,35 +2992,50 @@ pub async fn analyze_context_aware_match(
         }
     };
 
-    let analysis_engine = match AnalysisEngine::new_with_modern_extraction(ollama_client, database.clone()).await {
-        Ok(engine) => engine,
-        Err(e) => {
-            error!("Failed to create modern analysis engine: {}", e);
-            return Ok(CommandResult::error(format!(
-                "Modern analysis engine initialization failed: {}",
-                e
-            )));
-        }
-    };
+    let analysis_engine =
+        match AnalysisEngine::new_with_modern_extraction(ollama_client, database.clone()).await {
+            Ok(engine) => engine,
+            Err(e) => {
+                error!("Failed to create modern analysis engine: {}", e);
+                return Ok(CommandResult::error(format!(
+                    "Modern analysis engine initialization failed: {}",
+                    e
+                )));
+            }
+        };
 
     // Extract keywords first using modern analysis
-    let (_analysis_result, extraction_result) = match analysis_engine.analyze_resume_modern(
-        &resume_content, 
-        &job_description, 
-        "qwen2.5:14b", // Default model
-        Some(&target_industry)
-    ).await {
+    let (_analysis_result, extraction_result) = match analysis_engine
+        .analyze_resume_modern(
+            &resume_content,
+            &job_description,
+            "qwen2.5:14b", // Default model
+            Some(&target_industry),
+        )
+        .await
+    {
         Ok(result) => result,
         Err(e) => {
             error!("Modern resume analysis failed: {}", e);
-            return Ok(CommandResult::error(format!("Modern resume analysis failed: {}", e)));
+            return Ok(CommandResult::error(format!(
+                "Modern resume analysis failed: {}",
+                e
+            )));
         }
     };
 
     // Now perform context-aware matching
     match crate::context_aware_matcher::ContextAwareMatcher::new(database).await {
         Ok(matcher) => {
-            match matcher.analyze_match(&resume_content, &job_description, &extraction_result, &target_industry).await {
+            match matcher
+                .analyze_match(
+                    &resume_content,
+                    &job_description,
+                    &extraction_result,
+                    &target_industry,
+                )
+                .await
+            {
                 Ok(result) => {
                     info!(
                         "Context-aware analysis completed with overall match score: {:.2}%",
@@ -2982,7 +3045,10 @@ pub async fn analyze_context_aware_match(
                 }
                 Err(e) => {
                     error!("Context-aware match analysis failed: {}", e);
-                    Ok(CommandResult::error(format!("Context-aware analysis failed: {}", e)))
+                    Ok(CommandResult::error(format!(
+                        "Context-aware analysis failed: {}",
+                        e
+                    )))
                 }
             }
         }
@@ -3018,12 +3084,15 @@ pub async fn analyze_skill_relationships(
 
     match crate::skill_relationship_mapper::SkillRelationshipMapper::new(database).await {
         Ok(mapper) => {
-            match mapper.analyze_skill_relationships(
-                &resume_skills,
-                &job_requirements,
-                &target_industry,
-                career_goals.as_deref(),
-            ).await {
+            match mapper
+                .analyze_skill_relationships(
+                    &resume_skills,
+                    &job_requirements,
+                    &target_industry,
+                    career_goals.as_deref(),
+                )
+                .await
+            {
                 Ok(result) => {
                     info!(
                         "Skill relationship analysis completed with {} career paths and {} learning recommendations",
@@ -3034,7 +3103,10 @@ pub async fn analyze_skill_relationships(
                 }
                 Err(e) => {
                     error!("Skill relationship analysis failed: {}", e);
-                    Ok(CommandResult::error(format!("Skill relationship analysis failed: {}", e)))
+                    Ok(CommandResult::error(format!(
+                        "Skill relationship analysis failed: {}",
+                        e
+                    )))
                 }
             }
         }
@@ -3090,7 +3162,10 @@ pub async fn optimize_ml_parameters(
                 }
                 Err(e) => {
                     error!("ML optimization failed for user {}: {}", user_id, e);
-                    Ok(CommandResult::error(format!("ML optimization failed: {}", e)))
+                    Ok(CommandResult::error(format!(
+                        "ML optimization failed: {}",
+                        e
+                    )))
                 }
             }
         }

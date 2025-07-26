@@ -15,12 +15,31 @@ use crate::models::{
     DocumentMetadata, DocumentQualityMetrics, DocumentSection, DocumentStructure,
     HeadingFormatting, IssueSeverity,
 };
+use crate::utils::security;
 
 pub struct DocumentParser;
 
 impl DocumentParser {
     pub async fn parse_file(file_path: &str) -> Result<DocumentInfo> {
         info!("Parsing document: {}", file_path);
+
+        // SECURITY: Validate file path to prevent path traversal attacks
+        let validated_path = security::validate_file_path(file_path, None).map_err(|e| {
+            warn!(
+                "Security violation: Invalid file path '{}': {}",
+                file_path, e
+            );
+            anyhow!("Invalid file path")
+        })?;
+
+        // Verify file exists and is readable
+        if !validated_path.exists() {
+            return Err(anyhow!("File does not exist: {}", file_path));
+        }
+
+        if !validated_path.is_file() {
+            return Err(anyhow!("Path is not a file: {}", file_path));
+        }
 
         let path = Path::new(file_path);
         let filename = path
@@ -32,8 +51,17 @@ impl DocumentParser {
         let mime_type = from_path(path).first_or_octet_stream();
         let file_type = Self::determine_file_type(mime_type.as_ref());
 
-        // Read file content
-        let file_content = tokio::fs::read(file_path).await?;
+        // Validate file type is allowed for document parsing
+        if !Self::is_allowed_file_type(&file_type) {
+            warn!(
+                "Blocked attempt to parse unsupported file type: {}",
+                file_type
+            );
+            return Err(anyhow!("Unsupported file type: {}", file_type));
+        }
+
+        // Read file content using validated path
+        let file_content = tokio::fs::read(&validated_path).await?;
         let size = file_content.len();
 
         // Parse based on file type
@@ -394,6 +422,23 @@ impl DocumentParser {
                 "txt".to_string()
             }
         }
+    }
+
+    /// Validates that the file type is allowed for document parsing
+    ///
+    /// # Security
+    /// This function prevents parsing of potentially dangerous file types
+    /// and ensures only document formats are processed
+    ///
+    /// # Arguments
+    /// * `file_type` - The detected file type string
+    ///
+    /// # Returns
+    /// * `true` if the file type is allowed for parsing
+    /// * `false` if the file type should be blocked
+    fn is_allowed_file_type(file_type: &str) -> bool {
+        // Only allow specific document formats that we can safely parse
+        matches!(file_type, "pdf" | "docx" | "doc" | "txt")
     }
 
     fn clean_text(text: &str) -> String {

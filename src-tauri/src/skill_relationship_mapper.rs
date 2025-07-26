@@ -98,13 +98,13 @@ pub struct SkillConnection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConnectionType {
-    Prerequisite,    // Target requires source
-    Complementary,   // Skills work well together
-    Alternative,     // Skills can substitute each other
-    Progression,     // Natural career progression path
-    Synergistic,     // Skills amplify each other's value
-    Competitive,     // Skills compete for relevance
-    Foundational,    // Source is foundation for target
+    Prerequisite,  // Target requires source
+    Complementary, // Skills work well together
+    Alternative,   // Skills can substitute each other
+    Progression,   // Natural career progression path
+    Synergistic,   // Skills amplify each other's value
+    Competitive,   // Skills compete for relevance
+    Foundational,  // Source is foundation for target
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -299,11 +299,11 @@ pub struct SkillGap {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GapSeverity {
-    Critical,    // Blocks career progression
-    Major,       // Significantly limits opportunities
-    Moderate,    // Reduces competitiveness
-    Minor,       // Nice to have improvement
-    Optional,    // Marginal benefit
+    Critical, // Blocks career progression
+    Major,    // Significantly limits opportunities
+    Moderate, // Reduces competitiveness
+    Minor,    // Nice to have improvement
+    Optional, // Marginal benefit
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -426,11 +426,11 @@ pub enum RecommendationType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Priority {
-    Immediate,    // Start within 1 month
-    ShortTerm,    // Start within 3 months
-    MediumTerm,   // Start within 6 months
-    LongTerm,     // Start within 1 year
-    Strategic,    // 1+ year horizon
+    Immediate,  // Start within 1 month
+    ShortTerm,  // Start within 3 months
+    MediumTerm, // Start within 6 months
+    LongTerm,   // Start within 1 year
+    Strategic,  // 1+ year horizon
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -708,14 +708,14 @@ pub struct RelationshipInsight {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InsightType {
-    SkillSynergy,        // Skills that work particularly well together
-    CareerBottleneck,    // Skills blocking career progression
-    EmergingTrend,       // New skill relationships forming
-    DeclineWarning,      // Skills losing relevance
-    OpportunitySpot,     // Underutilized skill combinations
-    MarketShift,         // Changing skill demands
-    LearningEfficiency,  // Optimal skill learning sequences
-    NetworkEffect,       // Skills that open up networks
+    SkillSynergy,       // Skills that work particularly well together
+    CareerBottleneck,   // Skills blocking career progression
+    EmergingTrend,      // New skill relationships forming
+    DeclineWarning,     // Skills losing relevance
+    OpportunitySpot,    // Underutilized skill combinations
+    MarketShift,        // Changing skill demands
+    LearningEfficiency, // Optimal skill learning sequences
+    NetworkEffect,      // Skills that open up networks
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -776,7 +776,7 @@ pub struct TechnologyEcosystem {
 impl SkillRelationshipMapper {
     pub async fn new(database: Database) -> Result<Self> {
         let ollama_client = OllamaClient::new(None)?;
-        
+
         // Initialize dynamic keyword database
         let dynamic_db = match DynamicKeywordDatabase::new(database.clone()).await {
             Ok(db) => Some(db),
@@ -887,7 +887,7 @@ impl SkillRelationshipMapper {
         .execute(self.database.get_pool())
         .await?;
 
-        // Skill clusters table  
+        // Skill clusters table
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS skill_clusters (
@@ -945,25 +945,31 @@ impl SkillRelationshipMapper {
         for row in relationship_rows {
             let source_skill: String = row.get("source_skill");
             let target_skill: String = row.get("target_skill");
-            
+
             // Add to skill graph
-            self.skill_graph.nodes.entry(source_skill.clone())
+            self.skill_graph
+                .nodes
+                .entry(source_skill.clone())
                 .or_insert_with(|| SkillNode {
                     skill: source_skill.clone(),
                     weight: 1.0,
                     attributes: HashMap::new(),
                     connected_skills: HashSet::new(),
                 })
-                .connected_skills.insert(target_skill.clone());
+                .connected_skills
+                .insert(target_skill.clone());
 
-            self.skill_graph.nodes.entry(target_skill.clone())
+            self.skill_graph
+                .nodes
+                .entry(target_skill.clone())
                 .or_insert_with(|| SkillNode {
                     skill: target_skill.clone(),
                     weight: 1.0,
                     attributes: HashMap::new(),
                     connected_skills: HashSet::new(),
                 })
-                .connected_skills.insert(source_skill.clone());
+                .connected_skills
+                .insert(source_skill.clone());
 
             let connection_type = match row.get::<String, _>("connection_type").as_str() {
                 "Prerequisite" => ConnectionType::Prerequisite,
@@ -1000,15 +1006,15 @@ impl SkillRelationshipMapper {
 
         for row in ecosystem_rows {
             let name: String = row.get("ecosystem_name");
-            let core_technologies: Vec<String> = serde_json::from_str(
-                &row.get::<String, _>("core_technologies")
-            ).unwrap_or_default();
-            let supporting_technologies: Vec<String> = serde_json::from_str(
-                &row.get::<String, _>("supporting_technologies")
-            ).unwrap_or_default();
-            let complementary_skills: Vec<String> = serde_json::from_str(
-                &row.get::<String, _>("complementary_skills")
-            ).unwrap_or_default();
+            let core_technologies: Vec<String> =
+                serde_json::from_str(&row.get::<String, _>("core_technologies"))
+                    .unwrap_or_default();
+            let supporting_technologies: Vec<String> =
+                serde_json::from_str(&row.get::<String, _>("supporting_technologies"))
+                    .unwrap_or_default();
+            let complementary_skills: Vec<String> =
+                serde_json::from_str(&row.get::<String, _>("complementary_skills"))
+                    .unwrap_or_default();
 
             let ecosystem = TechnologyEcosystem {
                 name: name.clone(),
@@ -1083,9 +1089,21 @@ impl SkillRelationshipMapper {
     ) -> Result<()> {
         // Get trending skills to analyze relationships
         let trending_skills = vec![
-            "rust", "go", "kubernetes", "terraform", "react", "typescript", 
-            "python", "machine learning", "aws", "docker", "postgresql",
-            "microservices", "graphql", "next.js", "tailwind css"
+            "rust",
+            "go",
+            "kubernetes",
+            "terraform",
+            "react",
+            "typescript",
+            "python",
+            "machine learning",
+            "aws",
+            "docker",
+            "postgresql",
+            "microservices",
+            "graphql",
+            "next.js",
+            "tailwind css",
         ];
 
         for skill in trending_skills {
@@ -1134,8 +1152,12 @@ Provide realistic scores based on current 2024-2025 market data."#,
                     if let Some(json_end) = response.rfind('}') {
                         let json_str = &response[json_start..=json_end];
 
-                        if let Ok(relationship_data) = serde_json::from_str::<serde_json::Value>(json_str) {
-                            if let Some(relationships) = relationship_data["relationships"].as_array() {
+                        if let Ok(relationship_data) =
+                            serde_json::from_str::<serde_json::Value>(json_str)
+                        {
+                            if let Some(relationships) =
+                                relationship_data["relationships"].as_array()
+                            {
                                 for relationship in relationships {
                                     if let (
                                         Some(target_skill),
@@ -1197,9 +1219,16 @@ Provide realistic scores based on current 2024-2025 market data."#,
         ollama_client: &OllamaClient,
     ) -> Result<()> {
         let ecosystems = vec![
-            "React Ecosystem", "Node.js Ecosystem", "Python Data Science", 
-            "AWS Cloud Native", "Kubernetes Cloud", "Rust Systems Programming",
-            "Go Microservices", "TypeScript Full Stack", "Machine Learning", "DevOps"
+            "React Ecosystem",
+            "Node.js Ecosystem",
+            "Python Data Science",
+            "AWS Cloud Native",
+            "Kubernetes Cloud",
+            "Rust Systems Programming",
+            "Go Microservices",
+            "TypeScript Full Stack",
+            "Machine Learning",
+            "DevOps",
         ];
 
         for ecosystem_name in ecosystems {
@@ -1242,7 +1271,9 @@ Focus on current 2024-2025 market data and realistic ecosystem boundaries."#,
                     if let Some(json_end) = response.rfind('}') {
                         let json_str = &response[json_start..=json_end];
 
-                        if let Ok(ecosystem_data) = serde_json::from_str::<serde_json::Value>(json_str) {
+                        if let Ok(ecosystem_data) =
+                            serde_json::from_str::<serde_json::Value>(json_str)
+                        {
                             sqlx::query(
                                 r#"
                                 INSERT OR REPLACE INTO technology_ecosystems 
@@ -1420,58 +1451,57 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
         target_industry: &str,
         career_goals: Option<&str>,
     ) -> Result<SkillRelationshipResult> {
-        info!("Starting skill relationship analysis for {} skills", resume_skills.len());
+        info!(
+            "Starting skill relationship analysis for {} skills",
+            resume_skills.len()
+        );
 
         // Build skill network from resume skills
         let skill_network = self.build_skill_network(resume_skills).await?;
 
         // Analyze career progression paths
-        let career_progression_paths = self.analyze_career_progression_paths(
-            resume_skills, 
-            job_requirements, 
-            career_goals
-        ).await?;
+        let career_progression_paths = self
+            .analyze_career_progression_paths(resume_skills, job_requirements, career_goals)
+            .await?;
 
         // Perform skill gap analysis
-        let skill_gap_analysis = self.perform_skill_gap_analysis(
-            resume_skills, 
-            job_requirements, 
-            target_industry
-        ).await?;
+        let skill_gap_analysis = self
+            .perform_skill_gap_analysis(resume_skills, job_requirements, target_industry)
+            .await?;
 
         // Generate learning recommendations
-        let learning_recommendations = self.generate_learning_recommendations(
-            &skill_gap_analysis,
-            &career_progression_paths,
-            target_industry
-        ).await?;
+        let learning_recommendations = self
+            .generate_learning_recommendations(
+                &skill_gap_analysis,
+                &career_progression_paths,
+                target_industry,
+            )
+            .await?;
 
         // Generate technology stack suggestions
-        let technology_stack_suggestions = self.generate_technology_stack_suggestions(
-            resume_skills,
-            job_requirements,
-            target_industry
-        ).await?;
+        let technology_stack_suggestions = self
+            .generate_technology_stack_suggestions(resume_skills, job_requirements, target_industry)
+            .await?;
 
         // Analyze market positioning
-        let market_positioning = self.analyze_market_positioning(
-            resume_skills,
-            target_industry,
-            career_goals
-        ).await?;
+        let market_positioning = self
+            .analyze_market_positioning(resume_skills, target_industry, career_goals)
+            .await?;
 
         // Generate relationship insights
-        let relationship_insights = self.generate_relationship_insights(
-            &skill_network,
-            &skill_gap_analysis,
-            &career_progression_paths
-        ).await?;
+        let relationship_insights = self
+            .generate_relationship_insights(
+                &skill_network,
+                &skill_gap_analysis,
+                &career_progression_paths,
+            )
+            .await?;
 
         // Calculate confidence metrics
         let confidence_metrics = self.calculate_relationship_confidence_metrics(
             resume_skills,
             job_requirements,
-            &skill_network
+            &skill_network,
         )?;
 
         let result = SkillRelationshipResult {
@@ -1567,13 +1597,16 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
 
         // Calculate influence metrics
         for skill in skills {
-            influence_metrics.insert(skill.clone(), InfluenceMetric {
-                betweenness_centrality: 0.5, // Simplified calculation
-                closeness_centrality: 0.6,
-                degree_centrality: 0.4,
-                pagerank_score: centrality_scores.get(skill).copied().unwrap_or(0.5),
-                skill_broker_score: 0.3,
-            });
+            influence_metrics.insert(
+                skill.clone(),
+                InfluenceMetric {
+                    betweenness_centrality: 0.5, // Simplified calculation
+                    closeness_centrality: 0.6,
+                    degree_centrality: 0.4,
+                    pagerank_score: centrality_scores.get(skill).copied().unwrap_or(0.5),
+                    skill_broker_score: 0.3,
+                },
+            );
         }
 
         Ok(SkillNetwork {
@@ -1589,17 +1622,25 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
         // Check dynamic database for market data
         if let Some(ref dynamic_db) = self.dynamic_db {
             if let Ok(Some(market_data)) = dynamic_db.get_market_demand(skill).await {
-                return Ok(market_data.demand_score * 0.7 + 
-                         (market_data.salary_trends.current_average / 150000.0) * 0.3);
+                return Ok(market_data.demand_score * 0.7
+                    + (market_data.salary_trends.current_average / 150000.0) * 0.3);
             }
         }
 
         // Fallback to simple skill value estimation
         let high_value_skills = [
-            "machine learning", "kubernetes", "aws", "react", "python", 
-            "typescript", "go", "rust", "docker", "terraform"
+            "machine learning",
+            "kubernetes",
+            "aws",
+            "react",
+            "python",
+            "typescript",
+            "go",
+            "rust",
+            "docker",
+            "terraform",
         ];
-        
+
         if high_value_skills.contains(&skill.to_lowercase().as_str()) {
             Ok(0.8)
         } else {
@@ -1610,8 +1651,14 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
     async fn calculate_skill_rarity(&self, skill: &str) -> Result<f64> {
         // Simplified rarity calculation based on skill type
         let rare_skills = [
-            "rust", "go", "kubernetes", "terraform", "machine learning",
-            "blockchain", "quantum computing", "webassembly"
+            "rust",
+            "go",
+            "kubernetes",
+            "terraform",
+            "machine learning",
+            "blockchain",
+            "quantum computing",
+            "webassembly",
         ];
 
         if rare_skills.contains(&skill.to_lowercase().as_str()) {
@@ -1634,8 +1681,15 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
 
         // Fallback growth potential estimation
         let high_growth_skills = [
-            "ai", "machine learning", "kubernetes", "rust", "typescript",
-            "next.js", "tailwind", "serverless", "edge computing"
+            "ai",
+            "machine learning",
+            "kubernetes",
+            "rust",
+            "typescript",
+            "next.js",
+            "tailwind",
+            "serverless",
+            "edge computing",
         ];
 
         if high_growth_skills.contains(&skill.to_lowercase().as_str()) {
@@ -1657,7 +1711,8 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
         .fetch_all(self.database.get_pool())
         .await?;
 
-        Ok(relationships.into_iter()
+        Ok(relationships
+            .into_iter()
             .map(|row| row.get::<String, _>("target_skill"))
             .collect())
     }
@@ -1674,12 +1729,16 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
         .fetch_all(self.database.get_pool())
         .await?;
 
-        Ok(relationships.into_iter()
+        Ok(relationships
+            .into_iter()
             .map(|row| row.get::<String, _>("source_skill"))
             .collect())
     }
 
-    async fn get_skill_relationships(&self, skill: &str) -> Result<Option<Vec<StoredSkillRelationship>>> {
+    async fn get_skill_relationships(
+        &self,
+        skill: &str,
+    ) -> Result<Option<Vec<StoredSkillRelationship>>> {
         let relationships = sqlx::query(
             r#"
             SELECT target_skill, connection_type, strength, co_occurrence_frequency,
@@ -1730,7 +1789,10 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
 
         for skill in skills {
             let domain = self.classify_skill_domain(skill);
-            clusters.entry(domain).or_insert_with(Vec::new).push(skill.clone());
+            clusters
+                .entry(domain)
+                .or_insert_with(Vec::new)
+                .push(skill.clone());
         }
 
         let mut result = Vec::new();
@@ -1749,14 +1811,29 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
 
     fn classify_skill_domain(&self, skill: &str) -> String {
         let skill_lower = skill.to_lowercase();
-        
-        if ["javascript", "typescript", "react", "vue", "angular", "html", "css"].contains(&skill_lower.as_str()) {
+
+        if [
+            "javascript",
+            "typescript",
+            "react",
+            "vue",
+            "angular",
+            "html",
+            "css",
+        ]
+        .contains(&skill_lower.as_str())
+        {
             "Frontend Development".to_string()
-        } else if ["node.js", "python", "java", "go", "rust", "c++"].contains(&skill_lower.as_str()) {
+        } else if ["node.js", "python", "java", "go", "rust", "c++"].contains(&skill_lower.as_str())
+        {
             "Backend Development".to_string()
-        } else if ["aws", "azure", "gcp", "docker", "kubernetes", "terraform"].contains(&skill_lower.as_str()) {
+        } else if ["aws", "azure", "gcp", "docker", "kubernetes", "terraform"]
+            .contains(&skill_lower.as_str())
+        {
             "Cloud & DevOps".to_string()
-        } else if ["python", "r", "machine learning", "tensorflow", "pytorch"].contains(&skill_lower.as_str()) {
+        } else if ["python", "r", "machine learning", "tensorflow", "pytorch"]
+            .contains(&skill_lower.as_str())
+        {
             "Data Science & AI".to_string()
         } else {
             "General Technology".to_string()
@@ -1842,7 +1919,7 @@ Include 4-6 realistic progression steps with specific skills, experiences, and t
     async fn generate_technology_stack_suggestions(
         &self,
         _resume_skills: &[String],
-        _job_requirements: &[String], 
+        _job_requirements: &[String],
         _target_industry: &str,
     ) -> Result<Vec<TechnologyStackSuggestion>> {
         // Simplified implementation

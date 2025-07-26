@@ -910,13 +910,13 @@ impl AchievementAnalyzer {
     fn initialize_patterns(&mut self) {
         // Quantification patterns (numbers, percentages, money, time)
         let patterns = vec![
-            r"\d+%", // Percentages
+            r"\d+%",                        // Percentages
             r"\$\d+[\d,]*(?:\.\d+)?[KMB]?", // Money
             r"\d+[\d,]*\+?\s*(?:users|customers|clients|people|employees|hours|days|weeks|months|years)", // Counts with units
             r"\d+[\d,]*(?:\.\d+)?\s*(?:million|thousand|billion|hours|minutes|seconds|days|weeks|months|years)", // Large numbers with units
             r"(?:increased|decreased|reduced|improved|saved|generated|grew)\s+(?:by\s+)?\d+", // Change amounts
         ];
-        
+
         self.quantification_patterns = patterns
             .into_iter()
             .filter_map(|pattern| Regex::new(pattern).ok())
@@ -927,7 +927,7 @@ impl AchievementAnalyzer {
             r"(?i)(?:exceeded|surpassed|outperformed|achieved|reached|delivered|completed)",
             r"(?i)(?:award|recognition|promotion|certification|achievement|success)",
         ];
-        
+
         self.achievement_patterns = achievement_patterns
             .into_iter()
             .filter_map(|pattern| Regex::new(pattern).ok())
@@ -938,7 +938,7 @@ impl AchievementAnalyzer {
             r"(?i)resulting in|led to|which resulted in|outcome was|impact was",
             r"(?i)(?:increased|decreased|improved|enhanced|reduced|optimized|streamlined)\s+.+\s+by\s+\d+",
         ];
-        
+
         self.outcome_patterns = outcome_patterns
             .into_iter()
             .filter_map(|pattern| Regex::new(pattern).ok())
