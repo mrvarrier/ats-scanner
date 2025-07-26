@@ -909,29 +909,40 @@ impl AchievementAnalyzer {
 
     fn initialize_patterns(&mut self) {
         // Quantification patterns (numbers, percentages, money, time)
-        self.quantification_patterns = vec![
-            Regex::new(r"\d+%").unwrap(), // Percentages
-            Regex::new(r"\$\d+[\d,]*(?:\.\d+)?[KMB]?").unwrap(), // Money
-            Regex::new(r"\d+[\d,]*\+?\s*(?:users|customers|clients|people|employees|hours|days|weeks|months|years)").unwrap(), // Counts with units
-            Regex::new(r"\d+[\d,]*(?:\.\d+)?\s*(?:million|thousand|billion|hours|minutes|seconds|days|weeks|months|years)").unwrap(), // Large numbers with units
-            Regex::new(r"(?:increased|decreased|reduced|improved|saved|generated|grew)\s+(?:by\s+)?\d+").unwrap(), // Change amounts
+        let patterns = vec![
+            r"\d+%", // Percentages
+            r"\$\d+[\d,]*(?:\.\d+)?[KMB]?", // Money
+            r"\d+[\d,]*\+?\s*(?:users|customers|clients|people|employees|hours|days|weeks|months|years)", // Counts with units
+            r"\d+[\d,]*(?:\.\d+)?\s*(?:million|thousand|billion|hours|minutes|seconds|days|weeks|months|years)", // Large numbers with units
+            r"(?:increased|decreased|reduced|improved|saved|generated|grew)\s+(?:by\s+)?\d+", // Change amounts
         ];
+        
+        self.quantification_patterns = patterns
+            .into_iter()
+            .filter_map(|pattern| Regex::new(pattern).ok())
+            .collect();
 
         // Achievement patterns (success indicators)
-        self.achievement_patterns = vec![
-            Regex::new(
-                r"(?i)(?:exceeded|surpassed|outperformed|achieved|reached|delivered|completed)",
-            )
-            .unwrap(),
-            Regex::new(r"(?i)(?:award|recognition|promotion|certification|achievement|success)")
-                .unwrap(),
+        let achievement_patterns = vec![
+            r"(?i)(?:exceeded|surpassed|outperformed|achieved|reached|delivered|completed)",
+            r"(?i)(?:award|recognition|promotion|certification|achievement|success)",
         ];
+        
+        self.achievement_patterns = achievement_patterns
+            .into_iter()
+            .filter_map(|pattern| Regex::new(pattern).ok())
+            .collect();
 
         // Outcome patterns (result indicators)
-        self.outcome_patterns = vec![
-            Regex::new(r"(?i)resulting in|led to|which resulted in|outcome was|impact was").unwrap(),
-            Regex::new(r"(?i)(?:increased|decreased|improved|enhanced|reduced|optimized|streamlined)\s+.+\s+by\s+\d+").unwrap(),
+        let outcome_patterns = vec![
+            r"(?i)resulting in|led to|which resulted in|outcome was|impact was",
+            r"(?i)(?:increased|decreased|improved|enhanced|reduced|optimized|streamlined)\s+.+\s+by\s+\d+",
         ];
+        
+        self.outcome_patterns = outcome_patterns
+            .into_iter()
+            .filter_map(|pattern| Regex::new(pattern).ok())
+            .collect();
     }
 
     fn initialize_stop_words(&mut self) {

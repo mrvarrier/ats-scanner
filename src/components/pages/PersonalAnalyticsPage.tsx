@@ -35,7 +35,12 @@ import {
   User,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import type { CommandResult, Analysis, JobAnalytics } from '@/types';
+import type {
+  CommandResult,
+  Analysis,
+  AnalysisWithContent,
+  JobAnalytics,
+} from '@/types';
 
 interface PersonalMetrics {
   totalAnalyses: number;
@@ -240,7 +245,7 @@ export function PersonalAnalyticsPage() {
       if (analyses.length === 0) return [];
 
       // Use the latest resume analysis
-      const latestAnalysis = analyses[0];
+      const latestAnalysis = analyses[0] as AnalysisWithContent;
 
       // Get ML insights for career development
       const mlResult = await invoke<
@@ -265,7 +270,10 @@ export function PersonalAnalyticsPage() {
           targetLevel: skill.target_proficiency ?? 8,
           gap:
             (skill.target_proficiency ?? 8) - (skill.current_proficiency ?? 5),
-          priority: skill.priority ?? ('Medium' as const),
+          priority:
+            skill.priority === 'High' || skill.priority === 'Low'
+              ? skill.priority
+              : ('Medium' as const),
         }));
       }
     } catch {

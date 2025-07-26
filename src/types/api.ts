@@ -332,6 +332,13 @@ export interface Analysis {
   created_at: string;
 }
 
+// Extended Analysis with resolved content for frontend components
+export interface AnalysisWithContent extends Analysis {
+  resume_content: string;
+  job_description: string;
+  parsed_info?: Record<string, unknown>;
+}
+
 // Semantic Analysis Types
 export interface SemanticAnalysisResult {
   overall_score: number;

@@ -107,6 +107,19 @@ export function AnalysisPage() {
     setCurrentStep('ready');
   };
 
+  // Timeout wrapper for analysis calls
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    timeoutMs: number = 30000
+  ): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timeout')), timeoutMs)
+      ),
+    ]);
+  };
+
   // Analysis handler
   const handleAnalyze = async () => {
     if (!uploadedFile || !jobDescription.trim() || !selectedModel) {
@@ -148,6 +161,7 @@ export function AnalysisPage() {
           setCompletedAnalysis(result.data);
 
           // Run achievement analysis, ML insights, semantic analysis, format compatibility, industry analysis, ATS testing, comprehensive analysis, competitive analysis, and individual ML commands in parallel
+          // Each call has a 30-second timeout to prevent hanging
           const [
             achievementResult,
             mlInsightsResult,
@@ -166,37 +180,57 @@ export function AnalysisPage() {
             salaryPredictionMLResult,
             mlRecommendationsResult,
           ] = await Promise.allSettled([
-            runAchievementAnalysis(uploadedFile.content),
-            runMLInsights(uploadedFile.content, jobDescription),
-            runSemanticAnalysis(
-              uploadedFile.content,
-              jobDescription,
-              selectedIndustry || 'technology'
+            withTimeout(runAchievementAnalysis(uploadedFile.content)),
+            withTimeout(runMLInsights(uploadedFile.content, jobDescription)),
+            withTimeout(
+              runSemanticAnalysis(
+                uploadedFile.content,
+                jobDescription,
+                selectedIndustry || 'technology'
+              )
             ),
-            runFormatCompatibilityCheck(uploadedFile.content),
-            runIndustryAnalysis(
-              uploadedFile.content,
-              jobDescription,
-              selectedIndustry || 'technology'
+            withTimeout(runFormatCompatibilityCheck(uploadedFile.content)),
+            withTimeout(
+              runIndustryAnalysis(
+                uploadedFile.content,
+                jobDescription,
+                selectedIndustry || 'technology'
+              )
             ),
-            runATSValidationSuite(),
-            runATSSimulation(uploadedFile.content, jobDescription),
-            runComprehensiveAnalysis(
-              uploadedFile.content,
-              jobDescription,
-              selectedIndustry || 'technology'
+            withTimeout(runATSValidationSuite()),
+            withTimeout(runATSSimulation(uploadedFile.content, jobDescription)),
+            withTimeout(
+              runComprehensiveAnalysis(
+                uploadedFile.content,
+                jobDescription,
+                selectedIndustry || 'technology'
+              )
             ),
-            runCompetitiveAnalysis(uploadedFile.content, jobDescription),
-            runMarketPositionAnalysis(uploadedFile.content, jobDescription),
-            runSalaryInsights(uploadedFile.content, jobDescription),
-            runHiringProbabilityAnalysis(uploadedFile.content, jobDescription),
-            runApplicationSuccessPrediction(
-              uploadedFile.content,
-              jobDescription
+            withTimeout(
+              runCompetitiveAnalysis(uploadedFile.content, jobDescription)
             ),
-            runCareerPathSuggestions(uploadedFile.content),
-            runSalaryPredictionML(uploadedFile.content, jobDescription),
-            runMLRecommendations(uploadedFile.content, jobDescription),
+            withTimeout(
+              runMarketPositionAnalysis(uploadedFile.content, jobDescription)
+            ),
+            withTimeout(
+              runSalaryInsights(uploadedFile.content, jobDescription)
+            ),
+            withTimeout(
+              runHiringProbabilityAnalysis(uploadedFile.content, jobDescription)
+            ),
+            withTimeout(
+              runApplicationSuccessPrediction(
+                uploadedFile.content,
+                jobDescription
+              )
+            ),
+            withTimeout(runCareerPathSuggestions(uploadedFile.content)),
+            withTimeout(
+              runSalaryPredictionML(uploadedFile.content, jobDescription)
+            ),
+            withTimeout(
+              runMLRecommendations(uploadedFile.content, jobDescription)
+            ),
           ]);
 
           // Prepare detailed analysis data

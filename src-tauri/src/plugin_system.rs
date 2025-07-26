@@ -424,7 +424,7 @@ pub struct PluginManager {
 }
 
 impl PluginManager {
-    pub fn new(plugins_directory: PathBuf) -> Self {
+    pub async fn new(plugins_directory: PathBuf) -> Self {
         let mut manager = Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             plugin_configs: Arc::new(RwLock::new(HashMap::new())),
@@ -432,25 +432,22 @@ impl PluginManager {
         };
 
         // Register built-in plugins
-        manager.register_builtin_plugins();
+        manager.register_builtin_plugins().await;
         manager
     }
 
-    fn register_builtin_plugins(&mut self) {
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            let mut plugins = self.plugins.write().await;
+    async fn register_builtin_plugins(&mut self) {
+        let mut plugins = self.plugins.write().await;
 
-            // Register custom scoring plugin
-            let custom_scoring = Box::new(CustomScoringPlugin::new());
-            plugins.insert(custom_scoring.info().id.clone(), custom_scoring);
+        // Register custom scoring plugin
+        let custom_scoring = Box::new(CustomScoringPlugin::new());
+        plugins.insert(custom_scoring.info().id.clone(), custom_scoring);
 
-            // Register advanced analytics plugin
-            let analytics = Box::new(AdvancedAnalyticsPlugin::new());
-            plugins.insert(analytics.info().id.clone(), analytics);
+        // Register advanced analytics plugin
+        let analytics = Box::new(AdvancedAnalyticsPlugin::new());
+        plugins.insert(analytics.info().id.clone(), analytics);
 
-            info!("Registered {} built-in plugins", plugins.len());
-        });
+        info!("Registered {} built-in plugins", plugins.len());
     }
 
     pub async fn list_plugins(&self) -> Vec<PluginInfo> {
@@ -550,7 +547,7 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_manager_creation() {
         let temp_dir = tempdir().unwrap();
-        let manager = PluginManager::new(temp_dir.path().to_path_buf());
+        let manager = PluginManager::new(temp_dir.path().to_path_buf()).await;
 
         let plugins = manager.list_plugins().await;
         assert!(plugins.len() >= 2); // At least the built-in plugins
@@ -568,7 +565,7 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_execution() {
         let temp_dir = tempdir().unwrap();
-        let manager = PluginManager::new(temp_dir.path().to_path_buf());
+        let manager = PluginManager::new(temp_dir.path().to_path_buf()).await;
 
         let input_data = serde_json::json!({
             "category_scores": {

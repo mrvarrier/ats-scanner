@@ -216,8 +216,7 @@ export function ResumeWritingAssistant() {
 
         // Update metrics with real-time data
         setMetrics(prevMetrics => ({
-          ...prevMetrics,
-          overall_score: result.data.real_time_score,
+          overall_score: result.data?.real_time_score ?? 0,
           section_scores: {
             summary: 70,
             experience: 70,
@@ -225,9 +224,12 @@ export function ResumeWritingAssistant() {
             education: 70,
             achievements: 70,
             ...prevMetrics?.section_scores,
-            [activeSection]: result.data.section_strength,
+            [activeSection]: result.data?.section_strength ?? 0,
           },
-          ats_score: result.data.real_time_score,
+          word_count: prevMetrics?.word_count ?? 0,
+          readability_score: prevMetrics?.readability_score ?? 0,
+          keyword_density: prevMetrics?.keyword_density ?? 0,
+          ats_score: result.data?.real_time_score ?? 0,
         }));
       } else {
         throw new Error(result.error ?? 'Failed to generate suggestions');

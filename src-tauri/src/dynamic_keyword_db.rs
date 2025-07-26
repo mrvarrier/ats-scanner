@@ -960,29 +960,20 @@ pub struct UserFeedback {
     pub context: Option<String>, // Where this keyword was found
 }
 
-impl Default for DynamicKeywordDatabase {
-    fn default() -> Self {
-        // Note: This is a fallback implementation, should not be used in production
-        // In practice, always use DynamicKeywordDatabase::new() instead
-        let database = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { Database::new().await.expect("Failed to create database") })
-        });
-
-        Self {
-            database,
-            ollama_client: OllamaClient::new(None).expect("Failed to create Ollama client"),
-            trending_keywords: HashMap::new(),
-            industry_keywords: HashMap::new(),
-            skill_relationships: HashMap::new(),
-            market_demand_cache: HashMap::new(),
-            update_interval_hours: 6,
-            confidence_threshold: 0.6,
-            max_keywords_per_industry: 500,
-            last_full_update: Utc::now() - chrono::Duration::hours(24),
-        }
+impl DynamicKeywordDatabase {
+    /// Creates a new DynamicKeywordDatabase instance with default configuration
+    /// Note: This replaces the Default trait implementation to avoid blocking operations
+    #[allow(dead_code)]
+    pub fn new_default() -> Result<Self> {
+        // Use the proper async constructor instead of blocking operations
+        Err(anyhow::anyhow!(
+            "Use DynamicKeywordDatabase::new() instead of default construction to avoid blocking operations"
+        ))
     }
 }
+
+// Remove Default implementation to prevent blocking operations
+// Note: If Default is required elsewhere, use new_default() and handle the error appropriately
 
 // Helper function to be used by the modern keyword extractor
 impl DynamicKeywordDatabase {

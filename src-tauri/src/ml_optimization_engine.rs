@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Allow dead code for comprehensive future implementation
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use log::{info, warn};
@@ -11,6 +13,7 @@ use crate::dynamic_keyword_db::DynamicKeywordDatabase;
 use crate::ollama::OllamaClient;
 
 /// Machine Learning-based optimization engine for continuous improvement
+#[allow(dead_code)]
 pub struct MLOptimizationEngine {
     database: Database,
     dynamic_db: Option<DynamicKeywordDatabase>,
@@ -654,7 +657,7 @@ impl MLOptimizationEngine {
 
         for row in model_rows {
             let model_name: String = row.get("model_name");
-            let performance_metrics: String = row.get("performance_metrics");
+            let _performance_metrics: String = row.get("performance_metrics");
             let feature_importance: String = row.get("feature_importance");
             
             if let Ok(importance_map) = serde_json::from_str::<HashMap<String, f64>>(&feature_importance) {
@@ -1115,6 +1118,7 @@ Consider factors like data quality, distribution shift, performance degradation,
         })
     }
 
+    #[allow(clippy::vec_init_then_push)]
     async fn generate_predictive_insights(&self, _context: &OptimizationContext) -> Result<Vec<PredictiveInsight>> {
         let mut insights = Vec::new();
 
@@ -1169,6 +1173,7 @@ Consider factors like data quality, distribution shift, performance degradation,
         Ok(insights)
     }
 
+    #[allow(clippy::vec_init_then_push)]
     async fn identify_recommendation_improvements(&self) -> Result<Vec<RecommendationImprovement>> {
         let mut improvements = Vec::new();
 
@@ -1237,6 +1242,7 @@ Consider factors like data quality, distribution shift, performance degradation,
         })
     }
 
+    #[allow(clippy::vec_init_then_push)]
     async fn analyze_feature_importance(&self) -> Result<FeatureImportanceAnalysis> {
         let mut global_importance = HashMap::new();
         global_importance.insert("keyword_frequency".to_string(), 0.25);
@@ -1290,6 +1296,7 @@ Consider factors like data quality, distribution shift, performance degradation,
         })
     }
 
+    #[allow(clippy::vec_init_then_push)]
     async fn generate_optimization_suggestions(&self) -> Result<Vec<OptimizationSuggestion>> {
         let mut suggestions = Vec::new();
 

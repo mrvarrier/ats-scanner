@@ -931,7 +931,7 @@ pub async fn list_plugins(
             ));
         }
     };
-    let plugin_manager = PluginManager::new(plugins_dir);
+    let plugin_manager = PluginManager::new(plugins_dir).await;
 
     let plugins = plugin_manager.list_plugins().await;
     info!("Found {} plugins", plugins.len());
@@ -956,7 +956,7 @@ pub async fn get_plugin_info(
             ));
         }
     };
-    let plugin_manager = PluginManager::new(plugins_dir);
+    let plugin_manager = PluginManager::new(plugins_dir).await;
 
     let plugin_info = plugin_manager.get_plugin_info(&plugin_id).await;
 
@@ -984,7 +984,7 @@ pub async fn execute_plugin(
             ));
         }
     };
-    let plugin_manager = PluginManager::new(plugins_dir);
+    let plugin_manager = PluginManager::new(plugins_dir).await;
 
     match plugin_manager
         .execute_plugin(&plugin_id, &operation, input_data)
@@ -1021,7 +1021,7 @@ pub async fn update_plugin_config(
             ));
         }
     };
-    let plugin_manager = PluginManager::new(plugins_dir);
+    let plugin_manager = PluginManager::new(plugins_dir).await;
 
     match plugin_manager
         .update_plugin_config(&plugin_id, config)

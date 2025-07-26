@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Allow dead code for comprehensive future implementation
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use log::{info, warn};
@@ -11,6 +13,7 @@ use crate::dynamic_keyword_db::DynamicKeywordDatabase;
 use crate::ollama::OllamaClient;
 
 /// AI-powered skill relationship mapping system
+#[allow(dead_code)]
 pub struct SkillRelationshipMapper {
     database: Database,
     dynamic_db: Option<DynamicKeywordDatabase>,

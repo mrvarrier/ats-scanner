@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Allow dead code for comprehensive future implementation
+
 use anyhow::Result;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -10,6 +12,7 @@ use crate::ollama::OllamaClient;
 
 /// Intelligent context-aware matching engine that understands job requirements
 /// and candidate qualifications at a semantic level
+#[allow(dead_code)]
 pub struct ContextAwareMatcher {
     database: Database,
     dynamic_db: Option<DynamicKeywordDatabase>,
@@ -52,6 +55,7 @@ pub struct ContextualMatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(clippy::enum_variant_names)]
 pub enum ContextMatchType {
     DirectMatch,     // Exact keyword/skill match
     SemanticMatch,   // Conceptually similar
@@ -239,12 +243,14 @@ pub struct ConfidenceMetrics {
 }
 
 // Component structs
+#[allow(dead_code)]
 pub struct RequirementAnalyzer {
     requirement_patterns: HashMap<String, Vec<regex::Regex>>,
     priority_indicators: Vec<regex::Regex>,
     qualification_extractors: Vec<regex::Regex>,
 }
 
+#[allow(dead_code)]
 pub struct QualificationMapper {
     skill_taxonomies: HashMap<String, SkillTaxonomy>,
     experience_patterns: Vec<regex::Regex>,
@@ -252,6 +258,7 @@ pub struct QualificationMapper {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SkillTaxonomy {
     pub domain: String,
     pub skills: HashMap<String, SkillInfo>,
@@ -277,11 +284,13 @@ pub struct CertificationInfo {
     pub validity_period: Option<u32>, // months
 }
 
+#[allow(dead_code)]
 pub struct SemanticScorer {
     embedding_cache: HashMap<String, Vec<f64>>,
     similarity_threshold: f64,
 }
 
+#[allow(dead_code)]
 pub struct IntentClassifier {
     job_role_patterns: HashMap<RoleType, Vec<regex::Regex>>,
     seniority_indicators: HashMap<ExperienceLevel, Vec<String>>,
@@ -659,8 +668,8 @@ Return only a number between 0.0 and 1.0."#,
         matches: &[ContextualMatch],
         requirements: &[ParsedRequirement],
         qualifications: &QualificationAnalysis,
-        job_description: &str,
-        resume_content: &str,
+        _job_description: &str,
+        _resume_content: &str,
     ) -> Result<Vec<SemanticInsight>> {
         let mut insights = Vec::new();
 
@@ -734,8 +743,8 @@ Return only a number between 0.0 and 1.0."#,
         &self,
         job_description: &str,
         resume_content: &str,
-        requirements: &[ParsedRequirement],
-        qualifications: &QualificationAnalysis,
+        _requirements: &[ParsedRequirement],
+        _qualifications: &QualificationAnalysis,
     ) -> Result<IntentAnalysis> {
         // Analyze job intent
         let job_intent = self.intent_classifier.analyze_job_intent(job_description).await?;
@@ -877,7 +886,7 @@ Return a JSON array of motivational indicators found.
 
     async fn identify_risk_factors(
         &self,
-        job_description: &str,
+        _job_description: &str,
         resume_content: &str,
         job_intent: &JobIntent,
         candidate_intent: &CandidateIntent,
@@ -1119,7 +1128,7 @@ impl RequirementAnalyzer {
         
         // Split job description into sentences for better parsing
         let sentences: Vec<&str> = job_description
-            .split(|c| c == '.' || c == ';' || c == '\n')
+            .split(['.', ';', '\n'])
             .filter(|s| !s.trim().is_empty())
             .collect();
 
@@ -1321,6 +1330,12 @@ impl QualificationMapper {
         }
 
         Ok(projects)
+    }
+}
+
+impl Default for SemanticScorer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

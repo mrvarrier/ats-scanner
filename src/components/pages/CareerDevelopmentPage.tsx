@@ -28,7 +28,7 @@ import {
   TreePine,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import type { CommandResult, Analysis } from '@/types';
+import type { CommandResult, Analysis, AnalysisWithContent } from '@/types';
 
 interface CareerPathNode {
   role: string;
@@ -135,17 +135,20 @@ export function CareerDevelopmentPage() {
       ) {
         const latestAnalysis = analysisResult.data[0];
 
+        // Cast to AnalysisWithContent for type safety (content fields will be handled with nullish coalescing)
+        const analysisWithContent = latestAnalysis as AnalysisWithContent;
+
         // Load career path suggestions
-        await loadCareerPaths(latestAnalysis);
+        await loadCareerPaths(analysisWithContent);
 
         // Load skill development plan
-        await loadSkillDevelopmentPlan(latestAnalysis);
+        await loadSkillDevelopmentPlan(analysisWithContent);
 
         // Load salary projections
-        await loadSalaryProjections(latestAnalysis);
+        await loadSalaryProjections(analysisWithContent);
 
         // Load industry transition analysis
-        await loadIndustryTransitions(latestAnalysis);
+        await loadIndustryTransitions(analysisWithContent);
       }
     } catch (error) {
       toast({
@@ -159,7 +162,7 @@ export function CareerDevelopmentPage() {
   }, []);
 
   // Load career path suggestions using ML insights
-  const loadCareerPaths = async (analysis: Analysis) => {
+  const loadCareerPaths = async (analysis: AnalysisWithContent) => {
     try {
       const result = await invoke<
         CommandResult<{ career_paths: CareerPathNode[] }>
@@ -240,7 +243,7 @@ export function CareerDevelopmentPage() {
   };
 
   // Load skill development plan
-  const loadSkillDevelopmentPlan = async (analysis: Analysis) => {
+  const loadSkillDevelopmentPlan = async (analysis: AnalysisWithContent) => {
     try {
       const result = await invoke<
         CommandResult<{ skill_development_plan?: SkillDevelopmentPlan[] }>
@@ -360,7 +363,7 @@ export function CareerDevelopmentPage() {
   };
 
   // Load salary projections
-  const loadSalaryProjections = async (analysis: Analysis) => {
+  const loadSalaryProjections = async (analysis: AnalysisWithContent) => {
     try {
       const result = await invoke<
         CommandResult<{ salary_projection?: SalaryProjection }>
@@ -420,7 +423,7 @@ export function CareerDevelopmentPage() {
   };
 
   // Load industry transition analysis
-  const loadIndustryTransitions = async (analysis: Analysis) => {
+  const loadIndustryTransitions = async (analysis: AnalysisWithContent) => {
     try {
       const result = await invoke<
         CommandResult<{ industry_transitions?: IndustryTransition[] }>
