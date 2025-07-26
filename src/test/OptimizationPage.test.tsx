@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from './utils';
+import { render, screen, waitFor, act } from './utils';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { OptimizationPage } from '../components/pages/OptimizationPage';
@@ -31,8 +31,10 @@ describe('OptimizationPage', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the optimization page with initial elements', () => {
-    render(<OptimizationPage />);
+  it('renders the optimization page with initial elements', async () => {
+    await act(async () => {
+      render(<OptimizationPage />);
+    });
 
     expect(screen.getByText('Resume Optimization')).toBeInTheDocument();
     expect(screen.getByText('Original Resume')).toBeInTheDocument();
@@ -273,7 +275,9 @@ describe('OptimizationPage', () => {
     await user.type(textarea, 'John Doe\nSoftware Engineer');
 
     // Fast-forward timers to trigger debounced analysis
-    vi.advanceTimersByTime(1000);
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/current score/i)).toBeInTheDocument();

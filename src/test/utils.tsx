@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import { vi } from 'vitest';
 import { AllTheProviders } from './test-providers';
 // Note: Commenting out router import since we don't have it installed yet
 // import { BrowserRouter } from 'react-router-dom'
@@ -95,6 +96,8 @@ export {
 } from '@testing-library/react';
 export { customRender as render };
 
+// Enhanced helpers are declared above with export const
+
 // Helper to create a file for testing
 export const createMockFile = (
   name: string,
@@ -111,4 +114,31 @@ export const createDataTransfer = (files: File[]) => {
   const dt = new DataTransfer();
   files.forEach(file => dt.items.add(file));
   return dt;
+};
+
+// Enhanced helper to render components with proper act() wrapping
+export const renderWithAct = async (
+  ui: React.ReactElement,
+  options?: Omit<RenderOptions, 'wrapper'>
+) => {
+  let renderResult: ReturnType<typeof render>;
+  await act(async () => {
+    renderResult = render(ui, { wrapper: AllTheProviders, ...options });
+  });
+  return renderResult!;
+};
+
+// Helper to advance timers with proper act() wrapping
+export const advanceTimersWithAct = async (ms: number) => {
+  await act(async () => {
+    vi.advanceTimersByTime(ms);
+  });
+};
+
+// Helper to wait for async state updates with act()
+export const waitForAsyncState = async (callback: () => void) => {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(callback);
 };
