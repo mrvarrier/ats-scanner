@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{error, info};
+use log::{error, info, warn};
 use serde::Serialize;
 use std::path::Path;
 use tauri::{Manager, State};
@@ -33,6 +33,7 @@ use crate::smart_optimizer::{
 use crate::competitive_analyzer::{CompetitiveAnalysis, CompetitiveAnalyzer};
 // Phase 6 imports
 use crate::document::DocumentParser;
+use crate::migrations::{MigrationManager, MigrationResult, SchemaVersion};
 use crate::ml_insights::{MLInsights, MLInsightsEngine};
 use crate::modern_keyword_extractor::ExtractionResult;
 use crate::ollama::OllamaClient;
@@ -3351,6 +3352,168 @@ pub async fn submit_keyword_feedback(
                 "Failed to access dynamic keyword database: {}",
                 e
             )))
+        }
+    }
+}
+
+// ============================================================================
+// DATABASE MIGRATION COMMANDS
+// ============================================================================
+
+/// Get current database schema version and migration status
+#[tauri::command]
+pub async fn get_schema_version(app: tauri::AppHandle) -> CommandResult<SchemaVersion> {
+    info!("Getting database schema version");
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let mut migration_manager = MigrationManager::new(database.get_pool().clone());
+    migration_manager.register_migrations();
+
+    match migration_manager.get_schema_version().await {
+        Ok(schema_version) => {
+            info!(
+                "Schema version retrieved: {} (latest: {})",
+                schema_version.current_version, schema_version.latest_available
+            );
+            CommandResult::success(schema_version)
+        }
+        Err(e) => {
+            error!("Failed to get schema version: {}", e);
+            CommandResult::error(format!("Failed to get schema version: {}", e))
+        }
+    }
+}
+
+/// Run database migrations to update schema to latest version
+#[tauri::command]
+pub async fn run_database_migrations(app: tauri::AppHandle) -> CommandResult<Vec<MigrationResult>> {
+    info!("Running database migrations");
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let mut migration_manager = MigrationManager::new(database.get_pool().clone());
+
+    match migration_manager.initialize().await {
+        Ok(()) => {
+            migration_manager.register_migrations();
+
+            match migration_manager.migrate().await {
+                Ok(results) => {
+                    let successful_migrations = results.iter().filter(|r| r.success).count();
+                    let failed_migrations = results.iter().filter(|r| !r.success).count();
+
+                    info!(
+                        "Migration completed: {} successful, {} failed",
+                        successful_migrations, failed_migrations
+                    );
+
+                    CommandResult::success(results)
+                }
+                Err(e) => {
+                    error!("Migration failed: {}", e);
+                    CommandResult::error(format!("Migration failed: {}", e))
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to initialize migration manager: {}", e);
+            CommandResult::error(format!("Failed to initialize migration manager: {}", e))
+        }
+    }
+}
+
+/// Rollback a specific migration version
+#[tauri::command]
+pub async fn rollback_migration(
+    app: tauri::AppHandle,
+    version: i32,
+) -> CommandResult<MigrationResult> {
+    info!("Rolling back migration version {}", version);
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let mut migration_manager = MigrationManager::new(database.get_pool().clone());
+    migration_manager.register_migrations();
+
+    match migration_manager.rollback(version).await {
+        Ok(result) => {
+            if result.success {
+                info!("Migration {} rolled back successfully", version);
+            } else {
+                warn!(
+                    "Migration {} rollback failed: {}",
+                    version,
+                    result.error_message.as_deref().unwrap_or("Unknown error")
+                );
+            }
+            CommandResult::success(result)
+        }
+        Err(e) => {
+            error!("Failed to rollback migration {}: {}", version, e);
+            CommandResult::error(format!("Failed to rollback migration {}: {}", version, e))
+        }
+    }
+}
+
+/// Verify database migration integrity
+#[tauri::command]
+pub async fn verify_migration_integrity(app: tauri::AppHandle) -> CommandResult<Vec<String>> {
+    info!("Verifying migration integrity");
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let mut migration_manager = MigrationManager::new(database.get_pool().clone());
+    migration_manager.register_migrations();
+
+    match migration_manager.verify_integrity().await {
+        Ok(issues) => {
+            if issues.is_empty() {
+                info!("Migration integrity verification passed");
+            } else {
+                warn!("Found {} migration integrity issues", issues.len());
+            }
+            CommandResult::success(issues)
+        }
+        Err(e) => {
+            error!("Failed to verify migration integrity: {}", e);
+            CommandResult::error(format!("Failed to verify migration integrity: {}", e))
+        }
+    }
+}
+
+/// Clean up expired cache entries
+#[tauri::command]
+pub async fn cleanup_expired_cache(app: tauri::AppHandle) -> CommandResult<u64> {
+    info!("Cleaning up expired cache entries");
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let migration_manager = MigrationManager::new(database.get_pool().clone());
+
+    match migration_manager.cleanup_expired_cache().await {
+        Ok(cleaned_count) => {
+            info!("Cleaned up {} expired cache entries", cleaned_count);
+            CommandResult::success(cleaned_count)
+        }
+        Err(e) => {
+            error!("Failed to clean up expired cache: {}", e);
+            CommandResult::error(format!("Failed to clean up expired cache: {}", e))
         }
     }
 }

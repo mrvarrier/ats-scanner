@@ -4,6 +4,7 @@ use log::{error, info, warn};
 use sqlx::{Row, SqlitePool};
 use std::path::PathBuf;
 
+use crate::migrations::MigrationManager;
 use crate::models::{
     ATSCompatibilityRule, Analysis, ApplicationStatus, ApplicationStatusCount, CompanyCount,
     IndustryKeyword, JobAnalytics, JobDescription, JobPriority, JobPriorityCount, JobSearchRequest,
@@ -257,9 +258,98 @@ impl Database {
     }
 
     async fn run_migrations(&self) -> Result<()> {
-        info!("Running database migrations");
+        info!("Starting database migration system");
 
-        // Start transaction for atomic migrations
+        // Create and initialize migration manager
+        let mut migration_manager = MigrationManager::new(self.pool.clone());
+        migration_manager
+            .initialize()
+            .await
+            .context("Failed to initialize migration system")?;
+
+        // Register all available migrations
+        migration_manager.register_migrations();
+
+        // Check current schema version
+        let schema_version = migration_manager
+            .get_schema_version()
+            .await
+            .context("Failed to get schema version")?;
+
+        info!(
+            "Database schema version: {} (latest available: {})",
+            schema_version.current_version, schema_version.latest_available
+        );
+
+        // Run core table creation (base schema) if needed
+        if schema_version.current_version == 0 {
+            self.create_base_schema()
+                .await
+                .context("Failed to create base database schema")?;
+        }
+
+        // Apply any pending migrations
+        if !schema_version.is_up_to_date {
+            info!(
+                "Applying {} pending migrations",
+                schema_version.pending_migrations.len()
+            );
+
+            let migration_results = migration_manager
+                .migrate()
+                .await
+                .context("Failed to run migrations")?;
+
+            // Log migration results
+            for result in &migration_results {
+                if result.success {
+                    info!(
+                        "✅ Migration {} completed in {}ms",
+                        result.version, result.execution_time_ms
+                    );
+                } else {
+                    error!(
+                        "❌ Migration {} failed: {}",
+                        result.version,
+                        result.error_message.as_deref().unwrap_or("Unknown error")
+                    );
+                }
+            }
+
+            // Verify integrity after migrations
+            let integrity_issues = migration_manager
+                .verify_integrity()
+                .await
+                .context("Failed to verify migration integrity")?;
+
+            if !integrity_issues.is_empty() {
+                warn!("Migration integrity issues detected:");
+                for issue in &integrity_issues {
+                    warn!("  - {}", issue);
+                }
+            }
+        } else {
+            info!("Database schema is up to date");
+        }
+
+        // Clean up expired cache entries
+        let _cleaned = migration_manager
+            .cleanup_expired_cache()
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Failed to clean up expired cache: {}", e);
+                0
+            });
+
+        info!("Database migration system completed successfully");
+        Ok(())
+    }
+
+    /// Create the base database schema (tables that must exist before migrations)
+    async fn create_base_schema(&self) -> Result<()> {
+        info!("Creating base database schema");
+
+        // Start transaction for atomic schema creation
         let mut tx = self.pool.begin().await?;
 
         // Create resumes table

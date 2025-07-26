@@ -5,6 +5,7 @@ mod commands;
 mod config;
 mod database;
 mod document;
+mod migrations;
 mod models;
 mod ollama;
 mod plugin_system;
@@ -191,6 +192,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::get_market_demand_data,
             commands::get_industry_keywords_dynamic,
             commands::submit_keyword_feedback,
+            // Database Migration Management Commands
+            commands::get_schema_version,
+            commands::run_database_migrations,
+            commands::rollback_migration,
+            commands::verify_migration_integrity,
+            commands::cleanup_expired_cache,
         ])
         .setup(|_app| {
             info!("Application setup completed");

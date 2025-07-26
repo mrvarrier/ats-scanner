@@ -4,6 +4,7 @@ pub mod commands;
 pub mod config;
 pub mod database;
 pub mod document;
+pub mod migrations;
 pub mod models;
 pub mod ollama;
 pub mod plugin_system;
