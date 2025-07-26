@@ -34,6 +34,7 @@ mod ml_insights;
 mod context_aware_matcher;
 mod dynamic_keyword_db;
 mod modern_keyword_extractor;
+mod skill_relationship_mapper;
 
 use crate::config::ConfigManager;
 use crate::database::Database;
@@ -180,6 +181,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::analyze_resume_modern_nlp,
             // Phase 3: Context-Aware Matching Engine Commands (2024-2025 upgrade)
             commands::analyze_context_aware_match,
+            // Phase 4: AI-Powered Skill Relationship Mapping Commands (2024-2025 upgrade)
+            commands::analyze_skill_relationships,
             // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
             commands::get_trending_keywords,
             commands::get_market_demand_data,

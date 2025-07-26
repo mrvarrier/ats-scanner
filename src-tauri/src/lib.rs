@@ -33,6 +33,7 @@ pub mod ml_insights;
 pub mod context_aware_matcher;
 pub mod dynamic_keyword_db;
 pub mod modern_keyword_extractor;
+pub mod skill_relationship_mapper;
 
 use config::ConfigManager;
 use database::Database;

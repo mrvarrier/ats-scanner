@@ -2996,6 +2996,58 @@ pub async fn analyze_context_aware_match(
     }
 }
 
+// Phase 4: AI-Powered Skill Relationship Mapping Commands (2024-2025 upgrade)
+#[tauri::command]
+pub async fn analyze_skill_relationships(
+    app: tauri::AppHandle,
+    resume_skills: Vec<String>,
+    job_requirements: Vec<String>,
+    target_industry: String,
+    career_goals: Option<String>,
+) -> Result<CommandResult<crate::skill_relationship_mapper::SkillRelationshipResult>, String> {
+    info!(
+        "Starting skill relationship analysis for {} skills in {} industry",
+        resume_skills.len(),
+        target_industry
+    );
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    match crate::skill_relationship_mapper::SkillRelationshipMapper::new(database).await {
+        Ok(mapper) => {
+            match mapper.analyze_skill_relationships(
+                &resume_skills,
+                &job_requirements,
+                &target_industry,
+                career_goals.as_deref(),
+            ).await {
+                Ok(result) => {
+                    info!(
+                        "Skill relationship analysis completed with {} career paths and {} learning recommendations",
+                        result.career_progression_paths.len(),
+                        result.learning_recommendations.len()
+                    );
+                    Ok(CommandResult::success(result))
+                }
+                Err(e) => {
+                    error!("Skill relationship analysis failed: {}", e);
+                    Ok(CommandResult::error(format!("Skill relationship analysis failed: {}", e)))
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to create skill relationship mapper: {}", e);
+            Ok(CommandResult::error(format!(
+                "Skill relationship mapper initialization failed: {}",
+                e
+            )))
+        }
+    }
+}
+
 // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
 #[tauri::command]
 pub async fn get_trending_keywords(
