@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::{error, info};
 use serde::Serialize;
 use std::path::Path;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::models::{
     ATSCompatibilityRule, Analysis, AnalysisRequest, AnalysisResult, DocumentInfo, IndustryKeyword,
@@ -34,6 +34,7 @@ use crate::competitive_analyzer::{CompetitiveAnalysis, CompetitiveAnalyzer};
 // Phase 6 imports
 use crate::document::DocumentParser;
 use crate::ml_insights::{MLInsights, MLInsightsEngine};
+use crate::modern_keyword_extractor::ExtractionResult;
 use crate::ollama::OllamaClient;
 use crate::plugin_system::{PluginExecutionResult, PluginInfo, PluginManager};
 use crate::scoring::AnalysisEngine;
@@ -2852,4 +2853,66 @@ pub async fn compare_job_descriptions(
 
     info!("Job comparison completed");
     Ok(CommandResult::success(result))
+}
+
+// Modern Keyword Extraction Command (Phase 1 of 2024-2025 upgrade)
+#[tauri::command]
+pub async fn analyze_resume_modern_nlp(
+    app: tauri::AppHandle,
+    resume_content: String,
+    job_description: String,
+    model_name: String,
+    target_industry: Option<String>,
+) -> Result<CommandResult<(AnalysisResult, ExtractionResult)>, String> {
+    info!("Starting modern NLP-based resume analysis");
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let ollama_client = match OllamaClient::new(None) {
+        Ok(client) => client,
+        Err(e) => {
+            error!("Failed to create Ollama client: {}", e);
+            return Ok(CommandResult::error(format!(
+                "Ollama connection failed: {}",
+                e
+            )));
+        }
+    };
+
+    let analysis_engine =
+        match AnalysisEngine::new_with_modern_extraction(ollama_client, database).await {
+            Ok(engine) => engine,
+            Err(e) => {
+                error!("Failed to create modern analysis engine: {}", e);
+                return Ok(CommandResult::error(format!(
+                    "Modern analysis engine initialization failed: {}",
+                    e
+                )));
+            }
+        };
+
+    match analysis_engine
+        .analyze_resume_modern(
+            &resume_content,
+            &job_description,
+            &model_name,
+            target_industry.as_deref(),
+        )
+        .await
+    {
+        Ok(result) => {
+            info!(
+                "Modern NLP analysis completed successfully with {} keywords extracted",
+                result.1.keyword_matches.len()
+            );
+            Ok(CommandResult::success(result))
+        }
+        Err(e) => {
+            error!("Modern resume analysis failed: {}", e);
+            Ok(CommandResult::error(format!("Analysis failed: {}", e)))
+        }
+    }
 }

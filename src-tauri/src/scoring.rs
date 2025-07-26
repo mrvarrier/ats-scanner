@@ -5,15 +5,31 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::models::{AnalysisResult, CategoryScores, OptimizationChange, OptimizationResult};
+use crate::modern_keyword_extractor::{ExtractionResult, ModernKeywordExtractor};
 use crate::ollama::OllamaClient;
 
 pub struct AnalysisEngine {
     ollama_client: OllamaClient,
+    modern_extractor: Option<ModernKeywordExtractor>,
 }
 
 impl AnalysisEngine {
     pub fn new(ollama_client: OllamaClient) -> Self {
-        Self { ollama_client }
+        Self {
+            ollama_client,
+            modern_extractor: None,
+        }
+    }
+
+    pub async fn new_with_modern_extraction(
+        ollama_client: OllamaClient,
+        database: crate::database::Database,
+    ) -> Result<Self> {
+        let modern_extractor = ModernKeywordExtractor::new(database).await?;
+        Ok(Self {
+            ollama_client,
+            modern_extractor: Some(modern_extractor),
+        })
     }
 
     pub async fn analyze_resume(
@@ -42,6 +58,39 @@ impl AnalysisEngine {
             analysis_result.overall_score
         );
         Ok(analysis_result)
+    }
+
+    pub async fn analyze_resume_modern(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+        model_name: &str,
+        target_industry: Option<&str>,
+    ) -> Result<(AnalysisResult, ExtractionResult)> {
+        info!("Starting modern resume analysis with model: {}", model_name);
+
+        // Get base analysis using existing AI method
+        let base_analysis = self
+            .analyze_resume(resume_content, job_description, model_name)
+            .await?;
+
+        // Use modern keyword extractor if available
+        let extraction_result = if let Some(extractor) = &self.modern_extractor {
+            let industry = target_industry.unwrap_or("technology");
+            extractor
+                .extract_keywords(resume_content, industry, Some(job_description))
+                .await?
+        } else {
+            // Fallback to basic extraction result
+            self.create_fallback_extraction_result(resume_content, job_description)?
+        };
+
+        info!(
+            "Modern analysis completed with {} keywords extracted",
+            extraction_result.keyword_matches.len()
+        );
+
+        Ok((base_analysis, extraction_result))
     }
 
     pub async fn optimize_resume(
@@ -454,6 +503,64 @@ impl AnalysisEngine {
         }
 
         Ok(())
+    }
+
+    fn create_fallback_extraction_result(
+        &self,
+        resume_content: &str,
+        job_description: &str,
+    ) -> Result<ExtractionResult> {
+        use crate::modern_keyword_extractor::{ClusterType, ExtractionMetadata, SkillCluster};
+
+        // Use basic keyword analysis as fallback
+        let basic_analysis = self.analyze_keywords(resume_content, job_description)?;
+
+        let keyword_matches = basic_analysis
+            .found_keywords
+            .clone()
+            .into_iter()
+            .map(|keyword| {
+                use crate::modern_keyword_extractor::{MatchType, ModernKeywordMatch, SkillLevel};
+
+                ModernKeywordMatch {
+                    keyword: keyword.clone(),
+                    normalized_form: keyword.to_lowercase(),
+                    category: "general".to_string(),
+                    confidence_score: 0.6,
+                    context_relevance: 0.5,
+                    skill_level: Some(SkillLevel::Unknown),
+                    experience_years: None,
+                    certifications: Vec::new(),
+                    context_phrases: Vec::new(),
+                    word_position: 0,
+                    semantic_variations: Vec::new(),
+                    industry_relevance: 0.5,
+                    match_type: MatchType::Exact,
+                    weight: 0.5,
+                }
+            })
+            .collect();
+
+        Ok(ExtractionResult {
+            keyword_matches,
+            skill_clusters: vec![SkillCluster {
+                cluster_name: "general_skills".to_string(),
+                skills: basic_analysis.found_keywords,
+                completeness_score: basic_analysis.match_rate / 100.0,
+                cluster_type: ClusterType::TechnicalStack,
+            }],
+            missing_critical_skills: basic_analysis.missing_keywords,
+            emerging_skills: Vec::new(),
+            confidence_score: basic_analysis.match_rate / 100.0,
+            extraction_metadata: ExtractionMetadata {
+                total_words_processed: resume_content.split_whitespace().count(),
+                technical_density: 0.3,
+                avg_confidence_score: 0.6,
+                processing_time_ms: 50,
+                nlp_model_used: "fallback".to_string(),
+                extraction_version: "1.0".to_string(),
+            },
+        })
     }
 }
 

@@ -30,6 +30,8 @@ mod smart_optimizer;
 mod competitive_analyzer;
 // Phase 6 Advanced AI Integration & Machine Learning
 mod ml_insights;
+// Modern NLP-Based Keyword Extraction (2024-2025)
+mod modern_keyword_extractor;
 
 use crate::config::ConfigManager;
 use crate::database::Database;
@@ -172,6 +174,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::get_job_analytics,
             commands::extract_job_from_url,
             commands::compare_job_descriptions,
+            // Modern NLP-Based Keyword Extraction Commands (2024-2025 upgrade)
+            commands::analyze_resume_modern_nlp,
         ])
         .setup(|_app| {
             info!("Application setup completed");

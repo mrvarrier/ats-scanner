@@ -29,6 +29,8 @@ pub mod smart_optimizer;
 pub mod competitive_analyzer;
 // Phase 6 Advanced AI Integration & Machine Learning
 pub mod ml_insights;
+// Modern NLP-Based Keyword Extraction (2024-2025)
+pub mod modern_keyword_extractor;
 
 use config::ConfigManager;
 use database::Database;
