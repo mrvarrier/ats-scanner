@@ -2916,3 +2916,179 @@ pub async fn analyze_resume_modern_nlp(
         }
     }
 }
+
+// Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
+#[tauri::command]
+pub async fn get_trending_keywords(
+    app: tauri::AppHandle,
+    limit: Option<usize>,
+) -> Result<CommandResult<Vec<crate::dynamic_keyword_db::TrendingKeywordData>>, String> {
+    info!("Getting trending keywords with limit: {:?}", limit);
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    match crate::dynamic_keyword_db::DynamicKeywordDatabase::new(database).await {
+        Ok(dynamic_db) => {
+            let trending = dynamic_db.get_trending_keywords(limit);
+            let trending_data: Vec<_> = trending.into_iter().cloned().collect();
+
+            info!("Retrieved {} trending keywords", trending_data.len());
+            Ok(CommandResult::success(trending_data))
+        }
+        Err(e) => {
+            error!("Failed to access dynamic keyword database: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to get trending keywords: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_demand_data(
+    app: tauri::AppHandle,
+    skill: String,
+) -> Result<CommandResult<Option<crate::dynamic_keyword_db::MarketDemandData>>, String> {
+    info!("Getting market demand data for skill: {}", skill);
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    match crate::dynamic_keyword_db::DynamicKeywordDatabase::new(database).await {
+        Ok(dynamic_db) => match dynamic_db.get_market_demand(&skill).await {
+            Ok(market_data) => {
+                info!(
+                    "Retrieved market demand data for skill '{}': {:?}",
+                    skill,
+                    market_data.is_some()
+                );
+                Ok(CommandResult::success(market_data))
+            }
+            Err(e) => {
+                error!(
+                    "Failed to get market demand data for skill '{}': {}",
+                    skill, e
+                );
+                Ok(CommandResult::error(format!(
+                    "Failed to get market demand data: {}",
+                    e
+                )))
+            }
+        },
+        Err(e) => {
+            error!("Failed to access dynamic keyword database: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to access dynamic keyword database: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_industry_keywords_dynamic(
+    app: tauri::AppHandle,
+    industry: String,
+) -> Result<CommandResult<Vec<crate::dynamic_keyword_db::DynamicKeyword>>, String> {
+    info!("Getting dynamic keywords for industry: {}", industry);
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    match crate::dynamic_keyword_db::DynamicKeywordDatabase::new(database).await {
+        Ok(mut dynamic_db) => match dynamic_db.get_industry_keywords(&industry).await {
+            Ok(keywords) => {
+                info!(
+                    "Retrieved {} dynamic keywords for industry '{}'",
+                    keywords.len(),
+                    industry
+                );
+                Ok(CommandResult::success(keywords))
+            }
+            Err(e) => {
+                error!(
+                    "Failed to get dynamic keywords for industry '{}': {}",
+                    industry, e
+                );
+                Ok(CommandResult::error(format!(
+                    "Failed to get industry keywords: {}",
+                    e
+                )))
+            }
+        },
+        Err(e) => {
+            error!("Failed to access dynamic keyword database: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to access dynamic keyword database: {}",
+                e
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn submit_keyword_feedback(
+    app: tauri::AppHandle,
+    keyword: String,
+    industry: String,
+    rating: u8,
+    comment: Option<String>,
+    context: Option<String>,
+) -> Result<CommandResult<()>, String> {
+    info!(
+        "Submitting feedback for keyword '{}' in industry '{}' with rating: {}",
+        keyword, industry, rating
+    );
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    let feedback = crate::dynamic_keyword_db::UserFeedback {
+        keyword: keyword.clone(),
+        industry: industry.clone(),
+        rating,
+        comment,
+        context,
+    };
+
+    match crate::dynamic_keyword_db::DynamicKeywordDatabase::new(database).await {
+        Ok(mut dynamic_db) => {
+            match dynamic_db
+                .add_user_feedback(&keyword, &industry, feedback)
+                .await
+            {
+                Ok(()) => {
+                    info!(
+                        "Successfully submitted feedback for keyword '{}' in industry '{}'",
+                        keyword, industry
+                    );
+                    Ok(CommandResult::success(()))
+                }
+                Err(e) => {
+                    error!("Failed to submit feedback for keyword '{}': {}", keyword, e);
+                    Ok(CommandResult::error(format!(
+                        "Failed to submit keyword feedback: {}",
+                        e
+                    )))
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to access dynamic keyword database: {}", e);
+            Ok(CommandResult::error(format!(
+                "Failed to access dynamic keyword database: {}",
+                e
+            )))
+        }
+    }
+}

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::database::Database;
+use crate::dynamic_keyword_db::DynamicKeywordDatabase;
 use crate::ollama::OllamaClient;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +90,7 @@ pub struct ModernKeywordExtractor {
     #[allow(dead_code)]
     database: Database,
     ollama_client: OllamaClient,
+    dynamic_db: Option<DynamicKeywordDatabase>,
 
     // Advanced NLP components
     stemmer: PorterStemmer,
@@ -183,9 +185,19 @@ impl ModernKeywordExtractor {
         let ollama_client = OllamaClient::new(None)?;
         let stemmer = PorterStemmer::new();
 
+        // Initialize dynamic keyword database
+        let dynamic_db = match DynamicKeywordDatabase::new(database.clone()).await {
+            Ok(db) => Some(db),
+            Err(e) => {
+                log::warn!("Failed to initialize dynamic keyword database: {}", e);
+                None
+            }
+        };
+
         let mut extractor = Self {
             database,
             ollama_client,
+            dynamic_db,
             stemmer,
             skill_patterns: HashMap::new(),
             experience_patterns: Vec::new(),
@@ -602,6 +614,16 @@ impl ModernKeywordExtractor {
 
         // Step 9: Identify emerging skills
         let emerging_skills = self.identify_emerging_skills(&all_matches, target_industry)?;
+
+        // Step 10: Enhance with dynamic database (Phase 2 integration)
+        if let Some(ref dynamic_db) = self.dynamic_db {
+            if let Err(e) = dynamic_db
+                .enhance_extraction_with_live_data(&mut all_matches, target_industry)
+                .await
+            {
+                log::warn!("Failed to enhance extraction with dynamic data: {}", e);
+            }
+        }
 
         let processing_time = start_time.elapsed();
 
