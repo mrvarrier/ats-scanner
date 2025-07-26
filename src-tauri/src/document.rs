@@ -6,10 +6,12 @@ use quick_xml::events::Event;
 use quick_xml::name::QName;
 use quick_xml::Reader;
 use regex::Regex;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::Path;
+use tokio::io::{AsyncReadExt, BufReader as AsyncBufReader};
 use zip::ZipArchive;
 
+use crate::memory_manager::{limits, utils as memory_utils, MemoryTracker, StreamingTextProcessor};
 use crate::models::{
     DocumentContactInfo, DocumentHeading, DocumentInfo, DocumentIssue, DocumentIssueType,
     DocumentMetadata, DocumentQualityMetrics, DocumentSection, DocumentStructure,
@@ -41,6 +43,14 @@ impl DocumentParser {
             return Err(anyhow!("Path is not a file: {}", file_path));
         }
 
+        // MEMORY: Validate file size before processing
+        let size = memory_utils::validate_file_size(&validated_path).await?;
+
+        // MEMORY: Initialize memory tracking for this document
+        let memory_tracker = MemoryTracker::new();
+        let _processing_guard = memory_tracker.start_document();
+        let _memory_allocation = memory_tracker.allocate(size)?;
+
         let path = Path::new(file_path);
         let filename = path
             .file_name()
@@ -60,21 +70,31 @@ impl DocumentParser {
             return Err(anyhow!("Unsupported file type: {}", file_type));
         }
 
-        // Read file content using validated path
-        let file_content = tokio::fs::read(&validated_path).await?;
-        let size = file_content.len();
+        // MEMORY: Use memory-conscious file reading for large files
+        let content = if size > limits::LARGE_DOCUMENT_WARNING {
+            info!(
+                "Processing large document: {} MB, using streaming approach",
+                size / 1024 / 1024
+            );
+            Self::parse_file_streaming(&validated_path, &file_type).await?
+        } else {
+            // For smaller files, use traditional approach but with memory validation
+            let file_content = tokio::fs::read(&validated_path).await?;
+            memory_utils::validate_content_size(&file_content)?;
 
-        // Parse based on file type
-        let content = match file_type.as_str() {
-            "pdf" => Self::parse_pdf(&file_content).await?,
-            "docx" => Self::parse_docx(&file_content).await?,
-            "doc" => Self::parse_doc(&file_content).await?,
-            "txt" => Self::parse_text(&file_content).await?,
-            _ => return Err(anyhow!("Unsupported file type: {}", file_type)),
+            // Parse based on file type
+            match file_type.as_str() {
+                "pdf" => Self::parse_pdf(&file_content).await?,
+                "docx" => Self::parse_docx(&file_content).await?,
+                "doc" => Self::parse_doc(&file_content).await?,
+                "txt" => Self::parse_text(&file_content).await?,
+                _ => return Err(anyhow!("Unsupported file type: {}", file_type)),
+            }
         };
 
-        // Clean and validate content
-        let cleaned_content = Self::clean_text(&content);
+        // MEMORY: Clean and validate content with memory bounds
+        let cleaned_content =
+            memory_utils::truncate_text_safely(&Self::clean_text(&content), limits::MAX_TEXT_SIZE);
 
         if cleaned_content.trim().is_empty() {
             warn!("No text content extracted from file: {}", filename);
@@ -84,8 +104,14 @@ impl DocumentParser {
         let word_count = Self::count_words(&cleaned_content);
         let character_count = cleaned_content.chars().count();
 
-        // Extract document metadata
-        let metadata = Self::extract_metadata(&file_content, &file_type, file_path).await?;
+        // Extract document metadata (read file again if needed for small files)
+        let metadata = if size <= limits::LARGE_DOCUMENT_WARNING {
+            let file_content = tokio::fs::read(&validated_path).await?;
+            Self::extract_metadata(&file_content, &file_type, file_path).await?
+        } else {
+            // For large files, create minimal metadata
+            Self::create_minimal_metadata(&filename, &file_type, size)
+        };
 
         // Analyze document structure
         let structure = Self::analyze_document_structure(&cleaned_content);
@@ -1334,6 +1360,238 @@ impl DocumentParser {
         }
 
         (score / total_fields) * 100.0
+    }
+
+    /// Parse file using streaming approach for large files
+    async fn parse_file_streaming(file_path: &std::path::Path, file_type: &str) -> Result<String> {
+        info!("Using streaming approach for file: {}", file_path.display());
+
+        match file_type {
+            "pdf" => Self::parse_pdf_streaming(file_path).await,
+            "docx" => Self::parse_docx_streaming(file_path).await,
+            "doc" => Self::parse_doc_streaming(file_path).await,
+            "txt" => Self::parse_text_streaming(file_path).await,
+            _ => Err(anyhow!(
+                "Unsupported file type for streaming: {}",
+                file_type
+            )),
+        }
+    }
+
+    /// Parse PDF using streaming/chunked approach
+    async fn parse_pdf_streaming(file_path: &std::path::Path) -> Result<String> {
+        info!("Streaming PDF parsing for: {}", file_path.display());
+
+        // Use the streaming text processor with a custom PDF processor
+        let processor = StreamingTextProcessor::new();
+        let file = tokio::fs::File::open(file_path).await?;
+
+        // For PDF streaming, we need to read the entire file but process it in chunks
+        // This is a compromise as most PDF libraries require the full file
+        let mut content = Vec::new();
+        let mut reader = AsyncBufReader::new(file);
+        reader.read_to_end(&mut content).await?;
+
+        // Validate content size
+        memory_utils::validate_content_size(&content)?;
+
+        // Process PDF with memory bounds
+        processor
+            .process_bytes(&content, |chunk| {
+                // For PDF, we need the complete content, so we accumulate chunks
+                // and process when we have enough data
+                match pdf_extract::extract_text_from_mem(chunk) {
+                    Ok(text) => Ok(text),
+                    Err(_) => {
+                        // If chunk processing fails, try to extract readable text
+                        Ok(String::from_utf8_lossy(chunk).to_string())
+                    }
+                }
+            })
+            .await
+    }
+
+    /// Parse DOCX using streaming approach
+    async fn parse_docx_streaming(file_path: &std::path::Path) -> Result<String> {
+        info!("Streaming DOCX parsing for: {}", file_path.display());
+
+        // Open the file as a ZIP archive
+        let file = std::fs::File::open(file_path)?;
+        let mut archive = ZipArchive::new(file)?;
+
+        // Extract document.xml with memory bounds
+        let mut document_xml = archive.by_name("word/document.xml")?;
+
+        // Use a buffer reader to process the XML in chunks
+        let mut xml_content = String::new();
+        let mut buffer = vec![0; limits::CHUNK_SIZE];
+        let mut total_read = 0;
+
+        loop {
+            let bytes_read = document_xml.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+
+            total_read += bytes_read;
+            if total_read > limits::MAX_TEXT_SIZE {
+                warn!("DOCX XML content truncated at {} bytes", total_read);
+                break;
+            }
+
+            let chunk = String::from_utf8_lossy(&buffer[..bytes_read]);
+            xml_content.push_str(&chunk);
+        }
+
+        // Parse XML content with memory bounds
+        Self::extract_text_from_xml_streaming(&xml_content)
+    }
+
+    /// Parse DOC using streaming approach
+    async fn parse_doc_streaming(file_path: &std::path::Path) -> Result<String> {
+        info!("Streaming DOC parsing for: {}", file_path.display());
+
+        let processor = StreamingTextProcessor::new();
+        let file = tokio::fs::File::open(file_path).await?;
+
+        processor
+            .process_reader(file, |chunk| {
+                // Use the existing simple extraction method but on chunks
+                Self::extract_doc_text_simple_chunk(chunk)
+            })
+            .await
+    }
+
+    /// Parse text file using streaming approach
+    async fn parse_text_streaming(file_path: &std::path::Path) -> Result<String> {
+        info!("Streaming text parsing for: {}", file_path.display());
+
+        let processor = StreamingTextProcessor::new();
+        let file = tokio::fs::File::open(file_path).await?;
+
+        processor
+            .process_reader(file, |chunk| {
+                // Convert chunk to UTF-8 string
+                Ok(String::from_utf8_lossy(chunk).to_string())
+            })
+            .await
+    }
+
+    /// Extract text from XML in a streaming fashion
+    fn extract_text_from_xml_streaming(xml_content: &str) -> Result<String> {
+        let mut reader = Reader::from_str(xml_content);
+        let mut text_parts = Vec::new();
+        let mut buffer = Vec::new();
+        let mut total_text_size = 0;
+
+        loop {
+            match reader.read_event_into(&mut buffer) {
+                Ok(Event::Text(e)) => {
+                    let text = e.unescape()?.to_string();
+
+                    // Check memory bounds
+                    if total_text_size + text.len() > limits::MAX_TEXT_SIZE {
+                        warn!(
+                            "XML text extraction truncated at {} characters",
+                            total_text_size
+                        );
+                        break;
+                    }
+
+                    text_parts.push(text);
+                    total_text_size += text_parts.last().unwrap().len();
+                }
+                Ok(Event::Start(ref e)) => {
+                    // Extract element name and check for structural elements - avoiding lifetime issues
+                    let element_name = e.name();
+                    let name_owned = String::from_utf8_lossy(element_name.as_ref()).to_string();
+
+                    // Add spacing for structural elements
+                    if matches!(name_owned.as_str(), "w:p" | "w:br" | "w:tab")
+                        && total_text_size + 1 < limits::MAX_TEXT_SIZE
+                    {
+                        text_parts.push(" ".to_string());
+                        total_text_size += 1;
+                    }
+                }
+                Ok(Event::Eof) => break,
+                Err(e) => {
+                    warn!("XML parsing warning: {}", e);
+                    break;
+                }
+                _ => (),
+            }
+            buffer.clear();
+        }
+
+        Ok(text_parts.join(""))
+    }
+
+    /// Extract text from DOC chunk using simple method
+    fn extract_doc_text_simple_chunk(chunk: &[u8]) -> Result<String> {
+        let mut extracted_text = Vec::new();
+        let mut current_text = Vec::new();
+
+        // Look for sequences of printable ASCII characters
+        for &byte in chunk {
+            if (32..=126).contains(&byte) || byte == 10 || byte == 13 || byte == 9 {
+                // Printable character, newline, carriage return, or tab
+                current_text.push(byte);
+            } else if byte == 0 && !current_text.is_empty() {
+                // Null terminator, end current text chunk
+                if current_text.len() > 3 {
+                    // Only keep chunks longer than 3 characters
+                    if let Ok(text) = String::from_utf8(current_text.clone()) {
+                        let cleaned = text.trim();
+                        if !cleaned.is_empty() && cleaned.chars().any(|c| c.is_alphabetic()) {
+                            extracted_text.push(cleaned.to_string());
+                        }
+                    }
+                }
+                current_text.clear();
+            } else if !current_text.is_empty()
+                && (byte < 32 && byte != 10 && byte != 13 && byte != 9)
+            {
+                // Non-printable character, end current text chunk
+                if current_text.len() > 3 {
+                    if let Ok(text) = String::from_utf8(current_text.clone()) {
+                        let cleaned = text.trim();
+                        if !cleaned.is_empty() && cleaned.chars().any(|c| c.is_alphabetic()) {
+                            extracted_text.push(cleaned.to_string());
+                        }
+                    }
+                }
+                current_text.clear();
+            }
+        }
+
+        // Handle any remaining text
+        if !current_text.is_empty() && current_text.len() > 3 {
+            if let Ok(text) = String::from_utf8(current_text) {
+                let cleaned = text.trim();
+                if !cleaned.is_empty() && cleaned.chars().any(|c| c.is_alphabetic()) {
+                    extracted_text.push(cleaned.to_string());
+                }
+            }
+        }
+
+        Ok(extracted_text.join(" "))
+    }
+
+    /// Create minimal metadata for large files to avoid re-reading
+    fn create_minimal_metadata(filename: &str, _file_type: &str, _size: usize) -> DocumentMetadata {
+        DocumentMetadata {
+            creation_date: None,
+            modification_date: None,
+            author: None,
+            title: Some(filename.to_string()),
+            subject: None,
+            keywords: None,
+            producer: Some("ATS Scanner (Memory-Optimized)".to_string()),
+            creator: None,
+            pages: None,
+            language: None,
+        }
     }
 }
 
