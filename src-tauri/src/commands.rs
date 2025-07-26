@@ -2917,6 +2917,85 @@ pub async fn analyze_resume_modern_nlp(
     }
 }
 
+// Phase 3: Context-Aware Matching Engine Commands (2024-2025 upgrade)
+#[tauri::command]
+pub async fn analyze_context_aware_match(
+    app: tauri::AppHandle,
+    resume_content: String,
+    job_description: String,
+    target_industry: String,
+) -> Result<CommandResult<crate::context_aware_matcher::ContextAwareMatchResult>, String> {
+    info!("Starting context-aware match analysis for industry: {}", target_industry);
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    // First, perform modern keyword extraction to get extraction results
+    let ollama_client = match OllamaClient::new(None) {
+        Ok(client) => client,
+        Err(e) => {
+            error!("Failed to create Ollama client: {}", e);
+            return Ok(CommandResult::error(format!(
+                "Ollama connection failed: {}",
+                e
+            )));
+        }
+    };
+
+    let analysis_engine = match AnalysisEngine::new_with_modern_extraction(ollama_client, database.clone()).await {
+        Ok(engine) => engine,
+        Err(e) => {
+            error!("Failed to create modern analysis engine: {}", e);
+            return Ok(CommandResult::error(format!(
+                "Modern analysis engine initialization failed: {}",
+                e
+            )));
+        }
+    };
+
+    // Extract keywords first using modern analysis
+    let (_analysis_result, extraction_result) = match analysis_engine.analyze_resume_modern(
+        &resume_content, 
+        &job_description, 
+        "qwen2.5:14b", // Default model
+        Some(&target_industry)
+    ).await {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Modern resume analysis failed: {}", e);
+            return Ok(CommandResult::error(format!("Modern resume analysis failed: {}", e)));
+        }
+    };
+
+    // Now perform context-aware matching
+    match crate::context_aware_matcher::ContextAwareMatcher::new(database).await {
+        Ok(matcher) => {
+            match matcher.analyze_match(&resume_content, &job_description, &extraction_result, &target_industry).await {
+                Ok(result) => {
+                    info!(
+                        "Context-aware analysis completed with overall match score: {:.2}%",
+                        result.overall_match_score * 100.0
+                    );
+                    Ok(CommandResult::success(result))
+                }
+                Err(e) => {
+                    error!("Context-aware match analysis failed: {}", e);
+                    Ok(CommandResult::error(format!("Context-aware analysis failed: {}", e)))
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to create context-aware matcher: {}", e);
+            Ok(CommandResult::error(format!(
+                "Context-aware matcher initialization failed: {}",
+                e
+            )))
+        }
+    }
+}
+
 // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
 #[tauri::command]
 pub async fn get_trending_keywords(

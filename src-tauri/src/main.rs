@@ -31,6 +31,7 @@ mod competitive_analyzer;
 // Phase 6 Advanced AI Integration & Machine Learning
 mod ml_insights;
 // Modern NLP-Based Keyword Extraction (2024-2025)
+mod context_aware_matcher;
 mod dynamic_keyword_db;
 mod modern_keyword_extractor;
 
@@ -177,6 +178,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::compare_job_descriptions,
             // Modern NLP-Based Keyword Extraction Commands (2024-2025 upgrade)
             commands::analyze_resume_modern_nlp,
+            // Phase 3: Context-Aware Matching Engine Commands (2024-2025 upgrade)
+            commands::analyze_context_aware_match,
             // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
             commands::get_trending_keywords,
             commands::get_market_demand_data,
