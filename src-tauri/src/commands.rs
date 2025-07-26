@@ -1,6 +1,7 @@
-use anyhow::Result;
 use log::{error, info, warn};
 use serde::Serialize;
+
+use crate::errors::{ATSError, ATSResult};
 use std::path::Path;
 use tauri::{Manager, State};
 
@@ -92,11 +93,19 @@ fn calculate_achievement_density(analysis: &AchievementAnalysis) -> f64 {
 pub struct CommandResult<T> {
     pub success: bool,
     pub data: Option<T>,
-    pub error: Option<String>,
+    pub error: Option<CommandError>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+    pub severity: String,
+    pub details: Option<serde_json::Value>,
 }
 
 impl<T> CommandResult<T> {
-    fn success(data: T) -> Self {
+    pub fn success(data: T) -> Self {
         Self {
             success: true,
             data: Some(data),
@@ -104,11 +113,40 @@ impl<T> CommandResult<T> {
         }
     }
 
-    fn error(message: String) -> Self {
+    pub fn error(err: ATSError) -> Self {
+        // Log the error with appropriate context
+        err.log("Command execution failed");
+
         Self {
             success: false,
             data: None,
-            error: Some(message),
+            error: Some(CommandError {
+                code: err.error_code().to_string(),
+                message: err.to_string(),
+                severity: format!("{:?}", err.severity()),
+                details: None,
+            }),
+        }
+    }
+
+    /// Legacy error method for backward compatibility during migration
+    #[deprecated(note = "Use CommandResult::from_string_error(ATSError) instead")]
+    #[allow(dead_code)]
+    pub fn legacy_error(message: String) -> Self {
+        Self::error(ATSError::validation(message))
+    }
+
+    /// Create error from string for compatibility during migration
+    pub fn from_string_error(message: String) -> Self {
+        Self {
+            success: false,
+            data: None,
+            error: Some(CommandError {
+                code: "LEGACY_ERROR".to_string(),
+                message,
+                severity: "Medium".to_string(),
+                details: None,
+            }),
         }
     }
 }
@@ -118,48 +156,46 @@ impl<T> CommandResult<T> {
 pub async fn get_ollama_models() -> CommandResult<Vec<crate::models::OllamaModel>> {
     info!("Getting Ollama models");
 
-    let ollama_client = match OllamaClient::new(None) {
-        Ok(client) => client,
-        Err(e) => {
-            error!("Failed to create Ollama client: {}", e);
-            return CommandResult::error(format!("Failed to create Ollama client: {}", e));
-        }
-    };
-
-    match ollama_client.list_models().await {
+    match get_ollama_models_internal().await {
         Ok(models) => {
             info!("Successfully retrieved {} models", models.len());
             CommandResult::success(models)
         }
-        Err(e) => {
-            error!("Failed to get Ollama models: {}", e);
-            CommandResult::error(format!("Failed to get Ollama models: {}", e))
-        }
+        Err(e) => CommandResult::error(e),
     }
+}
+
+async fn get_ollama_models_internal() -> ATSResult<Vec<crate::models::OllamaModel>> {
+    let ollama_client = OllamaClient::new(None)
+        .map_err(|e| ATSError::ollama_api(format!("Failed to create Ollama client: {}", e)))?;
+
+    ollama_client
+        .list_models()
+        .await
+        .map_err(|e| ATSError::ollama_api(format!("Failed to get Ollama models: {}", e)))
 }
 
 #[tauri::command]
 pub async fn test_ollama_connection() -> CommandResult<bool> {
     info!("Testing Ollama connection");
 
-    let ollama_client = match OllamaClient::new(None) {
-        Ok(client) => client,
-        Err(e) => {
-            error!("Failed to create Ollama client: {}", e);
-            return CommandResult::error(format!("Failed to create Ollama client: {}", e));
-        }
-    };
-
-    match ollama_client.test_connection().await {
+    match test_ollama_connection_internal().await {
         Ok(connected) => {
             info!("Ollama connection test result: {}", connected);
             CommandResult::success(connected)
         }
-        Err(e) => {
-            error!("Ollama connection test failed: {}", e);
-            CommandResult::error(format!("Connection test failed: {}", e))
-        }
+        Err(e) => CommandResult::error(e),
     }
+}
+
+async fn test_ollama_connection_internal() -> ATSResult<bool> {
+    let ollama_client = OllamaClient::new(None)
+        .map_err(|e| ATSError::ollama_api(format!("Failed to create Ollama client: {}", e)))?;
+
+    ollama_client
+        .test_connection()
+        .await
+        .map_err(|e| ATSError::ollama_api(format!("Connection test failed: {}", e)))
 }
 
 #[tauri::command]
@@ -185,11 +221,11 @@ pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
             "Security violation: Invalid file path '{}': {}",
             file_path, e
         );
-        return CommandResult::error("Invalid file path".to_string());
+        return CommandResult::from_string_error("Invalid file path".to_string());
     }
 
     if !Path::new(&file_path).exists() {
-        return CommandResult::error("File does not exist".to_string());
+        return CommandResult::from_string_error("File does not exist".to_string());
     }
 
     match DocumentParser::parse_file(&file_path).await {
@@ -199,7 +235,7 @@ pub async fn parse_document(file_path: String) -> CommandResult<DocumentInfo> {
         }
         Err(e) => {
             error!("Failed to parse document: {}", e);
-            CommandResult::error(format!("Failed to parse document: {}", e))
+            CommandResult::from_string_error(format!("Failed to parse document: {}", e))
         }
     }
 }
@@ -214,11 +250,11 @@ pub async fn parse_document_with_metadata(file_path: String) -> CommandResult<Do
             "Security violation: Invalid file path '{}': {}",
             file_path, e
         );
-        return CommandResult::error("Invalid file path".to_string());
+        return CommandResult::from_string_error("Invalid file path".to_string());
     }
 
     if !Path::new(&file_path).exists() {
-        return CommandResult::error("File does not exist".to_string());
+        return CommandResult::from_string_error("File does not exist".to_string());
     }
 
     match DocumentParser::parse_file(&file_path).await {
@@ -236,7 +272,10 @@ pub async fn parse_document_with_metadata(file_path: String) -> CommandResult<Do
         }
         Err(e) => {
             error!("Failed to parse document with metadata: {}", e);
-            CommandResult::error(format!("Failed to parse document with metadata: {}", e))
+            CommandResult::from_string_error(format!(
+                "Failed to parse document with metadata: {}",
+                e
+            ))
         }
     }
 }
@@ -253,11 +292,11 @@ pub async fn extract_document_structure(
             "Security violation: Invalid file path '{}': {}",
             file_path, e
         );
-        return CommandResult::error("Invalid file path".to_string());
+        return CommandResult::from_string_error("Invalid file path".to_string());
     }
 
     if !Path::new(&file_path).exists() {
-        return CommandResult::error("File does not exist".to_string());
+        return CommandResult::from_string_error("File does not exist".to_string());
     }
 
     match DocumentParser::parse_file(&file_path).await {
@@ -270,12 +309,14 @@ pub async fn extract_document_structure(
                 );
                 CommandResult::success(structure)
             } else {
-                CommandResult::error("No document structure could be extracted".to_string())
+                CommandResult::from_string_error(
+                    "No document structure could be extracted".to_string(),
+                )
             }
         }
         Err(e) => {
             error!("Failed to extract document structure: {}", e);
-            CommandResult::error(format!("Failed to extract document structure: {}", e))
+            CommandResult::from_string_error(format!("Failed to extract document structure: {}", e))
         }
     }
 }
@@ -292,11 +333,11 @@ pub async fn analyze_document_quality(
             "Security violation: Invalid file path '{}': {}",
             file_path, e
         );
-        return CommandResult::error("Invalid file path".to_string());
+        return CommandResult::from_string_error("Invalid file path".to_string());
     }
 
     if !Path::new(&file_path).exists() {
-        return CommandResult::error("File does not exist".to_string());
+        return CommandResult::from_string_error("File does not exist".to_string());
     }
 
     match DocumentParser::parse_file(&file_path).await {
@@ -308,12 +349,14 @@ pub async fn analyze_document_quality(
                 );
                 CommandResult::success(quality_metrics)
             } else {
-                CommandResult::error("No quality metrics could be calculated".to_string())
+                CommandResult::from_string_error(
+                    "No quality metrics could be calculated".to_string(),
+                )
             }
         }
         Err(e) => {
             error!("Failed to analyze document quality: {}", e);
-            CommandResult::error(format!("Failed to analyze document quality: {}", e))
+            CommandResult::from_string_error(format!("Failed to analyze document quality: {}", e))
         }
     }
 }
@@ -330,11 +373,11 @@ pub async fn get_document_metadata(
             "Security violation: Invalid file path '{}': {}",
             file_path, e
         );
-        return CommandResult::error("Invalid file path".to_string());
+        return CommandResult::from_string_error("Invalid file path".to_string());
     }
 
     if !Path::new(&file_path).exists() {
-        return CommandResult::error("File does not exist".to_string());
+        return CommandResult::from_string_error("File does not exist".to_string());
     }
 
     match DocumentParser::parse_file(&file_path).await {
@@ -347,7 +390,7 @@ pub async fn get_document_metadata(
         }
         Err(e) => {
             error!("Failed to extract document metadata: {}", e);
-            CommandResult::error(format!("Failed to extract document metadata: {}", e))
+            CommandResult::from_string_error(format!("Failed to extract document metadata: {}", e))
         }
     }
 }
@@ -372,7 +415,7 @@ pub async fn save_resume(
         }
         Err(e) => {
             error!("Failed to save resume: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save resume: {}",
                 e
             )))
@@ -396,7 +439,7 @@ pub async fn get_all_resumes(
         }
         Err(e) => {
             error!("Failed to get resumes: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get resumes: {}",
                 e
             )))
@@ -421,7 +464,10 @@ pub async fn get_resume(
         }
         Err(e) => {
             error!("Failed to get resume: {}", e);
-            Ok(CommandResult::error(format!("Failed to get resume: {}", e)))
+            Ok(CommandResult::from_string_error(format!(
+                "Failed to get resume: {}",
+                e
+            )))
         }
     }
 }
@@ -442,7 +488,7 @@ pub async fn delete_resume(
         }
         Err(e) => {
             error!("Failed to delete resume: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to delete resume: {}",
                 e
             )))
@@ -461,7 +507,7 @@ pub async fn analyze_resume(
         Ok(client) => client,
         Err(e) => {
             error!("Failed to create Ollama client: {}", e);
-            return Ok(CommandResult::error(format!(
+            return Ok(CommandResult::from_string_error(format!(
                 "Failed to create Ollama client: {}",
                 e
             )));
@@ -511,7 +557,10 @@ pub async fn analyze_resume(
         }
         Err(e) => {
             error!("Resume analysis failed: {}", e);
-            Ok(CommandResult::error(format!("Analysis failed: {}", e)))
+            Ok(CommandResult::from_string_error(format!(
+                "Analysis failed: {}",
+                e
+            )))
         }
     }
 }
@@ -533,7 +582,7 @@ pub async fn get_analysis_history(
         }
         Err(e) => {
             error!("Failed to get analysis history: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get history: {}",
                 e
             )))
@@ -557,7 +606,7 @@ pub async fn delete_analysis(
         }
         Err(e) => {
             error!("Failed to delete analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to delete analysis: {}",
                 e
             )))
@@ -576,7 +625,10 @@ pub async fn optimize_resume(request: OptimizationRequest) -> CommandResult<Opti
         Ok(client) => client,
         Err(e) => {
             error!("Failed to create Ollama client: {}", e);
-            return CommandResult::error(format!("Failed to create Ollama client: {}", e));
+            return CommandResult::from_string_error(format!(
+                "Failed to create Ollama client: {}",
+                e
+            ));
         }
     };
     let analysis_engine = AnalysisEngine::new(ollama_client);
@@ -605,7 +657,7 @@ pub async fn optimize_resume(request: OptimizationRequest) -> CommandResult<Opti
         }
         Err(e) => {
             error!("Resume optimization failed: {}", e);
-            CommandResult::error(format!("Optimization failed: {}", e))
+            CommandResult::from_string_error(format!("Optimization failed: {}", e))
         }
     }
 }
@@ -642,7 +694,10 @@ pub async fn export_results(
         }
         Err(e) => {
             error!("Failed to export results: {}", e);
-            Ok(CommandResult::error(format!("Export failed: {}", e)))
+            Ok(CommandResult::from_string_error(format!(
+                "Export failed: {}",
+                e
+            )))
         }
     }
 }
@@ -696,7 +751,7 @@ pub async fn get_model_performance(
         }
         Err(e) => {
             error!("Failed to get model performance: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get performance data: {}",
                 e
             )))
@@ -721,7 +776,7 @@ pub async fn get_analysis_stats(
         }
         Err(e) => {
             error!("Failed to get analysis stats: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get analysis stats: {}",
                 e
             )))
@@ -743,7 +798,7 @@ pub async fn get_score_distribution(
         }
         Err(e) => {
             error!("Failed to get score distribution: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get score distribution: {}",
                 e
             )))
@@ -765,7 +820,7 @@ pub async fn get_improvement_trends(
         }
         Err(e) => {
             error!("Failed to get improvement trends: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get improvement trends: {}",
                 e
             )))
@@ -797,7 +852,7 @@ pub async fn get_user_preferences(
         }
         Err(e) => {
             error!("Failed to get user preferences: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get user preferences: {}",
                 e
             )))
@@ -828,13 +883,13 @@ pub async fn update_user_preferences(
             }
             Ok(None) => {
                 error!("Failed to retrieve updated preferences");
-                Ok(CommandResult::error(
+                Ok(CommandResult::from_string_error(
                     "Failed to retrieve updated preferences".to_string(),
                 ))
             }
             Err(e) => {
                 error!("Failed to retrieve updated preferences: {}", e);
-                Ok(CommandResult::error(format!(
+                Ok(CommandResult::from_string_error(format!(
                     "Failed to retrieve updated preferences: {}",
                     e
                 )))
@@ -842,7 +897,7 @@ pub async fn update_user_preferences(
         },
         Err(e) => {
             error!("Failed to update user preferences: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to update user preferences: {}",
                 e
             )))
@@ -870,7 +925,7 @@ pub async fn reset_user_preferences(
         }
         Err(e) => {
             error!("Failed to reset user preferences: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to reset user preferences: {}",
                 e
             )))
@@ -894,7 +949,7 @@ pub async fn export_user_preferences(
             }
             Err(e) => {
                 error!("Failed to serialize preferences: {}", e);
-                Ok(CommandResult::error(format!(
+                Ok(CommandResult::from_string_error(format!(
                     "Failed to serialize preferences: {}",
                     e
                 )))
@@ -902,13 +957,13 @@ pub async fn export_user_preferences(
         },
         Ok(None) => {
             error!("User preferences not found");
-            Ok(CommandResult::error(
+            Ok(CommandResult::from_string_error(
                 "User preferences not found".to_string(),
             ))
         }
         Err(e) => {
             error!("Failed to export user preferences: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to export user preferences: {}",
                 e
             )))
@@ -943,7 +998,7 @@ pub async fn import_user_preferences(
                 }
                 Err(e) => {
                     error!("Failed to save imported preferences: {}", e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "Failed to save imported preferences: {}",
                         e
                     )))
@@ -952,7 +1007,7 @@ pub async fn import_user_preferences(
         }
         Err(e) => {
             error!("Failed to parse preferences JSON: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to parse preferences JSON: {}",
                 e
             )))
@@ -972,7 +1027,7 @@ pub async fn list_plugins(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error(
+            return Ok(CommandResult::from_string_error(
                 "Failed to access plugins directory".to_string(),
             ));
         }
@@ -997,7 +1052,7 @@ pub async fn get_plugin_info(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error(
+            return Ok(CommandResult::from_string_error(
                 "Failed to access plugins directory".to_string(),
             ));
         }
@@ -1025,7 +1080,7 @@ pub async fn execute_plugin(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error(
+            return Ok(CommandResult::from_string_error(
                 "Failed to access plugins directory".to_string(),
             ));
         }
@@ -1042,7 +1097,7 @@ pub async fn execute_plugin(
         }
         Err(e) => {
             error!("Plugin execution failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Plugin execution failed: {}",
                 e
             )))
@@ -1062,7 +1117,7 @@ pub async fn update_plugin_config(
         Ok(dir) => dir.join("plugins"),
         Err(e) => {
             error!("Failed to get current directory: {}", e);
-            return Ok(CommandResult::error(
+            return Ok(CommandResult::from_string_error(
                 "Failed to access plugins directory".to_string(),
             ));
         }
@@ -1081,7 +1136,7 @@ pub async fn update_plugin_config(
         }
         Err(e) => {
             error!("Failed to update plugin config: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to update plugin config: {}",
                 e
             )))
@@ -1104,7 +1159,7 @@ pub async fn get_industry_keywords(
         Ok(keywords) => Ok(CommandResult::success(keywords)),
         Err(e) => {
             error!("Failed to get industry keywords: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get industry keywords: {}",
                 e
             )))
@@ -1124,7 +1179,7 @@ pub async fn get_all_industries(
         Ok(industries) => Ok(CommandResult::success(industries)),
         Err(e) => {
             error!("Failed to get industries: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get industries: {}",
                 e
             )))
@@ -1146,7 +1201,7 @@ pub async fn save_industry_keyword(
         )),
         Err(e) => {
             error!("Failed to save industry keyword: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save keyword: {}",
                 e
             )))
@@ -1167,7 +1222,7 @@ pub async fn get_ats_rules(
         Ok(rules) => Ok(CommandResult::success(rules)),
         Err(e) => {
             error!("Failed to get ATS rules: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get ATS rules: {}",
                 e
             )))
@@ -1189,7 +1244,7 @@ pub async fn save_ats_rule(
         )),
         Err(e) => {
             error!("Failed to save ATS rule: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save ATS rule: {}",
                 e
             )))
@@ -1214,7 +1269,7 @@ pub async fn get_scoring_benchmarks(
         Ok(benchmarks) => Ok(CommandResult::success(benchmarks)),
         Err(e) => {
             error!("Failed to get scoring benchmarks: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get benchmarks: {}",
                 e
             )))
@@ -1236,7 +1291,7 @@ pub async fn save_scoring_benchmark(
         )),
         Err(e) => {
             error!("Failed to save benchmark: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save benchmark: {}",
                 e
             )))
@@ -1261,7 +1316,7 @@ pub async fn save_user_feedback(
         )),
         Err(e) => {
             error!("Failed to save feedback: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save feedback: {}",
                 e
             )))
@@ -1282,7 +1337,7 @@ pub async fn get_feedback_by_analysis(
         Ok(feedback) => Ok(CommandResult::success(feedback)),
         Err(e) => {
             error!("Failed to get feedback: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get feedback: {}",
                 e
             )))
@@ -1303,7 +1358,7 @@ pub async fn get_feedback_stats(
         Ok(stats) => Ok(CommandResult::success(stats)),
         Err(e) => {
             error!("Failed to get feedback stats: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get feedback stats: {}",
                 e
             )))
@@ -1328,7 +1383,7 @@ pub async fn save_model_performance(
         )),
         Err(e) => {
             error!("Failed to save performance metrics: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save metrics: {}",
                 e
             )))
@@ -1349,7 +1404,7 @@ pub async fn get_model_performance_stats(
         Ok(stats) => Ok(CommandResult::success(stats)),
         Err(e) => {
             error!("Failed to get model performance stats: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get performance stats: {}",
                 e
             )))
@@ -1369,7 +1424,7 @@ pub async fn get_all_model_performance(
         Ok(stats) => Ok(CommandResult::success(stats)),
         Err(e) => {
             error!("Failed to get all model performance: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get all performance stats: {}",
                 e
             )))
@@ -1390,7 +1445,7 @@ pub async fn get_app_config(
             Ok(config_value) => Ok(CommandResult::success(config_value)),
             Err(e) => {
                 error!("Failed to parse config JSON: {}", e);
-                Ok(CommandResult::error(format!(
+                Ok(CommandResult::from_string_error(format!(
                     "Failed to parse config: {}",
                     e
                 )))
@@ -1398,7 +1453,10 @@ pub async fn get_app_config(
         },
         Err(e) => {
             error!("Failed to export config: {}", e);
-            Ok(CommandResult::error(format!("Failed to get config: {}", e)))
+            Ok(CommandResult::from_string_error(format!(
+                "Failed to get config: {}",
+                e
+            )))
         }
     }
 }
@@ -1414,7 +1472,7 @@ pub async fn validate_app_config(
         Ok(warnings) => Ok(CommandResult::success(warnings)),
         Err(e) => {
             error!("Failed to validate config: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to validate config: {}",
                 e
             )))
@@ -1447,13 +1505,13 @@ pub async fn semantic_analysis(
             }
             Ok(false) => {
                 error!("Database health check failed in semantic analysis");
-                return Ok(CommandResult::error(
+                return Ok(CommandResult::from_string_error(
                     "Database health check failed".to_string(),
                 ));
             }
             Err(e) => {
                 error!("Database health check error in semantic analysis: {}", e);
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Database health check error: {}",
                     e
                 )));
@@ -1474,7 +1532,7 @@ pub async fn semantic_analysis(
                     "Failed to load industry keywords directly in command: {}",
                     e
                 );
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Failed to load industry keywords: {}",
                     e
                 )));
@@ -1499,7 +1557,7 @@ pub async fn semantic_analysis(
         }
         Err(e) => {
             error!("Failed to perform semantic analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to perform semantic analysis: {}",
                 e
             )))
@@ -1532,7 +1590,7 @@ pub async fn comprehensive_analysis(
             }
             Ok(false) => {
                 error!("Database health check failed in comprehensive analysis");
-                return Ok(CommandResult::error(
+                return Ok(CommandResult::from_string_error(
                     "Database health check failed".to_string(),
                 ));
             }
@@ -1541,7 +1599,7 @@ pub async fn comprehensive_analysis(
                     "Database health check error in comprehensive analysis: {}",
                     e
                 );
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Database health check error: {}",
                     e
                 )));
@@ -1562,7 +1620,7 @@ pub async fn comprehensive_analysis(
                     "Failed to load industry keywords directly in comprehensive analysis: {}",
                     e
                 );
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Failed to load industry keywords in comprehensive analysis: {}",
                     e
                 )));
@@ -1592,7 +1650,7 @@ pub async fn comprehensive_analysis(
         }
         Err(e) => {
             error!("Failed to perform comprehensive analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to perform comprehensive analysis: {}",
                 e
             )))
@@ -1619,7 +1677,7 @@ pub async fn industry_analysis(
         Ok(result) => Ok(CommandResult::success(result)),
         Err(e) => {
             error!("Failed to perform industry analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to perform industry analysis: {}",
                 e
             )))
@@ -1642,7 +1700,7 @@ pub async fn create_enhanced_prompt(
         Ok(result) => Ok(CommandResult::success(result)),
         Err(e) => {
             error!("Failed to create enhanced prompt: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to create enhanced prompt: {}",
                 e
             )))
@@ -1671,7 +1729,7 @@ pub async fn simulate_ats_processing(
         Ok(result) => Ok(CommandResult::success(result)),
         Err(e) => {
             error!("Failed to simulate ATS processing: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to simulate ATS processing: {}",
                 e
             )))
@@ -1693,7 +1751,7 @@ pub async fn check_format_compatibility(
         Ok(report) => Ok(CommandResult::success(report)),
         Err(e) => {
             error!("Failed to check format compatibility: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to check format compatibility: {}",
                 e
             )))
@@ -1716,7 +1774,7 @@ pub async fn analyze_format_issues(
                 Ok(issue_report) => Ok(CommandResult::success(issue_report)),
                 Err(e) => {
                     error!("Failed to analyze format issues: {}", e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "Failed to analyze format issues: {}",
                         e
                     )))
@@ -1725,7 +1783,7 @@ pub async fn analyze_format_issues(
         }
         Err(e) => {
             error!("Failed to check format compatibility: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to check format compatibility: {}",
                 e
             )))
@@ -1745,7 +1803,7 @@ pub async fn detect_advanced_format_issues(
         Ok(issues) => Ok(CommandResult::success(issues)),
         Err(e) => {
             error!("Failed to detect advanced format issues: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to detect advanced format issues: {}",
                 e
             )))
@@ -1766,7 +1824,7 @@ pub async fn run_ats_validation_suite(
         Ok(report) => Ok(CommandResult::success(report)),
         Err(e) => {
             error!("Failed to run ATS validation suite: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to run validation suite: {}",
                 e
             )))
@@ -1792,7 +1850,7 @@ pub async fn simulate_multiple_ats_systems(
         Ok(result) => Ok(CommandResult::success(result)),
         Err(e) => {
             error!("Failed to simulate multiple ATS systems: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to simulate multiple ATS systems: {}",
                 e
             )))
@@ -1856,7 +1914,7 @@ pub async fn analyze_achievements(
         }
         Err(e) => {
             error!("Failed to analyze achievements: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to analyze achievements: {}",
                 e
             )))
@@ -1899,7 +1957,7 @@ pub async fn generate_comprehensive_optimization(
         }
         Err(e) => {
             error!("Failed to generate comprehensive optimization: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate optimization: {}",
                 e
             )))
@@ -1937,7 +1995,7 @@ pub async fn get_realtime_suggestions(
         }
         Err(e) => {
             error!("Failed to get real-time suggestions: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get real-time suggestions: {}",
                 e
             )))
@@ -1990,7 +2048,7 @@ pub async fn validate_xyz_formula(
         }
         Err(e) => {
             error!("Failed to validate X-Y-Z formula: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to validate X-Y-Z formula: {}",
                 e
             )))
@@ -2040,7 +2098,7 @@ pub async fn get_achievement_suggestions(
         }
         Err(e) => {
             error!("Failed to get achievement suggestions: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get achievement suggestions: {}",
                 e
             )))
@@ -2077,7 +2135,7 @@ pub async fn generate_competitive_analysis(
         }
         Err(e) => {
             error!("Failed to generate competitive analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate competitive analysis: {}",
                 e
             )))
@@ -2112,7 +2170,7 @@ pub async fn get_market_position_analysis(
         }
         Err(e) => {
             error!("Failed to get market position analysis: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get market position analysis: {}",
                 e
             )))
@@ -2147,7 +2205,7 @@ pub async fn get_salary_insights(
         }
         Err(e) => {
             error!("Failed to get salary insights: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get salary insights: {}",
                 e
             )))
@@ -2182,7 +2240,7 @@ pub async fn get_hiring_probability(
         }
         Err(e) => {
             error!("Failed to calculate hiring probability: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to calculate hiring probability: {}",
                 e
             )))
@@ -2216,7 +2274,7 @@ pub async fn generate_ml_insights(
         }
         Err(e) => {
             error!("Failed to generate ML insights: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate ML insights: {}",
                 e
             )))
@@ -2252,7 +2310,7 @@ pub async fn predict_application_success(
         }
         Err(e) => {
             error!("Failed to predict application success: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to predict application success: {}",
                 e
             )))
@@ -2288,7 +2346,7 @@ pub async fn get_career_path_suggestions(
         }
         Err(e) => {
             error!("Failed to generate career path suggestions: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate career path suggestions: {}",
                 e
             )))
@@ -2325,7 +2383,7 @@ pub async fn get_salary_prediction_ml(
         }
         Err(e) => {
             error!("Failed to generate ML salary prediction: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate ML salary prediction: {}",
                 e
             )))
@@ -2363,7 +2421,7 @@ pub async fn get_ml_recommendations(
         }
         Err(e) => {
             error!("Failed to generate ML recommendations: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to generate ML recommendations: {}",
                 e
             )))
@@ -2408,7 +2466,7 @@ pub async fn analyze_resume_advanced(
         }
         Err(e) => {
             error!("Advanced analysis failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Advanced analysis failed: {}",
                 e
             )))
@@ -2452,7 +2510,7 @@ pub async fn get_keyword_analysis_detailed(
         }
         Err(e) => {
             error!("Detailed keyword analysis failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Detailed keyword analysis failed: {}",
                 e
             )))
@@ -2490,7 +2548,7 @@ pub async fn get_ats_compatibility_scores(
         }
         Err(e) => {
             error!("ATS compatibility analysis failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "ATS compatibility analysis failed: {}",
                 e
             )))
@@ -2538,7 +2596,7 @@ pub async fn get_benchmark_comparison(
         }
         Err(e) => {
             error!("Benchmark comparison failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Benchmark comparison failed: {}",
                 e
             )))
@@ -2593,7 +2651,7 @@ pub async fn get_optimization_suggestions_prioritized(
         }
         Err(e) => {
             error!("Prioritized optimization suggestions failed: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Prioritized optimization suggestions failed: {}",
                 e
             )))
@@ -2618,7 +2676,7 @@ pub async fn save_job_description(
         }
         Err(e) => {
             error!("Failed to save job description: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to save job description: {}",
                 e
             )))
@@ -2641,7 +2699,7 @@ pub async fn get_job_description(
         }
         Err(e) => {
             error!("Failed to get job description: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get job description: {}",
                 e
             )))
@@ -2664,7 +2722,7 @@ pub async fn update_job_description(
         }
         Err(e) => {
             error!("Failed to update job description: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to update job description: {}",
                 e
             )))
@@ -2689,7 +2747,7 @@ pub async fn delete_job_description(
         }
         Err(e) => {
             error!("Failed to delete job description: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to delete job description: {}",
                 e
             )))
@@ -2714,7 +2772,7 @@ pub async fn get_job_descriptions(
         }
         Err(e) => {
             error!("Failed to get job descriptions: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get job descriptions: {}",
                 e
             )))
@@ -2737,7 +2795,7 @@ pub async fn search_job_descriptions(
         }
         Err(e) => {
             error!("Failed to search job descriptions: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to search job descriptions: {}",
                 e
             )))
@@ -2759,7 +2817,7 @@ pub async fn get_job_analytics(
         }
         Err(e) => {
             error!("Failed to get job analytics: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get job analytics: {}",
                 e
             )))
@@ -2810,13 +2868,13 @@ pub async fn compare_job_descriptions(
         match db.get_job_description(job_id).await {
             Ok(Some(job)) => jobs.push(job),
             Ok(None) => {
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Job description not found: {}",
                     job_id
                 )));
             }
             Err(e) => {
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Failed to get job description {}: {}",
                     job_id, e
                 )));
@@ -2921,7 +2979,7 @@ pub async fn analyze_resume_modern_nlp(
         Ok(client) => client,
         Err(e) => {
             error!("Failed to create Ollama client: {}", e);
-            return Ok(CommandResult::error(format!(
+            return Ok(CommandResult::from_string_error(format!(
                 "Ollama connection failed: {}",
                 e
             )));
@@ -2933,7 +2991,7 @@ pub async fn analyze_resume_modern_nlp(
             Ok(engine) => engine,
             Err(e) => {
                 error!("Failed to create modern analysis engine: {}", e);
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Modern analysis engine initialization failed: {}",
                     e
                 )));
@@ -2958,7 +3016,10 @@ pub async fn analyze_resume_modern_nlp(
         }
         Err(e) => {
             error!("Modern resume analysis failed: {}", e);
-            Ok(CommandResult::error(format!("Analysis failed: {}", e)))
+            Ok(CommandResult::from_string_error(format!(
+                "Analysis failed: {}",
+                e
+            )))
         }
     }
 }
@@ -2986,7 +3047,7 @@ pub async fn analyze_context_aware_match(
         Ok(client) => client,
         Err(e) => {
             error!("Failed to create Ollama client: {}", e);
-            return Ok(CommandResult::error(format!(
+            return Ok(CommandResult::from_string_error(format!(
                 "Ollama connection failed: {}",
                 e
             )));
@@ -2998,7 +3059,7 @@ pub async fn analyze_context_aware_match(
             Ok(engine) => engine,
             Err(e) => {
                 error!("Failed to create modern analysis engine: {}", e);
-                return Ok(CommandResult::error(format!(
+                return Ok(CommandResult::from_string_error(format!(
                     "Modern analysis engine initialization failed: {}",
                     e
                 )));
@@ -3018,7 +3079,7 @@ pub async fn analyze_context_aware_match(
         Ok(result) => result,
         Err(e) => {
             error!("Modern resume analysis failed: {}", e);
-            return Ok(CommandResult::error(format!(
+            return Ok(CommandResult::from_string_error(format!(
                 "Modern resume analysis failed: {}",
                 e
             )));
@@ -3046,7 +3107,7 @@ pub async fn analyze_context_aware_match(
                 }
                 Err(e) => {
                     error!("Context-aware match analysis failed: {}", e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "Context-aware analysis failed: {}",
                         e
                     )))
@@ -3055,7 +3116,7 @@ pub async fn analyze_context_aware_match(
         }
         Err(e) => {
             error!("Failed to create context-aware matcher: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Context-aware matcher initialization failed: {}",
                 e
             )))
@@ -3104,7 +3165,7 @@ pub async fn analyze_skill_relationships(
                 }
                 Err(e) => {
                     error!("Skill relationship analysis failed: {}", e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "Skill relationship analysis failed: {}",
                         e
                     )))
@@ -3113,7 +3174,7 @@ pub async fn analyze_skill_relationships(
         }
         Err(e) => {
             error!("Failed to create skill relationship mapper: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Skill relationship mapper initialization failed: {}",
                 e
             )))
@@ -3163,7 +3224,7 @@ pub async fn optimize_ml_parameters(
                 }
                 Err(e) => {
                     error!("ML optimization failed for user {}: {}", user_id, e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "ML optimization failed: {}",
                         e
                     )))
@@ -3172,7 +3233,7 @@ pub async fn optimize_ml_parameters(
         }
         Err(e) => {
             error!("Failed to create ML optimization engine: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "ML optimization engine initialization failed: {}",
                 e
             )))
@@ -3203,7 +3264,7 @@ pub async fn get_trending_keywords(
         }
         Err(e) => {
             error!("Failed to access dynamic keyword database: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to get trending keywords: {}",
                 e
             )))
@@ -3238,7 +3299,7 @@ pub async fn get_market_demand_data(
                     "Failed to get market demand data for skill '{}': {}",
                     skill, e
                 );
-                Ok(CommandResult::error(format!(
+                Ok(CommandResult::from_string_error(format!(
                     "Failed to get market demand data: {}",
                     e
                 )))
@@ -3246,7 +3307,7 @@ pub async fn get_market_demand_data(
         },
         Err(e) => {
             error!("Failed to access dynamic keyword database: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to access dynamic keyword database: {}",
                 e
             )))
@@ -3281,7 +3342,7 @@ pub async fn get_industry_keywords_dynamic(
                     "Failed to get dynamic keywords for industry '{}': {}",
                     industry, e
                 );
-                Ok(CommandResult::error(format!(
+                Ok(CommandResult::from_string_error(format!(
                     "Failed to get industry keywords: {}",
                     e
                 )))
@@ -3289,7 +3350,7 @@ pub async fn get_industry_keywords_dynamic(
         },
         Err(e) => {
             error!("Failed to access dynamic keyword database: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to access dynamic keyword database: {}",
                 e
             )))
@@ -3339,7 +3400,7 @@ pub async fn submit_keyword_feedback(
                 }
                 Err(e) => {
                     error!("Failed to submit feedback for keyword '{}': {}", keyword, e);
-                    Ok(CommandResult::error(format!(
+                    Ok(CommandResult::from_string_error(format!(
                         "Failed to submit keyword feedback: {}",
                         e
                     )))
@@ -3348,7 +3409,7 @@ pub async fn submit_keyword_feedback(
         }
         Err(e) => {
             error!("Failed to access dynamic keyword database: {}", e);
-            Ok(CommandResult::error(format!(
+            Ok(CommandResult::from_string_error(format!(
                 "Failed to access dynamic keyword database: {}",
                 e
             )))
@@ -3383,7 +3444,7 @@ pub async fn get_schema_version(app: tauri::AppHandle) -> CommandResult<SchemaVe
         }
         Err(e) => {
             error!("Failed to get schema version: {}", e);
-            CommandResult::error(format!("Failed to get schema version: {}", e))
+            CommandResult::from_string_error(format!("Failed to get schema version: {}", e))
         }
     }
 }
@@ -3418,13 +3479,16 @@ pub async fn run_database_migrations(app: tauri::AppHandle) -> CommandResult<Vec
                 }
                 Err(e) => {
                     error!("Migration failed: {}", e);
-                    CommandResult::error(format!("Migration failed: {}", e))
+                    CommandResult::from_string_error(format!("Migration failed: {}", e))
                 }
             }
         }
         Err(e) => {
             error!("Failed to initialize migration manager: {}", e);
-            CommandResult::error(format!("Failed to initialize migration manager: {}", e))
+            CommandResult::from_string_error(format!(
+                "Failed to initialize migration manager: {}",
+                e
+            ))
         }
     }
 }
@@ -3460,7 +3524,10 @@ pub async fn rollback_migration(
         }
         Err(e) => {
             error!("Failed to rollback migration {}: {}", version, e);
-            CommandResult::error(format!("Failed to rollback migration {}: {}", version, e))
+            CommandResult::from_string_error(format!(
+                "Failed to rollback migration {}: {}",
+                version, e
+            ))
         }
     }
 }
@@ -3489,7 +3556,7 @@ pub async fn verify_migration_integrity(app: tauri::AppHandle) -> CommandResult<
         }
         Err(e) => {
             error!("Failed to verify migration integrity: {}", e);
-            CommandResult::error(format!("Failed to verify migration integrity: {}", e))
+            CommandResult::from_string_error(format!("Failed to verify migration integrity: {}", e))
         }
     }
 }
@@ -3513,7 +3580,7 @@ pub async fn cleanup_expired_cache(app: tauri::AppHandle) -> CommandResult<u64> 
         }
         Err(e) => {
             error!("Failed to clean up expired cache: {}", e);
-            CommandResult::error(format!("Failed to clean up expired cache: {}", e))
+            CommandResult::from_string_error(format!("Failed to clean up expired cache: {}", e))
         }
     }
 }

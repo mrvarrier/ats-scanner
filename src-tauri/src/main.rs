@@ -5,6 +5,7 @@ mod commands;
 mod config;
 mod database;
 mod document;
+mod errors;
 mod memory_manager;
 mod migrations;
 mod models;

@@ -4,6 +4,7 @@ pub mod commands;
 pub mod config;
 pub mod database;
 pub mod document;
+pub mod errors;
 pub mod memory_manager;
 pub mod migrations;
 pub mod models;
