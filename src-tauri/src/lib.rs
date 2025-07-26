@@ -32,6 +32,7 @@ pub mod ml_insights;
 // Modern NLP-Based Keyword Extraction (2024-2025)
 pub mod context_aware_matcher;
 pub mod dynamic_keyword_db;
+pub mod ml_optimization_engine;
 pub mod modern_keyword_extractor;
 pub mod skill_relationship_mapper;
 

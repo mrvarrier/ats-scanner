@@ -3048,6 +3048,62 @@ pub async fn analyze_skill_relationships(
     }
 }
 
+// Phase 5: Machine Learning-Based Optimization Commands (2024-2025 upgrade)
+#[tauri::command]
+pub async fn optimize_ml_parameters(
+    app: tauri::AppHandle,
+    user_id: String,
+    session_id: String,
+    optimization_goals: Vec<String>,
+) -> Result<CommandResult<crate::ml_optimization_engine::MLOptimizationResult>, String> {
+    info!(
+        "Starting ML parameter optimization for user: {} with {} goals",
+        user_id,
+        optimization_goals.len()
+    );
+
+    let state = app.state::<AppState>();
+    let db_guard = state.db.lock().await;
+    let database = (*db_guard).clone();
+    drop(db_guard);
+
+    match crate::ml_optimization_engine::MLOptimizationEngine::new(database).await {
+        Ok(mut engine) => {
+            let optimization_context = crate::ml_optimization_engine::OptimizationContext {
+                user_id: user_id.clone(),
+                session_id,
+                data_source: "user_interaction".to_string(),
+                optimization_goals,
+                constraints: std::collections::HashMap::new(),
+                timestamp: chrono::Utc::now(),
+            };
+
+            match engine.optimize_ml_parameters(&optimization_context).await {
+                Ok(result) => {
+                    info!(
+                        "ML optimization completed for user: {} with {} insights and {} improvements",
+                        user_id,
+                        result.predictive_insights.len(),
+                        result.recommendation_improvements.len()
+                    );
+                    Ok(CommandResult::success(result))
+                }
+                Err(e) => {
+                    error!("ML optimization failed for user {}: {}", user_id, e);
+                    Ok(CommandResult::error(format!("ML optimization failed: {}", e)))
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to create ML optimization engine: {}", e);
+            Ok(CommandResult::error(format!(
+                "ML optimization engine initialization failed: {}",
+                e
+            )))
+        }
+    }
+}
+
 // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
 #[tauri::command]
 pub async fn get_trending_keywords(

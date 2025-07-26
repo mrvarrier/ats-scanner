@@ -33,6 +33,7 @@ mod ml_insights;
 // Modern NLP-Based Keyword Extraction (2024-2025)
 mod context_aware_matcher;
 mod dynamic_keyword_db;
+mod ml_optimization_engine;
 mod modern_keyword_extractor;
 mod skill_relationship_mapper;
 
@@ -183,6 +184,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::analyze_context_aware_match,
             // Phase 4: AI-Powered Skill Relationship Mapping Commands (2024-2025 upgrade)
             commands::analyze_skill_relationships,
+            // Phase 5: Machine Learning-Based Optimization Commands (2024-2025 upgrade)
+            commands::optimize_ml_parameters,
             // Phase 2: Dynamic Keyword Database Commands (2024-2025 upgrade)
             commands::get_trending_keywords,
             commands::get_market_demand_data,
